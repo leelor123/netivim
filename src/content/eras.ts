@@ -68,9 +68,9 @@ export const ERAS: readonly Era[] = [
     years: [1850, 1918],
     shell: false,
     events: [
-      // land-code-1858, rishon-1882 and railway-1892 are held: their verified sources (P-053, P-047,
-      // P-055 in SOURCES.md) are not yet in the research register the timeline test reads.
-      // See research/review-ch00-ch01.md.
+      { id: 'land-code-1858', year: 1858, textKey: 'timeline.event.land-code-1858', label: 'documented', sources: ['P-053'] },
+      { id: 'rishon-1882', year: 1882, textKey: 'timeline.event.rishon-1882', label: 'documented', sources: ['P-047'] },
+      { id: 'railway-1892', year: 1892, month: 9, day: 26, textKey: 'timeline.event.railway-1892', label: 'documented', sources: ['P-055'] },
       { id: 'basel-1897', year: 1897, month: 8, textKey: 'timeline.event.basel-1897', label: 'documented', sources: ['P-031'] },
       { id: 'beersheba-1899', year: 1899, textKey: 'timeline.event.beersheba-1899', label: 'documented', sources: ['P-037', 'P-038'] },
       { id: 'khalidi-1899', year: 1899, month: 3, day: 1, textKey: 'timeline.event.khalidi-1899', label: 'documented', sources: ['P-009'] },
@@ -87,11 +87,13 @@ export const ERAS: readonly Era[] = [
     events: [
       { id: 'balfour-1917', year: 1917, month: 11, day: 2, textKey: 'timeline.event.balfour-1917', label: 'documented', sources: ['C1-001'] },
       { id: 'mandate-1922', year: 1922, month: 7, day: 24, textKey: 'timeline.event.mandate-1922', label: 'documented', sources: ['C1-005'] },
-      // riots-1929, revolt-1936, tower-1936, peel-1937 and kingdavid-1946 are held: their verified
-      // sources (C1-059, C1-058, C1-064, C1-065, C1-061 in SOURCES.md) are not yet in the research
-      // register the timeline test reads. Corrected texts stay in timeline.json. unscop-1947 removed
-      // (no opened source for the date). See research/review-ch00-ch01.md.
+      { id: 'riots-1929', year: 1929, month: 8, day: 23, endMonth: 8, endDay: 29, textKey: 'timeline.event.riots-1929', label: 'documented', sources: ['C1-059', 'C1-101'] },
+      { id: 'revolt-1936', year: 1936, month: 4, day: 20, textKey: 'timeline.event.revolt-1936', label: 'documented', sources: ['C1-058'] },
+      { id: 'tower-1936', year: 1936, month: 12, day: 10, textKey: 'timeline.event.tower-1936', label: 'documented', sources: ['C1-064', 'C1-065'] },
+      { id: 'peel-1937', year: 1937, month: 7, textKey: 'timeline.event.peel-1937', label: 'documented', sources: ['C1-058', 'C1-101'] },
+      // unscop-1947 removed: no opened source for the date (research/review-ch00-ch01.md).
       { id: 'whitepaper-1939', year: 1939, month: 5, textKey: 'timeline.event.whitepaper-1939', label: 'documented', sources: ['C1-002'] },
+      { id: 'kingdavid-1946', year: 1946, month: 7, day: 22, textKey: 'timeline.event.kingdavid-1946', label: 'documented', sources: ['C1-061', 'C1-062'] },
       { id: 'exodus-1947', year: 1947, month: 7, textKey: 'timeline.event.exodus-1947', label: 'documented', sources: ['C1-055'] },
       { id: 'vote-1947', year: 1947, month: 11, day: 29, textKey: 'timeline.event.vote-1947', label: 'documented', sources: ['C1-057'] },
     ],

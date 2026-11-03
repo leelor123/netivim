@@ -9,11 +9,15 @@ import { LINE_LAYERS } from '../../src/features/livingMap/layers';
 import { MARKERS } from '../../src/features/livingMap/markers';
 import { createI18n } from '../../src/core/i18n';
 
+/**
+ * Valid source IDs: the master register SOURCES.md (verified, merged by fact-checkers) plus the
+ * per-chapter research register for the chapter not yet fact-checked (ch02).
+ */
 function registerIds(): Set<string> {
   const ids = new Set<string>();
-  for (const n of ['00', '01', '02']) {
-    const text = readFileSync(join(__dirname, '../../research/sources-ch' + n + '.md'), 'utf8');
-    for (const m of text.matchAll(/^`?((?:P|C1|C2)-\d{3})`?\s*\|/gm)) ids.add(m[1] as string);
+  for (const f of ['SOURCES.md', 'research/sources-ch02.md']) {
+    const text = readFileSync(join(__dirname, '../..', f), 'utf8');
+    for (const m of text.matchAll(/^(?:\|\s*)?`?((?:P|C1|C2)-\d{3})`?\s*\|/gm)) ids.add(m[1] as string);
   }
   return ids;
 }
@@ -23,7 +27,9 @@ const DESIGN_ORDER = ['prologue', 'ch01', 'ch02', 'ch03', 'ch04', 'ch05', 'ch06'
 
 describe('source registers', () => {
   it('are parsed (sanity)', () => {
-    expect(SOURCE_IDS.has('P-001')).toBe(true);
+    // P-001 is a Wikipedia index entry and deliberately absent from the verified register.
+    expect(SOURCE_IDS.has('P-001')).toBe(false);
+    expect(SOURCE_IDS.has('P-009')).toBe(true);
     expect(SOURCE_IDS.has('C1-001')).toBe(true);
     expect(SOURCE_IDS.has('C2-001')).toBe(true);
   });
