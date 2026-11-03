@@ -3,6 +3,7 @@ import { HEBREW } from './locales';
 import { createI18n } from './core/i18n';
 import { hasWebGL2 } from './core/webgl';
 import { startGame, type Game } from './game';
+import { installGraphics } from './render/install';
 import { installUI } from './ui/install';
 import { installCinematics } from './cinematics';
 import { installHaptics } from './core/input/haptics';
@@ -40,6 +41,7 @@ function boot(): void {
   // Menus, pause and HUD are installed by the UI system below (src/ui/install.ts).
   const game = startGame(canvas, i18n, () => undefined);
   // SYSTEM INSTALLS (one line per system; see docs/CONTRACTS.md section 11)
+  installGraphics(game);
   installUI(game);
   installCinematics(game);
   installTouchControls(game);

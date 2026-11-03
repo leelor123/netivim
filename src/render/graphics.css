@@ -1,0 +1,24 @@
+/* Graphics debug overlay (settings.graphics.debugOverlay). */
+.gfx-debug {
+  position: fixed;
+  top: max(8px, env(safe-area-inset-top));
+  inset-inline-start: max(8px, env(safe-area-inset-left));
+  z-index: 50;
+  min-width: 200px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgb(8 10 14 / 0.72);
+  color: var(--ink, #f3ede2);
+  font: 12px/1.45 system-ui, 'Segoe UI', 'Noto Sans Hebrew', Arial, sans-serif;
+  pointer-events: none;
+  user-select: none;
+}
+.gfx-debug-title { font-weight: 700; color: var(--sand, #d9b77a); margin-bottom: 4px; }
+.gfx-debug-row { display: flex; justify-content: space-between; gap: 16px; }
+.gfx-debug-value {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+.gfx-context-lost { z-index: 60; }

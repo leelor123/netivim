@@ -14,6 +14,8 @@ import { createNewSave, type SaveData } from './core/save/schema';
 import { localStorageStore, MemoryStore, type AsyncStore, type SyncStore } from './core/save/stores';
 import { bindAndroidBackButton, bindAndroidPause, isAndroidApp } from './platform/android';
 import { SceneManager } from './render/sceneManager';
+import { RenderPipeline } from './render/renderPipeline';
+import { resolveGraphics } from './render/presets';
 import { createTitleScene } from './scene/titleScene';
 import type { I18n } from './core/i18n';
 import { SettingsManager } from './core/settings';
@@ -123,11 +125,9 @@ export function startGame(canvas: HTMLCanvasElement, i18n: I18n, onPauseChanged:
     else flow.setPaused(!flow.paused);
   });
 
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.toneMapping = THREE.AgXToneMapping;
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFShadowMap;
+  // Graphics pipeline (src/render): renderer, presets, shadows, post chain, FPS cap.
+  const pipeline = new RenderPipeline(canvas, resolveGraphics(settings.value.graphics));
+  const renderer = pipeline.renderer;
 
   const scenes = new SceneManager();
   scenes.switchTo(createTitleScene());
@@ -147,7 +147,7 @@ export function startGame(canvas: HTMLCanvasElement, i18n: I18n, onPauseChanged:
   });
 
   const resize = (): void => {
-    renderer.setSize(window.innerWidth, window.innerHeight, false);
+    pipeline.setSize(window.innerWidth, window.innerHeight);
     scenes.resize(window.innerWidth, window.innerHeight);
   };
   window.addEventListener('resize', resize);
@@ -155,24 +155,30 @@ export function startGame(canvas: HTMLCanvasElement, i18n: I18n, onPauseChanged:
 
   const timer = new THREE.Timer();
   timer.connect(document);
-  const frame = (): void => {
-    timer.update();
-    const dt = timer.getDelta();
+  const frame = (time: number): void => {
+    // FPS cap: skipped callbacks do nothing; the next frame's timer delta covers the time.
+    if (!pipeline.beginFrame(time)) return;
+    timer.update(time);
+    const delta = timer.getDelta();
     const paused = flow.paused;
     // While paused the simulation stops, but input is still read so menus keep working.
+    // Resuming belongs to the pause screen (UI), never to the core.
     if (paused) input.update();
-    for (const fn of frameHooks) fn(dt, paused);
+    for (const fn of frameHooks) fn(delta, paused);
     loop.paused = flow.paused;
-    loop.advance(dt);
-    const active = scenes.active;
-    if (active) renderer.render(active.scene, active.camera);
+    loop.advance(delta);
+    pipeline.render(scenes.active, delta, time);
   };
   renderer.setAnimationLoop(frame);
   canvas.addEventListener('webglcontextlost', (e) => {
     e.preventDefault();
     renderer.setAnimationLoop(null);
+    pipeline.handleContextLost();
   });
-  canvas.addEventListener('webglcontextrestored', () => renderer.setAnimationLoop(frame));
+  canvas.addEventListener('webglcontextrestored', () => {
+    pipeline.handleContextRestored(scenes.active);
+    renderer.setAnimationLoop(frame);
+  });
 
   // Saves stay locked (markReady) until the real save is loaded, so an exit during boot can
   // never overwrite it with the blank initial state. Boot always continues, even on failure.
