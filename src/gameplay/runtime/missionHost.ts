@@ -1,0 +1,284 @@
+import type { ContentLabel } from '../../content/schema';
+import { effectiveParams, type AssistOption, type DifficultyLevel, type DifficultyParams } from '../../core/difficulty';
+import type { EventBus } from '../../core/events';
+import type { GameEvents, UnlockKind } from '../../core/gameEvents';
+import type { Action } from '../../core/input/types';
+import { MissionRuntime, type MissionDefinition, type MissionSnapshot } from '../../core/mission';
+import type { WorldQuality } from '../../world/quality';
+import { InteractionSystem } from '../core/interaction';
+import type { DecisionDef } from '../core/ledger';
+import { ObjectiveTracker } from '../core/objectives';
+import { AssistPolicy } from '../core/progress';
+import { telegraphSeconds } from '../core/telegraph';
+import type { AnyLevelDefinition, FailureInfo, Level, LevelContext, LevelInput, Line } from '../types';
+
+export type MissionPhase = 'idle' | 'running' | 'decision' | 'failed' | 'complete';
+
+export interface FailureReport {
+  readonly reasonKey: string;
+  /** Null only when a level fails with an unlisted reason (a bug the solvability test catches). */
+  readonly info: FailureInfo | null;
+  readonly failures: number;
+  /** Assist options to offer now (empty: no offer). Never applied without the player's choice. */
+  readonly assistOptions: readonly AssistOption[];
+}
+
+export interface MissionHostHooks {
+  onFailed(report: FailureReport): void;
+  onDecision(def: DecisionDef, choose: (optionId: string) => void): void;
+  onComplete(): void;
+  onHint?(hintKey: string): void;
+  onSay?(lines: readonly Line[], label: ContentLabel | null): void;
+}
+
+export interface MissionHostOptions {
+  readonly def: AnyLevelDefinition;
+  readonly bus: EventBus<GameEvents>;
+  readonly input: LevelInput;
+  readonly difficulty: () => DifficultyLevel;
+  readonly headless: boolean;
+  readonly quality: WorldQuality;
+  readonly reducedMotion: () => boolean;
+  readonly t: (key: string, params?: Readonly<Record<string, string | number>>) => string;
+  readonly glyph: (action: Action) => string;
+  /** Records a decision into the Choice Ledger (save.choices). */
+  readonly recordChoice: (def: DecisionDef, optionId: string) => void;
+  readonly hooks: MissionHostHooks;
+  /** Exact state from a manual or mission-start save. */
+  readonly snapshot?: MissionSnapshot | null;
+}
+
+interface SnapshotData {
+  readonly level: unknown;
+  readonly objectives: Record<string, number>;
+  readonly assists: AssistOption[];
+}
+
+function isSnapshotData(v: unknown): v is SnapshotData {
+  return typeof v === 'object' && v !== null && 'objectives' in v && 'assists' in v && Array.isArray((v as SnapshotData).assists);
+}
+
+/**
+ * Runs one level: the mission FSM (core MissionRuntime), objectives, interactions, decisions,
+ * soft failure with instant retry, in-memory checkpoints and adaptive assists. No DOM: the
+ * browser and the QA bot plug in through hooks, so the same code runs in both.
+ */
+export class MissionHost {
+  phase: MissionPhase = 'idle';
+  readonly objectives: ObjectiveTracker;
+  readonly interactions = new InteractionSystem();
+  readonly assists = new AssistPolicy();
+  level: Level | null = null;
+  private runtime: MissionRuntime<string, string>;
+  private readonly failuresAt = new Map<string, number>();
+  private checkpointProgress: Record<string, number> = {};
+  private sayQueue: Line[] = [];
+  private sayTimer = 0;
+  private lastFailure: FailureReport | null = null;
+  private readonly ctx: LevelContext;
+  private disposed = false;
+
+  constructor(private readonly o: MissionHostOptions) {
+    this.objectives = new ObjectiveTracker(o.def.objectives, (objectiveKey) => o.bus.emit('mission:objective', { missionId: o.def.missionId, objectiveKey }));
+    this.runtime = new MissionRuntime(this.missionDef(), o.bus);
+    const host = this;
+    this.ctx = {
+      bus: o.bus,
+      input: o.input,
+      params: () => host.params,
+      difficulty: o.difficulty,
+      telegraph: () => telegraphSeconds(host.params),
+      mission: {
+        send: (e) => host.send(e),
+        fail: (reason) => host.fail(reason),
+        get state() {
+          return host.state;
+        },
+        get checkpoint() {
+          return host.checkpoint;
+        },
+      },
+      objectives: this.objectives,
+      interactions: this.interactions,
+      decide: (id, onChosen) => host.decide(id, onChosen),
+      say: (lines, label) => host.say(lines, label ?? null),
+      unlock: (kind: UnlockKind, id: string) => o.bus.emit('unlock:item', { kind, id }),
+      glyph: o.glyph,
+      t: o.t,
+      quality: o.quality,
+      reducedMotion: o.reducedMotion,
+      headless: o.headless,
+    };
+  }
+
+  get def(): AnyLevelDefinition {
+    return this.o.def;
+  }
+
+  get params(): DifficultyParams {
+    return effectiveParams(this.o.difficulty(), { moreTime: this.assists.accepted.has('moreTime'), extraCheckpoint: this.assists.accepted.has('extraCheckpoint') });
+  }
+
+  get state(): string {
+    return this.runtime.state;
+  }
+
+  get checkpoint(): string {
+    return this.runtime.checkpoint;
+  }
+
+  get context(): LevelContext {
+    return this.ctx;
+  }
+
+  get failure(): FailureReport | null {
+    return this.lastFailure;
+  }
+
+  /** Builds the level and enters the first checkpoint (or the saved exact state). */
+  start(): Level {
+    if (this.level) throw new Error('Mission already started');
+    const level = this.o.def.build(this.ctx);
+    this.level = level;
+    const snap = this.o.snapshot && this.o.snapshot.missionId === this.o.def.missionId ? this.o.snapshot : null;
+    let levelData: unknown = null;
+    if (snap && isSnapshotData(snap.data)) {
+      for (const a of snap.data.assists) this.assists.accept(a);
+      if (this.assists.accepted.has('extraCheckpoint')) this.runtime = new MissionRuntime(this.missionDef(), this.o.bus);
+      levelData = snap.data.level;
+    }
+    this.runtime.start(snap ?? undefined);
+    if (snap && isSnapshotData(snap.data)) this.objectives.resetProgress(snap.data.objectives);
+    else this.objectives.resetProgress();
+    this.checkpointProgress = this.objectives.progressSnapshot();
+    this.objectives.syncState(this.runtime.state);
+    level.enterCheckpoint(snap ? snap.state : this.runtime.checkpoint, levelData);
+    this.phase = this.runtime.isComplete ? 'complete' : 'running';
+    return level;
+  }
+
+  /** One fixed simulation step. */
+  update(dt: number): void {
+    this.tickSay(dt);
+    if (this.phase !== 'running' || !this.level) return;
+    const p = this.level.player;
+    if (p) this.interactions.update(p.x, p.z, this.o.input.justPressed('interact'));
+    if (this.phase !== 'running') return;
+    this.level.update(dt);
+  }
+
+  send(event: string): boolean {
+    if (this.phase !== 'running' && this.phase !== 'decision') return false;
+    const before = this.runtime.checkpoint;
+    const ok = this.runtime.send(event);
+    if (!ok) return false;
+    if (this.runtime.checkpoint !== before) this.checkpointProgress = this.objectives.progressSnapshot();
+    this.objectives.syncState(this.runtime.state);
+    if (this.runtime.isComplete) {
+      this.phase = 'complete';
+      this.o.hooks.onComplete();
+    }
+    return true;
+  }
+
+  fail(reasonKey: string): void {
+    if (this.phase !== 'running' && this.phase !== 'decision') return;
+    this.runtime.fail(reasonKey);
+    const cp = this.runtime.checkpoint;
+    const n = (this.failuresAt.get(cp) ?? 0) + 1;
+    this.failuresAt.set(cp, n);
+    this.phase = 'failed';
+    const hasExtra = (this.o.def.extraCheckpoints ?? []).length > 0;
+    const offer = this.assists.shouldOffer(cp, n, hasExtra) ? this.assists.available(hasExtra) : [];
+    const info = Object.hasOwn(this.o.def.failures, reasonKey) ? (this.o.def.failures[reasonKey] ?? null) : null;
+    this.lastFailure = { reasonKey, info, failures: n, assistOptions: offer };
+    this.o.hooks.onFailed(this.lastFailure);
+  }
+
+  /** Instant retry from the last checkpoint (always available while not complete). */
+  retry(): void {
+    if (this.phase === 'complete' || !this.level) return;
+    this.runtime.retry();
+    this.objectives.resetProgress(this.checkpointProgress);
+    this.objectives.syncState(this.runtime.state);
+    this.sayQueue = [];
+    this.level.enterCheckpoint(this.runtime.checkpoint, null);
+    this.phase = 'running';
+    this.lastFailure = null;
+  }
+
+  /** The player accepted an offered assist; it applies from the retry that follows. */
+  acceptAssist(option: AssistOption): void {
+    this.assists.accept(option);
+    if (option === 'hint') {
+      const hint = this.lastFailure?.info?.hintKey;
+      if (hint) this.o.hooks.onHint?.(hint);
+    }
+    if (option === 'extraCheckpoint') {
+      // New checkpoints count from the next time the player passes them; the retry that follows
+      // still starts at the current checkpoint.
+      const cp = this.runtime.checkpoint;
+      this.runtime = new MissionRuntime(this.missionDef(), this.o.bus);
+      this.runtime.start({ missionId: this.o.def.missionId, state: cp, checkpoint: cp, data: null });
+    }
+  }
+
+  declineAssist(): void {
+    const cp = this.runtime.checkpoint;
+    this.assists.decline(cp, this.failuresAt.get(cp) ?? 0);
+  }
+
+  /** Exact state for a manual save (BRIEF 8.C). */
+  snapshot(): MissionSnapshot {
+    const data: SnapshotData = {
+      level: this.level?.snapshotData?.() ?? null,
+      objectives: this.objectives.progressSnapshot(),
+      assists: [...this.assists.accepted],
+    };
+    const state = this.runtime.state === 'failed' ? this.runtime.checkpoint : this.runtime.state;
+    return { missionId: this.o.def.missionId, state, checkpoint: this.runtime.checkpoint, data: this.runtime.state === 'failed' ? { ...data, level: null } : data };
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.interactions.clear();
+    this.level?.dispose();
+    this.level = null;
+  }
+
+  private missionDef(): MissionDefinition<string, string> {
+    const def = this.o.def.mission;
+    if (!this.assists.accepted.has('extraCheckpoint')) return def;
+    const extra = (this.o.def.extraCheckpoints ?? []).filter((c) => !def.checkpoints.includes(c));
+    return { ...def, checkpoints: [...def.checkpoints, ...extra] };
+  }
+
+  private decide(id: string, onChosen: (optionId: string) => void): void {
+    const def = this.o.def.decisions?.find((d) => d.id === id);
+    if (!def) throw new Error('Unknown decision ' + id + ' in ' + this.o.def.id);
+    if (this.phase !== 'running') return;
+    this.phase = 'decision';
+    this.o.hooks.onDecision(def, (optionId) => {
+      if (this.phase !== 'decision') return;
+      this.o.recordChoice(def, optionId);
+      this.phase = 'running';
+      onChosen(optionId);
+    });
+  }
+
+  private say(lines: readonly Line[], label: ContentLabel | null): void {
+    this.sayQueue = [...lines];
+    this.sayTimer = 0;
+    this.o.hooks.onSay?.(lines, label);
+  }
+
+  private tickSay(dt: number): void {
+    if (this.sayQueue.length === 0) return;
+    this.sayTimer -= dt;
+    if (this.sayTimer > 0) return;
+    const line = this.sayQueue.shift() as Line;
+    this.sayTimer = line.durationMs / 1000;
+    this.o.bus.emit('subtitle:show', { textKey: line.textKey, speakerKey: line.speakerKey, durationMs: line.durationMs, voice: true });
+  }
+}
