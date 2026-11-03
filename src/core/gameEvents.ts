@@ -31,5 +31,7 @@ export interface GameEvents {
   'cutscene:started': { id: string };
   'cutscene:ended': { id: string; skipped: boolean };
   /** Haptic feedback request; the controls system routes it to the gamepad or the phone. */
+  /** Short on-screen notice rendered by the UI (e.g. graphics quality lowered). */
+  'ui:toast': { textKey: string; params?: Record<string, string | number> };
   'haptics:pulse': { strength: 'light' | 'medium' | 'strong'; durationMs: number };
 }

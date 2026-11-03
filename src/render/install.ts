@@ -81,7 +81,7 @@ export function installGraphics(game: Game): () => void {
 
   const notify = (textKey: string, params?: Params): void => {
     lastNotice = params ? { textKey, params } : { textKey };
-    window.dispatchEvent(new CustomEvent<GraphicsNotice>(GRAPHICS_NOTICE_EVENT, { detail: lastNotice }));
+    game.bus.emit('ui:toast', lastNotice);
   };
 
   const runtimeCap = (g: GraphicsSettings): GraphicsPreset | null => {

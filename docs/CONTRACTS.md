@@ -72,7 +72,8 @@ disposes the previous scene (geometries, materials, textures).
 | Area | Owner agent | Paths |
 |---|---|---|
 | Core (loop, fsm, events, save core, flow, content schema) | lead | src/core, src/content/schema.ts |
-| Graphics and settings | Graphics | src/render, src/ui/settings |
+| Graphics | Graphics | src/render |
+| Menus incl. settings, pause and save screens | UI | src/ui/screens, src/ui (except touch, glyphs) |
 | Controls | Controls | src/core/input (adapters), src/ui/touch |
 | Save UX and backends | Save | src/core/save/backends, src/ui/save |
 | Audio | Audio | src/audio |
@@ -109,3 +110,9 @@ Events added for M2: subtitle:show / subtitle:clear (UI renders subtitles at the
 audio:cue, audio:mood (Audio), cutscene:started / cutscene:ended (Cinematics), haptics:pulse
 (Controls). src/ui/glyphs.ts glyphFor(action, device, family) is a stub owned by Controls; the UI
 uses only that signature.
+
+## 13. Rendering contract additions (M2)
+- GameScene optional fields read by the RenderPipeline: sun, sunDirection, shadowDistance, era, applyGraphics(options), onContextRestored().
+- antialias "msaa" means MSAA 4x plus SMAA.
+- getRenderPipeline(game.renderer).setDepthOfField(focus, aperture?, maxBlur?) and clearDepthOfField(); allocation-free; only active when the depthOfField setting is on. Cinematics registers it with setDepthOfFieldTarget.
+- ui:toast { textKey, params } shows a short notice; graphics notices use it.
