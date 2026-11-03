@@ -39,15 +39,13 @@
 Merged to main and green in CI (incl. emulator smoke): UI and menus, graphics pipeline, world and
 hub, controls and Android gamepad bridge, audio, cinematics, timeline and Living Map, Android CI,
 Prologue + Ch1 content data (src/content/ch00, ch01), fact-check and perspectives research.
-IN FLIGHT (stopped by the usage limit, work saved in their worktrees; resume with SendMessage, or
-if the agent is gone, re-launch with the same brief and point it at its branch):
-- Gameplay framework (opus): branch worktree-agent-a0ff6b86061370fe9 (player, interaction, mission
-  host, chapter flow, briefing/debrief/quiz, codex/archive screens, gameplay modules, QA bot).
-- Content reviewer ch00+ch01 (opus): branch worktree-agent-a256777216a2b9319 (facts, fairness,
-  labels, Hebrew editing, SOURCES fixes for eras.ts).
-QUEUE after those merge: level builders for Prologue (2 missions) and Ch1 (3 missions) on top of the
-gameplay framework, then QA bot + solvability per mission, then fresh code review and
-accessibility review, close KNOWN_ISSUES.md, release v0.2.0 and send the user the Hebrew update.
+Also merged: gameplay framework (src/gameplay), content review of ch00/ch01.
+IN FLIGHT (wave 2b, worktree per agent, sonnet): level builders for prologue/archive-night (+ prologue
+chapter module), prologue/jaffa-letters, ch01/tower-stockade (+ ch01 chapter module), ch01/night-landing,
+ch01/the-vote. Each adds one LEVELS line in src/gameplay/registry.ts (merge conflicts there are
+expected: keep all lines).
+QUEUE after merge: QA playthrough + balance check per mission (fresh agent), fresh code review and
+accessibility review, close KNOWN_ISSUES.md, release v0.2.0, Hebrew update to the user.
 Screenshots: npm run screenshots (writes screenshots/, gitignored).
 
 ## Next (M2 vertical slice): exact next steps
