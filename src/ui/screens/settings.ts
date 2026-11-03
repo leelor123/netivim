@@ -3,6 +3,7 @@ import { ACTIONS, type Action } from '../../core/input/types';
 import { DEFAULT_BINDINGS, remapGamepad } from '../../core/input/bindings';
 import { dialog, panel, type UiContext } from '../context';
 import { focusable, h } from '../dom';
+import { resolveGraphics } from '../../render/presets';
 import { captureNextGamepadButton } from '../remap';
 import type { UiScreen } from '../uiScreen';
 import { button, choiceRow, customRow, heading, sliderRow, toggleRow } from '../widgets';
@@ -55,6 +56,20 @@ export function settingsScreen(ctx: UiContext, initialTab: SettingsTab = 'graphi
           ...(g.mode === 'auto' ? { note: t('ui.gfx.autoNote') } : {}),
         }),
       ];
+      // What the pipeline runs now (Auto: the benchmark result once it has run).
+      const active = resolveGraphics(g).preset;
+      const activeText = active ? t('ui.gfx.preset.' + active) : t('ui.gfx.mode.custom');
+      rows.push(
+        h('p', {
+          class: 'nv-note nv-note--status',
+          text:
+            g.mode === 'auto'
+              ? g.benchmarked
+                ? t('ui.gfx.benchmarked', { preset: activeText })
+                : t('ui.gfx.benchmarkPending')
+              : t('ui.gfx.active', { preset: activeText }),
+        }),
+      );
       if (g.mode === 'preset') {
         rows.push(
           choiceRow({

@@ -40,6 +40,8 @@ export function createHud(game: Game, onSave: () => void, onPause: () => void): 
       if (reason.startsWith('exit:')) return;
       hud.toast(t(reason === 'manual' ? 'ui.toast.saved' : 'ui.toast.autosaved'));
     }),
+    // Notices from other systems (e.g. graphics quality changes).
+    game.bus.on('ui:toast', ({ textKey, params }) => hud.toast(t(textKey, params))),
     game.bus.on('save:failed', ({ reason }) => {
       // Mirror and hydrate problems are recovered silently; the primary write failing is not.
       if (reason.startsWith('mirror:') || reason === 'hydrate') return;

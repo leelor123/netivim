@@ -171,6 +171,30 @@ export function installUI(game: Game): () => void {
     openPause();
   });
   const detachFocus = focus.attach(window);
+  // Capture phase: runs before the FocusManager's key handling, which may change the stack.
+  // A quick key tap can fall between simulation steps, so the UI opens the pause menu from the
+  // key event itself; marking it as a UI key keeps the next paused frame from resuming on it.
+  // At the pause root the same key resumes on release (a press could likewise be missed, and
+  // resuming on press would let the next step read the held key as a new pause).
+  let resumeOnRelease = false;
+  const isPauseKey = (e: KeyboardEvent): boolean => !!game.input.getBindings().keyboard[e.code]?.includes('pause');
+  const onPauseKey = (e: KeyboardEvent): void => {
+    if (foreign || e.repeat || !isPauseKey(e)) return;
+    if (game.flow.paused) {
+      resumeOnRelease = screens.depth === 1 && isPauseOpen();
+      return;
+    }
+    if (screens.depth > 0) return;
+    focus.lastKeyAt = performance.now();
+    openPause();
+  };
+  const onPauseKeyUp = (e: KeyboardEvent): void => {
+    if (!resumeOnRelease || !isPauseKey(e)) return;
+    resumeOnRelease = false;
+    if (game.flow.paused && screens.depth === 1 && isPauseOpen()) resume();
+  };
+  window.addEventListener('keydown', onPauseKey, { capture: true });
+  window.addEventListener('keyup', onPauseKeyUp, { capture: true });
 
   showForState();
   checkForeign();
@@ -182,6 +206,8 @@ export function installUI(game: Game): () => void {
     offStep();
     offFrame();
     detachFocus();
+    window.removeEventListener('keydown', onPauseKey, { capture: true });
+    window.removeEventListener('keyup', onPauseKeyUp, { capture: true });
     offScreens();
     for (const off of offs) off();
     motionQuery?.removeEventListener('change', onMotion);
