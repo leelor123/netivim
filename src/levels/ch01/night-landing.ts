@@ -306,6 +306,13 @@ function build(ctx: LevelContext<E>): Level {
   const warned = patrols.map(() => false);
   let watchWarned = false;
   const alertOut = { v: 0 };
+  /** Unlocks are announced once per run (a retry must not repeat the toast). */
+  const unlocked = new Set<string>();
+  const unlockOnce = (kind: 'codex' | 'archive' | 'testimony' | 'fact', id: string): void => {
+    if (unlocked.has(kind + ':' + id)) return;
+    unlocked.add(kind + ':' + id);
+    ctx.unlock(kind, id);
+  };
 
   const view: PlayerView = {
     get x(): number {
@@ -395,8 +402,10 @@ function build(ctx: LevelContext<E>): Level {
     waveCooldown = 3.2;
     idle = 0;
     emit('footsteps.sand', 0.6);
-    if (wave === 0) say(LINES.whisperChildren, true);
-    else if (wave === 1) say(LINES.whisperElders, true);
+    if (wave === 0) {
+      unlockOnce('testimony', 'passenger');
+      say(LINES.whisperChildren, true);
+    } else if (wave === 1) say(LINES.whisperElders, true);
     else say(LINES.whisperAdults, true);
   }
 
@@ -405,8 +414,8 @@ function build(ctx: LevelContext<E>): Level {
     bundleTaken[i] = true;
     (bundleMeshes[i] as THREE.Mesh).visible = false;
     (bundleItems[i] as { enabled: boolean }).enabled = false;
-    ctx.objectives.progress('o4', delivered + carried + (rescue.childFound ? 1 : 0));
     carried++;
+    ctx.objectives.progress('o4', delivered + carried + (rescue.childFound ? 1 : 0));
     player.motor.params = LOADED_MOTOR;
     idle = 0;
   }
@@ -447,9 +456,14 @@ function build(ctx: LevelContext<E>): Level {
       }
       emit('ambience.sea');
       if (!ctx.headless) ctx.bus.emit('audio:mood', { mood: 'tense', era: 1 });
-      if (s === 'sea') say(LINES.steer);
-      else if (s === 'patrols') say(LINES.policy, true);
-      else say(LINES.beam);
+      if (s === 'sea') {
+        unlockOnce('codex', 'aliyah-bet');
+        say(LINES.steer);
+      } else if (s === 'patrols') {
+        unlockOnce('codex', 'white-paper');
+        unlockOnce('archive', 'white-paper');
+        say(LINES.policy, true);
+      } else say(LINES.beam);
     } else {
       for (const t of towers) t.visible = false;
       if (s === 'landing') {
@@ -654,6 +668,7 @@ function build(ctx: LevelContext<E>): Level {
       ctx.objectives.progress('o5', safe);
       if (safe >= rescue.total) {
         say(LINES.arab);
+        unlockOnce('fact', 'intercepted');
         ctx.mission.send('hidden');
       }
     }
