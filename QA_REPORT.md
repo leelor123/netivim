@@ -1,5 +1,18 @@
 # QA report
 
+## M1 (2026-11-03)
+| Check | Result | Evidence |
+|---|---|---|
+| ESLint 0 warnings, tsc strict | pass | npm run lint, npm run typecheck |
+| Unit tests | 84/84 pass | npm test (events, fsm, loop, flow, mission, difficulty, save, input, content, i18n) |
+| E2E | 7/7 pass | npm run e2e, Chromium, Galaxy S9+ landscape emulation |
+| BRIEF 8.H save matrix | pass | unit + E2E (menus saves; mid-mission keeps stable; after manual saves; mid-cutscene keeps stable) |
+| Torn write, corruption, full storage, WebView data loss | pass | tests/unit/save.test.ts |
+| Controller hides touch UI, touch restores, disconnect pauses | pass | tests/e2e/core.spec.ts |
+| Bundle size | 145.6 KB gzip (budget 600 KB) | npm run build |
+| Independent code review | see below | fresh reviewer agent |
+| On-device (S26 Ultra), real controllers in WebView | not yet verified | needs the user, planned M2 |
+
 ## M0 (2026-11-03)
 | Check | Result | Evidence |
 |---|---|---|

@@ -1,33 +1,49 @@
 # Progress
 
 ## Milestone status
-- [x] M0 Setup: project, pinned stack, skills, Capacitor Android, signing secret, CI release
-- [ ] M1 Design + core
+- [x] M0 Setup: project, pinned stack, skills, Capacitor Android, signing secret, CI release (v0.0.1)
+- [x] M1 Design + core (v0.1.0)
 - [ ] M2 Vertical slice
 - [ ] M3 Act 1 (Prologue + Ch1-4)
 - [ ] M4 Waves (Ch5-11 + Epilogue)
 - [ ] Final polish (end of Phase 1)
 
-## Done (M0)
-- Vite + TS strict + three 0.186.1 + Vitest + ESLint (0 warnings), lockfile.
-- three.js skill pack in .claude/skills/ (real copies, not symlinks).
-- Placeholder title screen: procedural low-poly hills, instanced trees, AgX tone mapping, Hebrew RTL.
-- WebGL2 check with a Hebrew error; Android Back button opens a pause overlay (never exits).
-- Capacitor 8 Android: landscape, immersive (no bars), keep-awake, no INTERNET permission,
-  vector adaptive icon + splash, minSdk 26.
-- Release keystore generated outside the repo, stored as GitHub secrets.
-- CI: lint, typecheck, tests, signed APK, apksigner verify, GitHub Release on v* tags.
-- v0.0.1 released: https://github.com/leelor123/netivim/releases/tag/v0.0.1 (CI green on main and tag).
+## Done (M1)
+- docs/DESIGN.md (title, framing, loop, Act 1 mission table, Acts 2-3 plan, difficulty, 12 original
+  features, save design, architecture, budgets, assumptions, decision log).
+- ADRs 0001-0008 in docs/adr/. docs/TEST_STRATEGY.md. docs/CONTRACTS.md (events, flow, save, input,
+  content, missions, scenes, agent ownership map).
+- Core (src/core): EventBus, FSM + analyzeMachine, GameLoop (fixed 60 Hz), GameFlow, MissionRuntime +
+  analyzeMission (solvability), difficulty + adaptive assist, save system (envelope, checksum,
+  double-buffered slots, schema, migrations, SaveManager exit policy, IndexedDB + Capacitor
+  Preferences mirrors, exit triggers), InputManager (gamepad/keyboard/touch, families, remap,
+  disconnect), content schema + validateChapter.
+- src/game.ts composition root wires everything; Android pause and Back hooks.
+- Tests: 84 unit (Vitest) + 7 E2E (Playwright, Galaxy landscape): boot with zero console output,
+  BRIEF 8.H save matrix, controller hides touch UI, disconnect pauses. E2E is a CI gate.
+- Research pass 2 done for Prologue, Ch1, Ch2 (research/ch0N-*.md, research/sources-ch0N.md).
 
-## Next (M1): exact next steps
-1. superpowers:brainstorming (autonomous) to write docs/DESIGN.md: title, loop, chapter/mission
-   table, difficulty, save design, budgets, at least 10 original features.
-2. ADRs in docs/adr/ (loop, state machines, save, content schema, input, rendering presets).
-3. engineering:testing-strategy to write docs/TEST_STRATEGY.md; add Playwright (mobile emulation).
-4. Lead builds CORE: fixed-timestep loop, scene manager, input abstraction (gamepad/touch/keys),
-   save core (atomic, checksummed, versioned), content schemas + build-time validation,
-   mission state-machine framework. Write docs/CONTRACTS.md.
-5. In parallel: Historian agents research Prologue, Ch1, Ch2 into research/chNN.md and SOURCES.md.
+## Research status (must be closed by a FRESH fact-checker before each chapter is built)
+- Many sites blocked the agents (Britannica, IPS, PalQuest, UNRWA, NLI: 403; Wayback refused).
+- Prologue: 42 sources, only 7 non-Wikipedia pages read. Palestinian, Druze, Bedouin, Old Yishuv
+  voices thin. Congress attendance figures unverified.
+- Ch1: 57 sources, 26 fetched. Peel, Shaw, Survey of Palestine tables unread. Israeli scholarship
+  only via indexes.
+- Ch2: 69 sources. Operation dates verified and corrected. UN texts are NOT freely redistributable
+  (see DESIGN decision log). Convoy of the 35, IDF ordinance date, casualty splits unverified.
+- Rule: [UNVERIFIED]/[BK]/[W-only] claims never reach quiz, facts, codex or archive.
+- Next research move: try alternative access (Google Books previews, JSTOR open, university
+  repositories, archive.org full texts) and merge per-chapter registers into SOURCES.md.
+
+## Next (M2 vertical slice): exact next steps
+1. Merge reviewer findings for M1 (if any open) and release v0.1.0.
+2. Fan out system agents in worktrees (CONTRACTS.md ownership map): Graphics & Settings, Controls
+   (touch UI + glyphs + remap UI + Android gamepad check), Save UX (pause menu, slots, exit prompt),
+   Audio, UI/Menus + focus navigation, Cinematics, World & Art.
+3. Fact-checker pass on Prologue research, then build the Prologue + one full chapter (Ch1 Roots)
+   as the vertical slice.
+4. Main menu with every setting, timeline + Living Map v1, tutorial.
+5. Measure on device: Ultra budgets on the S26 Ultra (user plays the APK).
 
 ## Phase 2 backlog (do not build until the user writes "start Phase 2")
 - English, Arabic, Russian locales + fonts + multi-language QA
@@ -44,3 +60,5 @@
 - 2026-11-03: minSdk raised from 24 to 26 so the launcher icon is fully vector (adaptive icon).
 - 2026-11-03: npm audit reports moderate advisories in dev-only tooling (glob/minimatch via
   @capacitor/cli and eslint). Not shipped in the APK; the audit gate is a Phase 2 item.
+- 2026-11-03: Gamepad device switching is edge-triggered (new input only), found by E2E.
+- 2026-11-03: E2E ignores only Chromium software-GL driver performance notes (not game output).

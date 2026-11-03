@@ -22,7 +22,8 @@ Before ending: update `PROGRESS.md` (done / in progress / exact next step), comm
 | vitest | 5.1.0 |
 | eslint / typescript-eslint | 10.14.0 / 8.72.1 |
 | @capacitor/core, cli, android | 8.6.0 |
-| @capacitor/app | 8.1.2 |
+| @capacitor/app / preferences | 8.1.2 / 8.0.1 |
+| @playwright/test | 1.64.1 (Chromium) |
 | Node (CI) / JDK (CI) | 24 / Temurin 21 |
 | Android | minSdk 26, target/compile 36 |
 
@@ -30,6 +31,7 @@ Before ending: update `PROGRESS.md` (done / in progress / exact next step), comm
 - `npm run dev`: Vite dev server
 - `npm run check`: lint + typecheck + unit tests + build (green before every commit)
 - `npm test`: Vitest unit tests (`tests/unit/**/*.test.ts`)
+- `npm run e2e`: test build (VITE_TEST_HOOKS via .env.test) + Playwright (`tests/e2e`); window.__netivim hook
 - `npm run android:sync`: build web + copy into `android/`
 - Local APK builds need the Android SDK (not installed on the user PC); CI builds the APK.
 
@@ -41,9 +43,13 @@ Before ending: update `PROGRESS.md` (done / in progress / exact next step), comm
 - Signing secrets: ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD.
 - Keystore lives ONLY in `C:\Users\User\netivim-signing\` on the user PC and in GitHub secrets. Never commit it.
 
-## Architecture map (grows in M1)
-- `src/main.ts`: boot (i18n, WebGL2 check, renderer, title scene, Android back button)
-- `src/core/`: engine core (i18n, webgl; later loop, input, save, state machines)
+## Architecture map (contracts: docs/CONTRACTS.md, decisions: docs/adr/)
+- `src/main.ts`: boot (i18n, WebGL2 check, UI shell) then `src/game.ts` (composition root)
+- `src/core/`: events, fsm (+analyzeMachine), loop, flow, mission (+analyzeMission), difficulty,
+  `save/` (envelope, slots, schema+migrations, saveManager, lifecycle, backends), `input/`
+- `src/content/`: schema.ts + validate.ts (chapters will live in src/content/chNN)
+- `src/render/`: sceneManager (dispose on switch)
+- `research/`: per-chapter dossiers and source registers (C1-, C2-, P- IDs)
 - `src/scene/`: 3D scenes (procedural only)
 - `src/platform/`: Capacitor/Android bridges
 - `src/locales/he.json`: ALL visible text (no hardcoded strings)
