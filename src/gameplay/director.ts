@@ -149,6 +149,8 @@ export class Director {
   // ---- hub ----------------------------------------------------------------------------------
 
   showHubMenu(): void {
+    // Warm the chapter chunks while the player looks at the menu, so a chapter opens at once.
+    loadAllChapters().catch(() => undefined);
     const s = this.game.getState();
     this.stack.reset(
       hubMenuScreen(this.t, {

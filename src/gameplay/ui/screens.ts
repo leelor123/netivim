@@ -7,7 +7,7 @@ import type { Recap } from '../core/progress';
 import { QuizSession } from '../core/quiz';
 import type { FailureReport } from '../runtime/missionHost';
 import type { BriefingMap } from '../types';
-import { FOCUS_ATTR, gpButton, type GpScreen } from './host';
+import { focusables, gpButton, type GpScreen } from './host';
 
 /** replaceChildren that skips null / false children. */
 export function fill(el: HTMLElement, ...children: (Node | null | false)[]): void {
@@ -216,7 +216,7 @@ export function decisionScreen(t: T, def: DecisionDef, onDone: (optionId: string
               h('p', { text: t(o.consequenceKey) }),
               actions(gpButton(t('gameplay.common.continue'), () => onDone(o.id), { primary: true, key: 'decision-continue' })),
             );
-            (body.querySelector('[' + FOCUS_ATTR + ']') as HTMLElement | null)?.focus();
+            focusables(body)[0]?.focus();
           }, { key: 'option-' + o.id }),
         ),
       ),
@@ -272,7 +272,7 @@ export function quizScreen(t: T, chapter: ChapterContent, facts: readonly Fact[]
   const session = new QuizSession(chapter.quiz);
   const body = h('div', { class: 'gp-col' });
   const s = sheet('quiz', t('gameplay.quiz.title'), body);
-  const focusFirst = (): void => (body.querySelector('[' + FOCUS_ATTR + ']') as HTMLElement | null)?.focus();
+  const focusFirst = (): void => focusables(body)[0]?.focus();
 
   const renderEnd = (): void => {
     const sc = session.score();
