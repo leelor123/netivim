@@ -1,0 +1,24 @@
+.cine { position: fixed; inset: 0; z-index: 30; pointer-events: none; }
+.cine[hidden] { display: none; }
+.cine-fade { position: absolute; inset: 0; background: #000; opacity: 0; }
+.cine-fade[data-color='sepia'] { background: #3b2a1a; }
+.cine-bar { position: absolute; inset-inline: 0; height: 12vh; background: #000; transition: transform 0.6s ease; }
+.cine-bar-top { top: 0; transform: translateY(-100%); }
+.cine-bar-bottom { bottom: 0; transform: translateY(100%); }
+.cine-letterbox .cine-bar-top, .cine-letterbox .cine-bar-bottom { transform: none; }
+.cine-card {
+  position: absolute; inset-inline: 0; top: 38%; margin: 0; text-align: center; opacity: 0;
+  font-size: clamp(28px, 5vw, 56px); font-weight: 700; letter-spacing: 0.02em;
+  color: var(--ink, #f3ede2); text-shadow: 0 3px 24px rgb(0 0 0 / 0.8);
+}
+.cine-skip {
+  position: absolute; inset-block-end: max(16px, env(safe-area-inset-bottom)); inset-inline-end: max(20px, env(safe-area-inset-right));
+  display: flex; align-items: center; gap: 10px; padding: 6px 14px 6px 8px; border-radius: 999px;
+  font: inherit; font-size: 16px; color: var(--ink, #f3ede2); background: rgb(0 0 0 / 0.45);
+  border: 1px solid rgb(255 255 255 / 0.2); pointer-events: auto; opacity: 0.75;
+}
+.cine-skip-active .cine-skip { opacity: 1; }
+.cine-ring { width: 36px; height: 36px; transform: rotate(-90deg); }
+.cine-ring-track { stroke: rgb(255 255 255 / 0.25); }
+.cine-ring-bar { stroke: var(--sand, #d9b77a); }
+.cine-reduced .cine-bar { transition: none; }
