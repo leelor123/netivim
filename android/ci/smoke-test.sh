@@ -130,6 +130,9 @@ adb logcat -c
 
 step "1. Install and launch"
 adb install -r "$APK" || fail "adb install failed"
+# Android shows a one-time "Viewing full screen" notice on the first immersive app; confirm it
+# up front so it cannot cover the screenshots (it is proof of immersive mode, not a failure).
+adb shell settings put secure immersive_mode_confirmations confirmed || true
 adb shell am start -W -n "$ACT" | tee "$OUT/am-start.txt"
 grep -q "Status: ok" "$OUT/am-start.txt" || fail "am start did not report Status: ok"
 wait_for 20 app_pid_up || fail "app process did not appear"
