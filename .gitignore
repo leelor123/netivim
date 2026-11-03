@@ -1,0 +1,21 @@
+node_modules/
+dist/
+coverage/
+test-results/
+playwright-report/
+*.log
+.DS_Store
+.vite/
+# Signing material must never be committed
+*.jks
+*.keystore
+keystore.properties
+signing/
+# Android build output
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/.idea/
+android/app/release/
+android/capacitor-cordova-android-plugins/build/

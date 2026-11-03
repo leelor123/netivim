@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">נתיבים</string>
+    <string name="title_activity_main">נתיבים</string>
+    <string name="package_name">io.github.leelor123.netivim</string>
+    <string name="custom_url_scheme">io.github.leelor123.netivim</string>
+</resources>

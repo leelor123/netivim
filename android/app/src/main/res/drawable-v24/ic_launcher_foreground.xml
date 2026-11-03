@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Procedural icon: a sun over two low-poly hills, with a winding path (the title means "Paths"). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#F6C978"
+        android:pathData="M42,46a12,12 0 1,0 24,0a12,12 0 1,0 -24,0z" />
+    <path android:fillColor="#8E5E3B"
+        android:pathData="M0,72 L22,58 L40,66 L62,54 L84,64 L108,56 L108,108 L0,108 Z" />
+    <path android:fillColor="#C9925A"
+        android:pathData="M0,80 L28,68 L50,76 L74,66 L108,78 L108,108 L0,108 Z" />
+    <path android:strokeColor="#F3EDE2" android:strokeWidth="4"
+        android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M54,104 C40,96 70,90 58,84 C50,80 52,76 55,72" />
+</vector>
