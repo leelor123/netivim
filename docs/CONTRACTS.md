@@ -81,3 +81,25 @@ disposes the previous scene (geometries, materials, textures).
 | World and art | World | src/world |
 | Android and CI | Android | android, .github |
 | Chapter N | Chapter builder | src/content/chNN, src/levels/chNN |
+
+## 10. Settings (core/settings.ts)
+Settings sections: graphics (mode auto|preset|custom, preset, custom GraphicsOptions, benchmarked,
+debugOverlay), audio (master, music, sfx, narration, voice), accessibility (subtitleSize,
+reducedMotion, contentIntensity), gameplay (difficulty), controls (bindings, vibration, touchSize,
+touchOpacity, touchLayout). SettingsManager.update(section, patch) validates, saves immediately to
+the "settings" slot and emits settings:changed { key: section }. Never write settings elsewhere.
+
+## 11. Plugging a system in (all agents)
+- Each system exports one function: installX(game: Game): () => void (returns a disposer).
+  Game (src/game.ts) exposes bus, flow, input, save, loop, settings, i18n, renderer, scenes,
+  onStep(fn), getState(), setState().
+- The lead wires install calls in src/main.ts. Agents may add their own install call in
+  src/main.ts inside the block marked "SYSTEM INSTALLS" (one line each); nothing else in
+  src/main.ts or src/game.ts.
+- Strings: each area has its own file src/locales/he/<area>.json with keys prefixed by the area
+  (e.g. graphics.*, audio.*). Duplicate keys fail the tests.
+- CSS: each area has its own stylesheet next to its code, imported by its install module.
+  Global tokens live in src/style.css (lead-owned).
+- Touch-only elements carry data-touch-ui. Every interactive element is reachable by the
+  FocusManager (UI agent) and works with confirm/back actions.
+- No allocations in per-frame code paths; dispose everything on uninstall.

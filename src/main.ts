@@ -1,5 +1,5 @@
 import './style.css';
-import he from './locales/he.json';
+import { HEBREW } from './locales';
 import { createI18n } from './core/i18n';
 import { hasWebGL2 } from './core/webgl';
 import { startGame, type Game } from './game';
@@ -11,7 +11,7 @@ declare global {
   }
 }
 
-const i18n = createI18n('he', he);
+const i18n = createI18n('he', HEBREW);
 document.documentElement.lang = i18n.locale;
 document.documentElement.dir = i18n.dir;
 document.documentElement.dataset.input = 'touch';
@@ -53,7 +53,7 @@ function boot(): void {
   pause.append(panel);
   document.body.append(pause);
 
-  const game = startGame(canvas, (paused) => {
+  const game = startGame(canvas, i18n, (paused) => {
     pause.hidden = !paused;
     status.textContent = '';
     if (paused) resumeBtn.focus();
@@ -62,6 +62,8 @@ function boot(): void {
   saveBtn.addEventListener('click', () => {
     status.textContent = i18n.t(game.save.saveManual('manual-1') ? 'pause.saved' : 'pause.saveFailed');
   });
+  // SYSTEM INSTALLS (one line per system; see docs/CONTRACTS.md section 11)
+  // END SYSTEM INSTALLS
   if (import.meta.env.VITE_TEST_HOOKS === '1') window.__netivim = game;
 }
 

@@ -14,6 +14,8 @@ import { localStorageStore, MemoryStore, type AsyncStore, type SyncStore } from 
 import { bindAndroidBackButton, bindAndroidPause, isAndroidApp } from './platform/android';
 import { SceneManager } from './render/sceneManager';
 import { createTitleScene } from './scene/titleScene';
+import type { I18n } from './core/i18n';
+import { SettingsManager } from './core/settings';
 
 export interface Game {
   readonly bus: EventBus<GameEvents>;
@@ -21,6 +23,12 @@ export interface Game {
   readonly input: InputManager;
   readonly save: SaveManager;
   readonly loop: GameLoop;
+  readonly settings: SettingsManager;
+  readonly i18n: I18n;
+  readonly renderer: THREE.WebGLRenderer;
+  readonly scenes: SceneManager;
+  /** Per-step hooks for systems installed after boot (UI, audio, missions). */
+  onStep(fn: (dt: number) => void): () => void;
   getState(): SaveData;
   setState(s: SaveData): void;
 }
@@ -50,7 +58,7 @@ function readGamepads(): readonly (GamepadLike | null)[] {
 }
 
 /** Composition root: creates every core system and connects them through the event bus. */
-export function startGame(canvas: HTMLCanvasElement, onPauseChanged: (paused: boolean) => void): Game {
+export function startGame(canvas: HTMLCanvasElement, i18n: I18n, onPauseChanged: (paused: boolean) => void): Game {
   const bus = new EventBus<GameEvents>((event, error) => {
     console.error('[netivim] handler failed for ' + event, error);
   });
@@ -58,10 +66,12 @@ export function startGame(canvas: HTMLCanvasElement, onPauseChanged: (paused: bo
   const input = new InputManager(bus, { getGamepads: readGamepads });
   input.attach(window);
 
+  const primary = primaryStore();
+  const settings = new SettingsManager(bus, primary);
   let state: SaveData = createNewSave(Date.now());
   const save = new SaveManager({
     bus,
-    primary: primaryStore(),
+    primary,
     mirrors: mirrorStores(),
     now: () => Date.now(),
     snapshot: () => state,
@@ -104,6 +114,7 @@ export function startGame(canvas: HTMLCanvasElement, onPauseChanged: (paused: bo
   const scenes = new SceneManager();
   scenes.switchTo(createTitleScene());
   let elapsed = 0;
+  const stepHooks = new Set<(dt: number) => void>();
 
   const loop = new GameLoop({
     step: (dt) => {
@@ -111,6 +122,7 @@ export function startGame(canvas: HTMLCanvasElement, onPauseChanged: (paused: bo
       if (input.justPressed('pause')) flow.setPaused(!flow.paused);
       elapsed += dt;
       scenes.update(dt, elapsed);
+      for (const fn of stepHooks) fn(dt);
     },
   });
 
@@ -163,6 +175,14 @@ export function startGame(canvas: HTMLCanvasElement, onPauseChanged: (paused: bo
     input,
     save,
     loop,
+    settings,
+    i18n,
+    renderer,
+    scenes,
+    onStep: (fn) => {
+      stepHooks.add(fn);
+      return () => stepHooks.delete(fn);
+    },
     getState: () => state,
     setState: (s) => {
       state = s;

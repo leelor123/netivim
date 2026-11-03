@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { createI18n } from '../../src/core/i18n';
-import he from '../../src/locales/he.json';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { mergeLocales } from '../../src/locales';
+
+const dir = join(__dirname, '../../src/locales/he');
+const files = Object.fromEntries(
+  readdirSync(dir)
+    .filter((n) => n.endsWith('.json'))
+    .map((n) => [n, JSON.parse(readFileSync(join(dir, n), 'utf8')) as Record<string, string>]),
+);
 
 describe('i18n', () => {
   const i18n = createI18n('he', { greet: 'שלום {name}', plain: 'טקסט' });
@@ -26,9 +35,14 @@ describe('i18n', () => {
   });
 });
 
-describe('Hebrew locale file', () => {
-  it('has only non-empty string values', () => {
-    for (const [key, value] of Object.entries(he)) {
+describe('Hebrew locale files', () => {
+  it('merge without duplicate keys', () => {
+    expect(() => mergeLocales(files)).not.toThrow();
+    expect(() => mergeLocales({ a: { k: 'x' }, b: { k: 'y' } })).toThrow(/Duplicate locale key k/);
+  });
+
+  it('have only non-empty string values', () => {
+    for (const [key, value] of Object.entries(mergeLocales(files))) {
       expect(typeof value, key).toBe('string');
       expect(value.trim().length, key).toBeGreaterThan(0);
     }
