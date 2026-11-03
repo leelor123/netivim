@@ -9,6 +9,7 @@ import type { GameScene } from '../render/sceneManager';
 import type { WorldQuality } from '../world/quality';
 import type { InteractionSystem } from './core/interaction';
 import type { DecisionDef } from './core/ledger';
+import type { LogisticsModel } from './modules/logistics';
 import type { ObjectiveDef, ObjectiveTracker } from './core/objectives';
 
 /**
@@ -47,6 +48,8 @@ export type BotStep =
   | { readonly kind: 'wait'; readonly seconds: number }
   | { readonly kind: 'waitFor'; readonly state: string; readonly timeout?: number }
   | { readonly kind: 'choose'; readonly optionId: string }
+  /** Solves the open logistics planner greedily and confirms it. */
+  | { readonly kind: 'plan' }
   | { readonly kind: 'do'; readonly label: string; run(level: Level): void };
 
 export interface BriefingPoint {
@@ -86,9 +89,13 @@ export interface LevelContext<E extends string = string> {
   readonly interactions: InteractionSystem;
   /** Presents a decision (dialog in play, bot choice in tests); the choice is logged to the ledger. */
   decide(decisionId: string, onChosen: (optionId: string) => void): void;
+  /** Opens the logistics planner (simulation waits); onConfirm runs once the plan meets its goal. */
+  plan(model: LogisticsModel, onConfirm: () => void): void;
   /** Plays subtitle lines in sequence (testimony lanterns, radio calls). */
   say(lines: readonly Line[], label?: ContentLabel): void;
   unlock(kind: UnlockKind, id: string): void;
+  /** Danger meter on the HUD, 0-1 (stealth notice, incoming hazard). */
+  alert(level: number): void;
   /** Visible prompt label for an action on the current device (glyphFor). */
   glyph(action: Action): string;
   t(key: string, params?: Readonly<Record<string, string | number>>): string;

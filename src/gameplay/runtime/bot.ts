@@ -5,6 +5,7 @@ import type { Action, Vec2 } from '../../core/input/types';
 import { FIXED_DT } from '../../core/loop';
 import { DEFAULT_WORLD_QUALITY } from '../../world/quality';
 import type { DecisionDef } from '../core/ledger';
+import type { LogisticsModel } from '../modules/logistics';
 import { stickToward } from '../core/movement';
 import type { AnyLevelDefinition, BotStep, LevelInput } from '../types';
 import { MissionHost, type FailureReport } from './missionHost';
@@ -68,6 +69,7 @@ export function runBot(def: AnyLevelDefinition, o: BotOptions): BotResult {
   const log: string[] = [];
   const failures: FailureReport[] = [];
   const choices: Record<string, string> = {};
+  const plan: { current: { model: LogisticsModel; confirm: () => void } | null } = { current: null };
   const pending: { current: { def: DecisionDef; choose: (id: string) => void } | null } = { current: null };
   let stop = false;
   let restartQueue = true;
@@ -99,6 +101,9 @@ export function runBot(def: AnyLevelDefinition, o: BotOptions): BotResult {
         pending.current = { def: d, choose };
       },
       onComplete: () => log.push('complete'),
+      onPlan: (model, confirm) => {
+        plan.current = { model, confirm };
+      },
     },
   });
   const offCp = bus.on('mission:checkpoint', ({ checkpoint }) => {
@@ -168,6 +173,21 @@ export function runBot(def: AnyLevelDefinition, o: BotOptions): BotResult {
               done = true;
             } else if (stepTime > 30) {
               log.push('no decision to choose ' + step.optionId);
+              stop = true;
+            }
+            break;
+          }
+          case 'plan': {
+            const p = plan.current;
+            if (p) {
+              plan.current = null;
+              if (!p.model.solveGreedy()) {
+                log.push('planner has no solution');
+                stop = true;
+              } else p.confirm();
+              done = true;
+            } else if (stepTime > 30) {
+              log.push('no planner open');
               stop = true;
             }
             break;

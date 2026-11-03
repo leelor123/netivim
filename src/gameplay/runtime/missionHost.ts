@@ -7,10 +7,28 @@ import { MissionRuntime, type MissionDefinition, type MissionSnapshot } from '..
 import type { WorldQuality } from '../../world/quality';
 import { InteractionSystem } from '../core/interaction';
 import type { DecisionDef } from '../core/ledger';
+import type { LogisticsModel } from '../modules/logistics';
 import { ObjectiveTracker } from '../core/objectives';
 import { AssistPolicy } from '../core/progress';
 import { telegraphSeconds } from '../core/telegraph';
-import type { AnyLevelDefinition, FailureInfo, Level, LevelContext, LevelInput, Line } from '../types';
+import type { AnyLevelDefinition, FailureInfo, Level, LevelContext, LevelInput, Line, MissionControl } from '../types';
+
+/** The mission as a level sees it (live getters over the host). */
+class Control implements MissionControl {
+  constructor(private readonly host: MissionHost) {}
+  send(e: string): boolean {
+    return this.host.send(e);
+  }
+  fail(reason: string): void {
+    this.host.fail(reason);
+  }
+  get state(): string {
+    return this.host.state;
+  }
+  get checkpoint(): string {
+    return this.host.checkpoint;
+  }
+}
 
 export type MissionPhase = 'idle' | 'running' | 'decision' | 'failed' | 'complete';
 
@@ -27,7 +45,9 @@ export interface MissionHostHooks {
   onFailed(report: FailureReport): void;
   onDecision(def: DecisionDef, choose: (optionId: string) => void): void;
   onComplete(): void;
+  onPlan(model: LogisticsModel, confirm: () => void): void;
   onHint?(hintKey: string): void;
+  onAlert?(level: number): void;
   onSay?(lines: readonly Line[], label: ContentLabel | null): void;
 }
 
@@ -81,28 +101,20 @@ export class MissionHost {
   constructor(private readonly o: MissionHostOptions) {
     this.objectives = new ObjectiveTracker(o.def.objectives, (objectiveKey) => o.bus.emit('mission:objective', { missionId: o.def.missionId, objectiveKey }));
     this.runtime = new MissionRuntime(this.missionDef(), o.bus);
-    const host = this;
     this.ctx = {
       bus: o.bus,
       input: o.input,
-      params: () => host.params,
+      params: () => this.params,
       difficulty: o.difficulty,
-      telegraph: () => telegraphSeconds(host.params),
-      mission: {
-        send: (e) => host.send(e),
-        fail: (reason) => host.fail(reason),
-        get state() {
-          return host.state;
-        },
-        get checkpoint() {
-          return host.checkpoint;
-        },
-      },
+      telegraph: () => telegraphSeconds(this.params),
+      mission: new Control(this),
       objectives: this.objectives,
       interactions: this.interactions,
-      decide: (id, onChosen) => host.decide(id, onChosen),
-      say: (lines, label) => host.say(lines, label ?? null),
+      decide: (id, onChosen) => this.decide(id, onChosen),
+      plan: (model, onConfirm) => this.plan(model, onConfirm),
+      say: (lines, label) => this.say(lines, label ?? null),
       unlock: (kind: UnlockKind, id: string) => o.bus.emit('unlock:item', { kind, id }),
+      alert: (level) => o.hooks.onAlert?.(level),
       glyph: o.glyph,
       t: o.t,
       quality: o.quality,
@@ -264,6 +276,16 @@ export class MissionHost {
       this.o.recordChoice(def, optionId);
       this.phase = 'running';
       onChosen(optionId);
+    });
+  }
+
+  private plan(model: LogisticsModel, onConfirm: () => void): void {
+    if (this.phase !== 'running') return;
+    this.phase = 'decision';
+    this.o.hooks.onPlan(model, () => {
+      if (this.phase !== 'decision' || !model.evaluate().meetsGoal) return;
+      this.phase = 'running';
+      onConfirm();
     });
   }
 

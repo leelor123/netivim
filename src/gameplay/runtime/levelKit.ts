@@ -160,7 +160,6 @@ export class LevelWorld {
 
   /** The GameScene handed to the SceneManager. dispose() runs `extra` then frees the world once. */
   gameScene(extra: () => void = () => undefined): GameScene {
-    const self = this;
     return {
       scene: this.scene,
       camera: this.camera,
@@ -168,19 +167,19 @@ export class LevelWorld {
       sunDirection: this.sunDirection,
       era: this.grade,
       shadowDistance: 60,
-      update(dt, elapsed) {
-        self.terrain.update(self.camera.position, dt, elapsed);
-        self.sky.update(self.camera);
-        for (const fn of self.visualHooks) fn(dt, elapsed);
+      update: (dt, elapsed) => {
+        this.terrain.update(this.camera.position, dt, elapsed);
+        this.sky.update(this.camera);
+        for (const fn of this.visualHooks) fn(dt, elapsed);
       },
-      resize(w, h) {
-        self.camera.aspect = w / Math.max(1, h);
-        self.camera.updateProjectionMatrix();
+      resize: (w, h) => {
+        this.camera.aspect = w / Math.max(1, h);
+        this.camera.updateProjectionMatrix();
       },
-      dispose() {
-        if (self.disposed) return;
+      dispose: () => {
+        if (this.disposed) return;
         extra();
-        self.dispose();
+        this.dispose();
       },
     };
   }
