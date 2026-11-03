@@ -6,6 +6,7 @@ import { startGame, type Game } from './game';
 import { installCinematics } from './cinematics';
 import { installHaptics } from './core/input/haptics';
 import { installTouchControls } from './ui/touch/touchControls';
+import { installTimeline } from './features/timeline/install';
 
 declare global {
   interface Window {
@@ -70,6 +71,7 @@ function boot(): void {
   installTouchControls(game);
   installHaptics(game);
   void import('./audio/install').then((m) => m.installAudio(game)).catch((e: unknown) => console.error('[netivim] audio install failed', e));
+  installTimeline(game);
   // END SYSTEM INSTALLS
   if (import.meta.env.VITE_TEST_HOOKS === '1') window.__netivim = game;
 }
