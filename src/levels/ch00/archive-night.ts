@@ -81,7 +81,7 @@ function build(ctx: LevelContext<E>): ArchiveLevel {
   const rtl = typeof document !== 'undefined' && document.documentElement.dir === 'rtl';
 
   // ---- guides (static figures that turn toward the player) ----
-  const figMat = world.bag.track(new FigureMaterial());
+  const figMat = world.bag.track(new FigureMaterial('archiveNight'));
   const noa = world.bag.track(new Crowd(figureGeometry({ era: 'archiveNight', variant: 1, seed: 'noa' }), figMat, 1));
   const samir = world.bag.track(new Crowd(figureGeometry({ era: 'archiveNight', variant: 2, seed: 'samir' }), figMat, 1));
   for (const c of [noa, samir]) {

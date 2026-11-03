@@ -1,0 +1,12 @@
+/* Loading veil shown over the hub menu until the Archive hall scene is active. */
+.nv-hub-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: #0b0d12;
+  color: #f3ede2;
+  font: 700 20px Heebo, system-ui, sans-serif;
+  pointer-events: auto;
+}

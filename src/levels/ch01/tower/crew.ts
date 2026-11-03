@@ -34,7 +34,7 @@ export class Crew {
   private readonly material: FigureMaterial;
 
   constructor(private readonly world: LevelWorld) {
-    this.material = world.bag.track(new FigureMaterial());
+    this.material = world.bag.track(new FigureMaterial(world.opts.era));
     const era = 'mandate1940' as const;
     const geoA = world.bag.geometry(figureGeometry({ era, variant: 1, seed: 'crew-a' }));
     const geoB = world.bag.geometry(figureGeometry({ era, variant: 2, seed: 'crew-b' }));

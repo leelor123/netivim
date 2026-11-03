@@ -98,7 +98,7 @@ export class PlayerController implements PlayerView {
     this.motor.colliders = world.colliders;
     this.motor.bounds = world.bounds;
     this.motor.heightAt = world.heightAt;
-    this.figureMaterial = world.bag.track(new FigureMaterial());
+    this.figureMaterial = world.bag.track(new FigureMaterial(world.opts.era));
     const geo = world.bag.geometry(figureGeometry({ era: opts.era ?? world.opts.era, variant: opts.variant ?? 0, seed: 'player' }));
     this.crowd = new Crowd(geo, this.figureMaterial, 1);
     this.crowd.mesh.frustumCulled = false;

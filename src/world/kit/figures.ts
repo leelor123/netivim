@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { EraId } from '../eraLook';
 import { Rng } from '../rng';
 import { kitBuilder } from './buildings';
+import { createLiftUniforms, injectLift, type LiftUniforms } from './materials';
 
 /**
  * Stylized civilian figures: simple, dignified, color-coded clothing per era. Each figure is one
@@ -132,7 +133,13 @@ export class FigureMaterial {
   readonly material: THREE.MeshStandardMaterial;
   readonly time = { value: 0 };
 
-  constructor() {
+  /** Moonlight rim and fill; strengths are zero outside night looks. */
+  readonly lift: LiftUniforms;
+
+  /** `era` archiveNight (night and moonlight scenes) turns on the rim and fill that keep figures readable. */
+  constructor(era?: EraId) {
+    this.lift = era === 'archiveNight' ? createLiftUniforms() : createLiftUniforms(0, 0);
+    const lift = this.lift;
     this.material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0 });
     this.material.name = 'figure-rig';
     const time = this.time;
@@ -174,6 +181,7 @@ export class FigureMaterial {
           transformed.y += limbPivot;
           transformed.y += gWalk * abs(cos(gPhase)) * 0.045 + (1.0 - gWalk) * sin(uTime * 1.2 + aGait.x) * 0.006 * step(0.9, transformed.y);`,
         );
+      injectLift(shader, lift);
     };
     this.material.customProgramCacheKey = () => 'netivim-figure-rig';
   }

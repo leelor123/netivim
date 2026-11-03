@@ -81,7 +81,7 @@
 .tl-node[data-status='locked'] { opacity: 0.6; }
 .tl-node[data-status='locked'] .tl-dot { border-style: dashed; }
 .tl-node[data-current='true'] { border-color: rgb(255 255 255 / 0.35); background: rgb(255 255 255 / 0.07); opacity: 1; }
-.tl-node-title { font-weight: 700; line-height: 1.2; text-align: center; }
+.tl-node-title { font-weight: 700; line-height: 1.2; text-align: center; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
 .tl-node-years { color: var(--ink-dim, #b9b2a6); }
 .tl-detail {
   flex: 1;
@@ -111,7 +111,10 @@
   .tl-node:not([data-current='true']) .tl-node-title,
   .tl-node:not([data-current='true']) .tl-node-years { display: none; }
   .tl-node[data-current='true'] .tl-node-title,
-  .tl-node[data-current='true'] .tl-node-years { white-space: nowrap; background: rgb(8 10 14 / 0.85); padding: 0 6px; border-radius: 6px; }
+  .tl-node[data-current='true'] .tl-node-years { background: rgb(8 10 14 / 0.85); padding: 0 6px; border-radius: 6px; }
+  /* Two-line caption wider than the dot, centred on it; short titles keep it from clipping. */
+  .tl-node[data-current='true'] .tl-node-title { width: 104px; margin-inline: -32px; font-size: 11px; }
+  .tl-node[data-current='true'] .tl-node-years { white-space: nowrap; }
   .tl-track { margin-inline: 28px; height: 84px; }
 }
 @media (prefers-reduced-motion: reduce) {

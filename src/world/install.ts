@@ -1,3 +1,4 @@
+import './world.css';
 import type { Game } from '../game';
 import type { HubOptions, HubScene } from '../scene/hubScene';
 import type { SampleSceneOptions, WorldScene } from './sampleScene';
@@ -30,24 +31,48 @@ export function installWorld(game: Game): () => void {
     currentQuality: () => worldQualityFromSettings(game.settings.value),
   };
   let token = 0;
+  // Veil over the hub menu until the hub scene is the active one, so the previous scene
+  // (the title scene, a finished level) never shows behind the menu.
+  let veil: HTMLElement | null = null;
+  const showVeil = (): void => {
+    if (veil) return;
+    veil = document.createElement('div');
+    veil.className = 'nv-hub-veil';
+    veil.setAttribute('role', 'status');
+    veil.textContent = game.i18n.t('world.hub.loading');
+    document.body.append(veil);
+  };
+  const hideVeil = (): void => {
+    veil?.remove();
+    veil = null;
+  };
   const off = game.bus.on('flow:changed', ({ to }) => {
-    if (to !== 'hub') return;
+    if (to !== 'hub') {
+      hideVeil();
+      return;
+    }
     const mine = ++token;
+    showVeil();
     void api
       .createHubScene({ quality: api.currentQuality() })
       .then((hub) => {
         // A later transition (or uninstall) made this load stale.
         if (mine !== token || game.flow.state !== 'hub') hub.dispose();
-        else game.scenes.switchTo(hub);
+        else {
+          game.scenes.switchTo(hub);
+          hideVeil();
+        }
       })
       .catch((error: unknown) => {
         console.error('[netivim] hub scene failed to load', error);
+        if (mine === token) hideVeil();
       });
   });
   if (import.meta.env.VITE_TEST_HOOKS === '1') window.__netivimWorld = api;
   return () => {
     token++;
     off();
+    hideVeil();
     if (window.__netivimWorld === api) delete window.__netivimWorld;
   };
 }

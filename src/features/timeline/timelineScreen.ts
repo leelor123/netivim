@@ -183,7 +183,7 @@ export class TimelineScreen implements HostedScreen {
   private buildNode(era: Era, i: number): HTMLButtonElement {
     const { t } = this.opts;
     const node = h('button', 'tl-node', '', { type: 'button', 'data-focusable': '', 'data-chapter': era.id });
-    node.append(h('span', 'tl-dot'), h('span', 'tl-node-title', t(era.titleKey)), h('span', 'tl-node-years', formatYears(era.years)));
+    node.append(h('span', 'tl-dot'), h('span', 'tl-node-title', t(era.titleKey.replace(/\.title$/, '.short'))), h('span', 'tl-node-years', formatYears(era.years)));
     node.addEventListener('click', () => {
       if (this.dragMoved) return;
       this.setPosition(i);
