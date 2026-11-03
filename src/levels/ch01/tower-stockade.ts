@@ -112,7 +112,7 @@ interface Target {
 
 function build(ctx: LevelContext<E>): TowerLevel {
   const era = 'mandate1940' as const;
-  const world = new LevelWorld({ seed: 'ch01-tower', era, biome: 'coastalPlain', size: 128, quality: ctx.quality, waterLevel: null });
+  const world = new LevelWorld({ seed: 'ch01-tower', era, biome: 'jordanValley', size: 128, quality: ctx.quality, waterLevel: null });
   const sim = new TowerSim();
   const player = new PlayerController(world, ctx.input, ctx.reducedMotion, { era });
   const site = new SiteView(world, ctx.reducedMotion);
@@ -196,9 +196,14 @@ function build(ctx: LevelContext<E>): TowerLevel {
     player.controllable = false;
     const rig = player.rig;
     rig.mode = 'planning';
+    // Absolute camera height: a little above the site, looking down at the whole ring. The view
+    // is shifted south so the ring sits above the frame chooser panel.
+    const ground = world.heightAt(CENTER_X, CENTER_Z);
     rig.plan.x = CENTER_X;
-    rig.plan.z = CENTER_Z;
-    rig.plan.height = 34;
+    rig.plan.z = CENTER_Z + 5.5;
+    rig.plan.minHeight = ground + 18;
+    rig.plan.maxHeight = ground + 80;
+    rig.plan.height = ground + 30;
     rig.plan.panSpeed = 0;
     planner.reset();
     planMessage = null;

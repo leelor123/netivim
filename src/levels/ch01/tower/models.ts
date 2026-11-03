@@ -59,7 +59,7 @@ export function gravelCorner(): THREE.BufferGeometry {
 
 /** Flat chalk marking of one wall cell on the ground. */
 export function outlineTile(): THREE.BufferGeometry {
-  return b('outline', 0.05).block(CELL - 0.2, 0.05, CELL - 0.2, '#e3d8b4', 0, 0, 0).build();
+  return b('outline', 0.03).block(CELL - 0.2, 0.07, CELL - 0.2, '#f6ecd0', 0, 0, 0).build();
 }
 
 /** Survey stake with a red rag. */
@@ -236,6 +236,14 @@ export function carriedBeam(): THREE.BufferGeometry {
 /** Glowing window panes of the village on the hill (unlit material, colors above 1 feed bloom). */
 export function windowGlow(): THREE.BufferGeometry {
   const g = kitBuilder({ era: ERA, seed: 'window-glow' }, 0);
-  g.box(0.5, 0.6, 0.05, [1.6, 1.1, 0.5], 0, 0, 0);
+  g.box(0.5, 0.6, 0.25, [1.0, 0.66, 0.24], 0, 0, 0);
+  return g.build();
+}
+
+/** Gate or lamp post: a timber post with a short bracket for a lantern. */
+export function lampPost(): THREE.BufferGeometry {
+  const g = b('lamp-post');
+  g.cyl(0.1, 0.13, 3.4, 6, PLANK_DARK, 0, 1.7, 0);
+  g.block(0.7, 0.08, 0.08, PLANK_DARK, 0, 2.95, 0);
   return g.build();
 }

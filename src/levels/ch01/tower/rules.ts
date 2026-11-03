@@ -240,9 +240,10 @@ export const STAGE_START: Readonly<Record<Stage, number>> = { dawn: 0, walls: 0.
 /** The last stretch of the day: the sun meter shows from here. */
 export const SUN_METER_FROM = 0.75;
 
-export const FAIL_TIME_OUT = 'ch01.tower.fail.time-out';
-export const FAIL_UNFILLED = 'ch01.tower.fail.unfilled-wall';
-export const FAIL_ORDER = 'ch01.tower.fail.wrong-order';
+/** Failure reasons: locale keys of the one-line reason on the failure card. */
+export const FAIL_TIME_OUT = 'levels.ch01.tower.fail.timeout';
+export const FAIL_UNFILLED = 'levels.ch01.tower.fail.unfilled';
+export const FAIL_ORDER = 'levels.ch01.tower.fail.order';
 
 /** Why the day ends in failure when the sun sets in this stage. */
 export function sunsetReason(stage: Stage): string {

@@ -28,9 +28,9 @@ export const SKY_KEYS: readonly Key[] = [
   { t: 0, top: '#5d7fae', horizon: '#f3b98a', bottom: '#b98e72', sun: '#ffc58a', hemiSky: '#c9c3c8', hemiGround: '#5a4636', fog: '#e8c9a8', elevation: 8, azimuth: 95, sunIntensity: 2.0, hemiIntensity: 0.95, sunSize: 1.6 },
   { t: 0.3, top: '#6f9cc4', horizon: '#eadfc2', bottom: '#b7a07e', sun: '#fff0cf', hemiSky: '#e6e0cc', hemiGround: '#5d4a36', fog: '#dcd2b8', elevation: 38, azimuth: 130, sunIntensity: 2.9, hemiIntensity: 1.2, sunSize: 1 },
   { t: 0.55, top: '#6f9cc4', horizon: '#e8dcc0', bottom: '#b7a07e', sun: '#fff4dc', hemiSky: '#e6e0cc', hemiGround: '#5d4a36', fog: '#dcd2b8', elevation: 62, azimuth: 180, sunIntensity: 3.0, hemiIntensity: 1.25, sunSize: 1 },
-  { t: 0.78, top: '#6c8fb8', horizon: '#f0d2a0', bottom: '#b89870', sun: '#ffd9a0', hemiSky: '#ecd9b6', hemiGround: '#5a4632', fog: '#e4c9a0', elevation: 24, azimuth: 235, sunIntensity: 2.7, hemiIntensity: 1.05, sunSize: 1.3 },
-  { t: 0.92, top: '#4d5a8f', horizon: '#ff9a54', bottom: '#8a5a52', sun: '#ff8a3c', hemiSky: '#c9a0a0', hemiGround: '#46363a', fog: '#d9967a', elevation: 7, azimuth: 262, sunIntensity: 2.3, hemiIntensity: 0.8, sunSize: 2.4 },
-  { t: 1, top: '#2c3560', horizon: '#d8684a', bottom: '#4a3a48', sun: '#ff6a2e', hemiSky: '#7a7094', hemiGround: '#2e2a3a', fog: '#8a6670', elevation: 2.5, azimuth: 268, sunIntensity: 1.2, hemiIntensity: 0.6, sunSize: 2.8 },
+  { t: 0.78, top: '#6c8fb8', horizon: '#f0d2a0', bottom: '#b89870', sun: '#ffd08a', hemiSky: '#ecd2b6', hemiGround: '#5a4632', fog: '#e4c9a0', elevation: 24, azimuth: 235, sunIntensity: 2.7, hemiIntensity: 1.05, sunSize: 1.3 },
+  { t: 0.92, top: '#4d5a8f', horizon: '#ff9a54', bottom: '#8a5a52', sun: '#ff8a3c', hemiSky: '#d6a3a8', hemiGround: '#52404a', fog: '#d9967a', elevation: 7, azimuth: 262, sunIntensity: 2.3, hemiIntensity: 0.8, sunSize: 2.4 },
+  { t: 1, top: '#2c3560', horizon: '#d8684a', bottom: '#4a3a48', sun: '#ff6a2e', hemiSky: '#8a7aa0', hemiGround: '#3a3445', fog: '#8a6670', elevation: 2.5, azimuth: 268, sunIntensity: 1.2, hemiIntensity: 0.6, sunSize: 2.8 },
 ];
 
 /** Index of the key segment [i, i + 1] containing t (clamped). */

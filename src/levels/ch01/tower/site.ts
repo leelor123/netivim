@@ -199,7 +199,7 @@ export class SiteView {
     this.spot.position.copy(this.lampPos);
     world.scene.add(this.spot, this.spot.target);
     const beamMat = world.bag.material(new THREE.MeshBasicMaterial({ color: 0xffe9b8, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
-    this.beam = new THREE.Mesh(world.bag.geometry(M.beamCone(46, 5.5)), beamMat);
+    this.beam = new THREE.Mesh(world.bag.geometry(M.beamCone(46, 3.4)), beamMat);
     this.beam.rotation.order = 'YXZ';
     this.beam.position.copy(this.lampPos);
     this.beam.visible = false;
@@ -280,7 +280,15 @@ export class SiteView {
       glowSpots.push({ x: x + lx * Math.cos(ry) + lz * Math.sin(ry), y: world.heightAt(x, z) + 1.9, z: z - lx * Math.sin(ry) + lz * Math.cos(ry), ry });
     }
     // Lanterns on the compound (appear at dusk).
-    for (const [x, z] of [[-1.8, 5.2], [1.8, 5.2], [TOWER_BASE.x - 2.4, TOWER_BASE.z + 2]] as const) glowSpots.push({ x, y: world.heightAt(x, z) + 2.3, z, ry: 0 });
+    for (const [x, z] of [
+      [-2.2, 4.4],
+      [2.2, 4.4],
+      [-4.4, -6.2],
+      [4.4, -5.8],
+    ] as const) {
+      world.place(M.lampPost(), x, z, 0);
+      glowSpots.push({ x: x + 0.3, y: world.heightAt(x, z) + 2.85, z, ry: 0 });
+    }
     this.glow = new Inst(world, M.windowGlow(), mats.glow, glowSpots.length, false);
     glowSpots.forEach((g, i) => this.glow.set(i, g.x, g.y, g.z, g.ry, 1, 1, 1));
     this.glow.flush();
@@ -403,16 +411,21 @@ export class SiteView {
       const fl = ease(this.fill[i] ?? 0);
       const wall = c.kind === 'corner' ? this.corners : this.walls;
       const gr = c.kind === 'corner' ? this.gravelCorners : this.gravel;
-      wall.set(sl.index, c.x, g, c.z, ry, 1, Math.max(0.001, r) * (r > 0.001 ? 1 : 0), 1);
-      gr.set(sl.index, c.x, g + 0.1, c.z, ry, 1, Math.max(0.001, fl) * (fl > 0.001 ? 1 : 0), 1);
+      // Hidden pieces collapse to a point: a flat (zero-height) box would shade as black.
+      if (r > 0.001) wall.set(sl.index, c.x, g, c.z, ry, 1, r, 1);
+      else wall.set(sl.index, c.x, g, c.z, ry, 0, 0, 0);
+      if (fl > 0.001) gr.set(sl.index, c.x, g + 0.1, c.z, ry, 1, fl, 1);
+      else gr.set(sl.index, c.x, g + 0.1, c.z, ry, 0, 0, 0);
       const o = 1 - r;
-      this.outline.set(i, c.x, g + 0.03, c.z, 0, o, 1, o);
+      if (o > 0.001) this.outline.set(i, c.x, g + 0.03, c.z, 0, o, 1, o);
+      else this.outline.set(i, c.x, g + 0.03, c.z, 0, 0, 0, 0);
     }
     for (const part of [this.walls, this.corners, this.gravel, this.gravelCorners, this.outline]) part.flush();
     CART_SPOTS.forEach((c, i) => {
       const y = this.world.heightAt(c.x, c.z);
       const s = ease(this.loadScale[i] ?? 0);
-      this.loads.set(i, c.x, y, c.z, i % 2 === 0 ? 0.25 : -0.2, 1, s, 1);
+      if (s > 0.001) this.loads.set(i, c.x, y, c.z, i % 2 === 0 ? 0.25 : -0.2, 1, s, 1);
+      else this.loads.set(i, c.x, y, c.z, 0, 0, 0, 0);
     });
     this.loads.flush();
     for (let k = 0; k < SECTION_COUNT; k++) {
@@ -455,7 +468,7 @@ export class SiteView {
     const on = this.litLevel > 0.001;
     this.spot.intensity = 380 * this.litLevel;
     this.beam.visible = on;
-    this.beam.material.opacity = 0.2 * this.litLevel;
+    this.beam.material.opacity = 0.13 * this.litLevel;
     if (on) {
       // Sweep slowly over the approaches south of the compound (never toward the village).
       const yaw = this.reduced() ? 0.2 : Math.sin(elapsed * 0.45) * 0.85 + 0.2;
