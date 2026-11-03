@@ -13,6 +13,8 @@ import { runBot } from '../../src/gameplay/runtime/bot';
 
 const LEVELS = levelIds();
 const DIFFICULTIES: readonly DifficultyLevel[] = ['story', 'normal', 'challenge'];
+/** Long missions build the world once per checkpoint and simulate up to a full day. */
+const BOT_TIMEOUT_MS = 180000;
 
 describe.each(LEVELS)('level %s', (id) => {
   it('has a sound mission machine and complete metadata', async () => {
@@ -39,6 +41,6 @@ describe.each(LEVELS)('level %s', (id) => {
         expect(r.failures.map((f) => f.reasonKey), cp + ': ' + r.log.join(' | ')).toEqual([]);
         expect(r.completed, cp + ': ' + r.log.join(' | ')).toBe(true);
       }
-    });
+    }, BOT_TIMEOUT_MS);
   }
 });
