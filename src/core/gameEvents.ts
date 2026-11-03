@@ -21,4 +21,15 @@ export interface GameEvents {
   'mission:completed': { missionId: string; medals: string[] };
   'unlock:item': { kind: UnlockKind; id: string };
   'settings:changed': { key: string };
+  /** Show a subtitle line (always shown, even when voice narration is off). */
+  'subtitle:show': { textKey: string; speakerKey: string | null; durationMs: number; voice: boolean };
+  'subtitle:clear': Record<string, never>;
+  /** Play a named sound cue (sfx/ambience/music change), owned by the audio system. */
+  'audio:cue': { cue: string; intensity?: number };
+  /** Music mood for the procedural score. */
+  'audio:mood': { mood: 'calm' | 'tense' | 'reflective' | 'hopeful'; era: number };
+  'cutscene:started': { id: string };
+  'cutscene:ended': { id: string; skipped: boolean };
+  /** Haptic feedback request; the controls system routes it to the gamepad or the phone. */
+  'haptics:pulse': { strength: 'light' | 'medium' | 'strong'; durationMs: number };
 }

@@ -103,3 +103,9 @@ the "settings" slot and emits settings:changed { key: section }. Never write set
 - Touch-only elements carry data-touch-ui. Every interactive element is reachable by the
   FocusManager (UI agent) and works with confirm/back actions.
 - No allocations in per-frame code paths; dispose everything on uninstall.
+
+## 12. M2 events and stubs
+Events added for M2: subtitle:show / subtitle:clear (UI renders subtitles at the chosen size),
+audio:cue, audio:mood (Audio), cutscene:started / cutscene:ended (Cinematics), haptics:pulse
+(Controls). src/ui/glyphs.ts glyphFor(action, device, family) is a stub owned by Controls; the UI
+uses only that signature.
