@@ -18,17 +18,20 @@ export const LEVELS: Record<string, Loader<AnyLevelDefinition>> = {
   // SAMPLE (framework test level, not content).
   'sample-walk': () => import('./sample/sampleWalk').then((m) => m.default),
   // Chapter levels go below this line.
+  'archive-night': () => import('../levels/ch00/archive-night').then((m) => m.default),
 };
 
 export const CHAPTERS: Record<string, Loader<ChapterDefinition>> = {
   // SAMPLE chapter: only listed in dev and test builds (see sampleAllowed).
   sample: () => import('./sample/sampleChapter').then((m) => m.default),
   // Chapters go below this line.
+  prologue: () => import('../levels/ch00/chapter').then((m) => m.default),
 };
 
 /** Timeline slot of each registered chapter, known without loading it. */
 export const CHAPTER_SLOTS: Record<string, ChapterId> = {
   sample: 'prologue',
+  prologue: 'prologue',
 };
 
 /** The sample chapter is never offered in a release build. */
