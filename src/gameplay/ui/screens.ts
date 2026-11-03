@@ -135,7 +135,8 @@ export function drawBriefingMap(canvas: HTMLCanvasElement, map: BriefingMap): vo
 export interface BriefingOptions {
   readonly chapter: ChapterContent;
   readonly mission: MissionMeta;
-  readonly contextKey: string;
+  /** Context paragraph; omitted when the mission has none of its own and is not the first. */
+  readonly contextKey: string | null;
   readonly map: BriefingMap | null;
   readonly difficultyKey: string;
   readonly resumes: boolean;
@@ -157,7 +158,7 @@ export function briefingScreen(t: T, o: BriefingOptions): GpScreen {
     h('p', { class: 'gp-kicker' }, document.createTextNode(t(o.chapter.titleKey) + ' · '), labelChip(t, o.mission.label)),
     h('h3', { class: 'gp-subtitle', text: t(o.mission.titleKey) }),
     h('p', { class: 'gp-lead', text: t(o.mission.summaryKey) }),
-    h('p', { text: t(o.contextKey) }),
+    o.contextKey ? h('p', { text: t(o.contextKey) }) : null,
     h('h4', { text: t('gameplay.briefing.goals') }),
     goals,
     sourcesLine(t, o.mission.sources),
@@ -181,14 +182,21 @@ const ASSIST_KEYS: Readonly<Record<AssistOption, string>> = {
   extraCheckpoint: 'gameplay.assist.extraCheckpoint',
 };
 
+/** Levels fail with a bare id or a locale key; the card shows it only when it resolves to real text. */
+export function failureReasonText(t: T, reasonKey: string): string | null {
+  const text = t(reasonKey);
+  return text !== reasonKey ? text : null;
+}
+
 /** Failure card: what really happened (sourced, labeled), one hint, instant retry, assist offer. */
 export function failureScreen(t: T, r: FailureReport, onRetry: () => void, onAssist: (o: AssistOption) => void): GpScreen {
   const info = r.info;
   const offer = r.assistOptions.length > 0;
+  const reasonText = failureReasonText(t, r.reasonKey);
   const s = sheet(
     'failure',
     t('gameplay.failure.title'),
-    h('p', { class: 'gp-lead', text: t(r.reasonKey) }),
+    reasonText ? h('p', { class: 'gp-lead', text: reasonText }) : null,
     info ? h('h3', { class: 'gp-subtitle' }, document.createTextNode(t('gameplay.failure.what') + ' '), labelChip(t, info.label)) : null,
     info ? h('p', { text: t(info.whatHappenedKey) }) : null,
     info ? sourcesLine(t, info.sources) : null,

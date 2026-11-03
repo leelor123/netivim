@@ -145,6 +145,8 @@ export interface LevelDefinition<S extends string = string, E extends string = s
   /** Decisions this mission can present (ids are keys in save.choices). */
   readonly decisions?: readonly DecisionDef[];
   readonly briefingMap?: BriefingMap;
+  /** Briefing context paragraph for this mission (otherwise only the first mission shows the chapter context). */
+  readonly briefingContextKey?: string;
   /** Marks framework samples (never shipped as content). */
   readonly sample?: boolean;
   build(ctx: LevelContext<E>): Level;

@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
+import { failureReasonText } from '../../src/gameplay/ui/screens';
 import { ASSIST_AFTER_FAILURES, ASSIST_TIMER_BONUS, DIFFICULTY } from '../../src/core/difficulty';
 import { FIXED_DT } from '../../src/core/loop';
 import { MIN_TELEGRAPH_SECONDS, telegraphSeconds } from '../../src/gameplay/core/telegraph';
@@ -99,28 +100,15 @@ describe.each(MISSIONS)('mission %s', (id) => {
   });
 });
 
-/**
- * KNOWN ISSUE (framework, reported in QA_REPORT): failureScreen prints t(reasonKey) as the card
- * heading, but these missions fail with a bare id, so the card would show the raw id. When the
- * framework shows the card title instead, empty this list.
- */
-const RAW_HEADING_REASONS: readonly string[] = [
-  'icj-misread',
-  'result-change',
-  'jerusalem-missed',
-  'label-basel',
-  'label-guides',
-  'missed-train',
-  'wrong-addressee',
-  'field-crossing',
-  'colony-no-parts',
-];
-
 describe('failure card heading', () => {
-  it('is a locale key except for the known raw-id reasons', () => {
-    const raw: string[] = [];
-    for (const id of MISSIONS) for (const reason of Object.keys(def(id).failures)) if (!has(reason)) raw.push(reason);
-    expect(raw.sort()).toEqual([...RAW_HEADING_REASONS].sort());
+  it('never shows a raw failure id: unresolved reasons are omitted, keys show their text', () => {
+    const t = (k: string): string => (has(k) ? 'TEXT:' + k : k);
+    for (const id of MISSIONS) {
+      for (const reason of Object.keys(def(id).failures)) {
+        const shown = failureReasonText(t, reason);
+        expect(shown === null || shown.startsWith('TEXT:'), id + '/' + reason).toBe(true);
+      }
+    }
   });
 });
 
