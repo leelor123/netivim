@@ -3,6 +3,8 @@ import { HEBREW } from './locales';
 import { createI18n } from './core/i18n';
 import { hasWebGL2 } from './core/webgl';
 import { startGame, type Game } from './game';
+import { installHaptics } from './core/input/haptics';
+import { installTouchControls } from './ui/touch/touchControls';
 
 declare global {
   interface Window {
@@ -63,6 +65,8 @@ function boot(): void {
     status.textContent = i18n.t(game.save.saveManual('manual-1') ? 'pause.saved' : 'pause.saveFailed');
   });
   // SYSTEM INSTALLS (one line per system; see docs/CONTRACTS.md section 11)
+  installTouchControls(game);
+  installHaptics(game);
   // END SYSTEM INSTALLS
   if (import.meta.env.VITE_TEST_HOOKS === '1') window.__netivim = game;
 }

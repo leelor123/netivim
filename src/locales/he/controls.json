@@ -1,0 +1,16 @@
+{
+  "controls.action.confirm": "אישור",
+  "controls.action.back": "חזרה",
+  "controls.action.pause": "השהיה",
+  "controls.action.interact": "פעולה",
+  "controls.action.alt": "פעולה משנית",
+  "controls.action.map": "מפה",
+  "controls.action.tabPrev": "לשונית קודמת",
+  "controls.action.tabNext": "לשונית הבאה",
+  "controls.action.up": "למעלה",
+  "controls.action.down": "למטה",
+  "controls.action.left": "שמאלה",
+  "controls.action.right": "ימינה",
+  "controls.touch.joystick": "ג׳ויסטיק תנועה",
+  "controls.touch.group": "פקדי מגע"
+}
