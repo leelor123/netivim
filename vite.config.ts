@@ -14,5 +14,7 @@ export default defineConfig({
   test: {
     include: ['tests/unit/**/*.test.ts', 'tests/content/**/*.test.ts', 'tests/solvability/**/*.test.ts'],
     environment: 'node',
+    // The solvability harness runs a whole 18-minute level per checkpoint and difficulty.
+    testTimeout: 180000,
   },
 });
