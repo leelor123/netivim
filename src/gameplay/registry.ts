@@ -19,6 +19,8 @@ export const LEVELS: Record<string, Loader<AnyLevelDefinition>> = {
   'sample-walk': () => import('./sample/sampleWalk').then((m) => m.default),
   // Chapter levels go below this line.
   'tower-stockade': () => import('../levels/ch01/tower-stockade').then((m) => m.default),
+  'archive-night': () => import('../levels/ch00/archive-night').then((m) => m.default),
+  'the-vote': () => import('../levels/ch01/the-vote').then((m) => m.default),
 };
 
 export const CHAPTERS: Record<string, Loader<ChapterDefinition>> = {
@@ -26,12 +28,14 @@ export const CHAPTERS: Record<string, Loader<ChapterDefinition>> = {
   sample: () => import('./sample/sampleChapter').then((m) => m.default),
   // Chapters go below this line.
   ch01: () => import('../levels/ch01/chapter').then((m) => m.default),
+  prologue: () => import('../levels/ch00/chapter').then((m) => m.default),
 };
 
 /** Timeline slot of each registered chapter, known without loading it. */
 export const CHAPTER_SLOTS: Record<string, ChapterId> = {
   sample: 'prologue',
   ch01: 'ch01',
+  prologue: 'prologue',
 };
 
 /** The sample chapter is never offered in a release build. */

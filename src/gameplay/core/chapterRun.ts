@@ -36,9 +36,15 @@ export class ChapterRun {
     return this.chapter.content.contentNote;
   }
 
-  /** Flow event after a mission completes: the chapter cutscene, or straight to the debrief. */
+  /** Cutscene to play after the current mission: the chapter cutscene after the last one, else a between-missions cutscene. */
+  get cutsceneAfterCurrent(): string | undefined {
+    if (this.isLastMission) return this.chapter.cutsceneId;
+    return this.chapter.cutsceneAfterLevel?.[this.levelId];
+  }
+
+  /** Flow event after a mission completes: a cutscene, or straight to the debrief. */
   afterMission(cutsceneAvailable: boolean): FlowEvent {
-    return this.isLastMission && this.chapter.cutsceneId && cutsceneAvailable ? 'playCutscene' : 'missionDone';
+    return this.cutsceneAfterCurrent && cutsceneAvailable ? 'playCutscene' : 'missionDone';
   }
 
   /** Flow event when the debrief is closed; advances to the next mission when there is one. */

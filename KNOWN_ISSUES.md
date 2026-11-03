@@ -9,3 +9,5 @@ All must be closed before the M2 release (DoD: this file empty).
 7. Local E2E is unreliable while several agents run browsers at once (CPU-starved WebGL slows the fixed-step clock); CI is the gate. Owner: lead (consider a test-only fast-forward hook).
 8. Adaptive quality lowered the preset right at launch in a slow (software GL) browser and its toast overlaps the title menu; add a grace period after launch and scene switches, and keep toasts clear of menus. Owner: graphics/UI.
 10. Timeline chapter names wrap or truncate at phone width (e.g. Ch8). Owner: timeline.
+11. The hub menu appears before the Archive hall scene has loaded, so the title scene shows behind it for a moment; show a loading state or switch the scene first. Owner: gameplay/world.
+13. Codex is opened via the map button only; add a Codex item to the pause menu. Player figure reads dark against the archive room on lower presets. Owner: UI / world polish.

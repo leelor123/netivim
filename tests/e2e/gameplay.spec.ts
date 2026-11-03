@@ -113,10 +113,13 @@ test('controller only: hub -> chapter select -> sample level -> debrief -> quiz 
   await expect(page.locator('[data-screen="gp-hub"]')).toBeVisible({ timeout: 60000 });
   await expect.poll(() => autoSave(page).then((s) => s?.resume.screen ?? null)).toBe('hub');
 
-  // Hub -> chapter select (timeline) -> prologue slot (the sample chapter in test builds).
+  // Hub -> chapter select (timeline) -> timeline, then the sample chapter.
   await press(page, A);
   await expect(page.locator('[data-screen="timeline"]')).toBeVisible({ timeout: 60000 });
-  await press(page, A);
+  // The prologue slot now opens the real chapter; this test drives the sample chapter directly.
+  await press(page, 1);
+  await expect(page.locator('[data-screen="gp-hub"]')).toBeVisible({ timeout: 60000 });
+  await page.evaluate(() => window.__netivimGameplay?.beginChapter('sample', false));
 
   // Content note: Standard is focused first.
   await expect(page.locator('[data-screen="gp-content-note"]')).toBeVisible({ timeout: 60000 });

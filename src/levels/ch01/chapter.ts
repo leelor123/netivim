@@ -1,4 +1,3 @@
-import { getCinematics } from '../../cinematics';
 import { CH01 } from '../../content/ch01/chapter';
 import { CH01_CUTSCENES } from '../../content/ch01/cutscenes';
 import type { ChapterDefinition } from '../../gameplay/types';
@@ -13,11 +12,9 @@ const chapter: ChapterDefinition = {
   timelineId: 'ch01',
   levels: ['tower-stockade', 'night-landing', 'the-vote'],
   briefingContextKey: 'levels.ch01.tower.context',
-  cutsceneId: CH01_CUTSCENES[0]?.id ?? 'ch01.stockade-and-radio',
+  cutscenes: CH01_CUTSCENES,
+  cutsceneId: 'ch01.stockade-and-radio',
   decisions: [],
 };
-
-// The chapter cutscene is registered with the cinematics system once the chapter loads.
-for (const def of CH01_CUTSCENES) getCinematics()?.register(def);
 
 export default chapter;
