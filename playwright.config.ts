@@ -24,7 +24,8 @@ export default defineConfig({
   webServer: {
     command: 'npx vite preview --outDir dist-test --port 4174 --strictPort',
     url: 'http://localhost:4174',
-    reuseExistingServer: !process.env.CI,
+    // Never reuse: parallel worktrees may leave a server with different code on this port.
+    reuseExistingServer: false,
     timeout: 60000,
   },
 });
