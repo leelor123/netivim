@@ -14,5 +14,7 @@ export default defineConfig({
   test: {
     include: ['tests/unit/**/*.test.ts', 'tests/content/**/*.test.ts', 'tests/solvability/**/*.test.ts'],
     environment: 'node',
+    // QA-bot solvability runs replay whole missions from every checkpoint on every difficulty.
+    testTimeout: 60000,
   },
 });
