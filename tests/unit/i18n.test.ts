@@ -41,6 +41,13 @@ describe('Hebrew locale files', () => {
     expect(() => mergeLocales({ a: { k: 'x' }, b: { k: 'y' } })).toThrow(/Duplicate locale key k/);
   });
 
+  it('use only safe bidi isolates (U+2066-U+2069), never embedding or override controls', () => {
+    // Isolates keep English phrases readable inside Hebrew. Embeddings/overrides (U+202A-U+202E)
+    // can disguise text ("Trojan Source") and are never needed here.
+    const unsafe = /[\u202A-\u202E]/;
+    for (const [key, value] of Object.entries(mergeLocales(files))) expect(unsafe.test(value), key).toBe(false);
+  });
+
   it('have only non-empty string values', () => {
     for (const [key, value] of Object.entries(mergeLocales(files))) {
       expect(typeof value, key).toBe('string');
