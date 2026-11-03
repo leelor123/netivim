@@ -1,0 +1,59 @@
+/* Tower and Stockade: planning panel and Two Lenses panel. Logical properties keep RTL right. */
+.ch01t-plan {
+  position: fixed;
+  inset-inline: 0;
+  inset-block-end: max(12px, env(safe-area-inset-bottom));
+  margin-inline: auto;
+  inline-size: min(760px, 94vw);
+  z-index: 26;
+  pointer-events: none;
+  background: rgb(26 20 14 / 0.82);
+  color: #f3ede2;
+  border: 1px solid #c9b48d;
+  border-radius: 10px;
+  padding: 8px 14px 10px;
+  font-family: Heebo, system-ui, sans-serif;
+}
+.ch01t-plan[hidden] { display: none; }
+.ch01t-plan__title { margin: 0 0 6px; font-weight: 700; color: #e9c98a; }
+.ch01t-plan__chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ch01t-chip {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 99px;
+  border: 1px solid #a88b5e;
+  background: rgb(255 255 255 / 0.08);
+  font-size: 15px;
+}
+.ch01t-chip.is-selected { background: #e9c98a; color: #2b2118; font-weight: 700; }
+.ch01t-chip.is-empty:not(.is-selected) { opacity: 0.45; }
+.ch01t-chip__count { font-variant-numeric: tabular-nums; }
+.ch01t-plan__progress { margin: 6px 0 0; font-size: 14px; color: #d9d2c5; }
+.ch01t-plan__status { margin: 2px 0 0; font-size: 15px; color: #bfe3a8; min-block-size: 1.4em; }
+.ch01t-plan__status.is-bad { color: #f1b49a; }
+.ch01t-plan__controls { margin: 4px 0 0; font-size: 13px; color: #cfc6b4; }
+
+.ch01t-lenses {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: grid;
+  place-items: center;
+  padding: max(16px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+  background: linear-gradient(180deg, rgb(10 9 7 / 0.45), rgb(10 9 7 / 0.78));
+  font-family: Heebo, system-ui, sans-serif;
+}
+.ch01t-lenses[hidden] { display: none; }
+.ch01t-lenses__cols { display: flex; flex-wrap: wrap; gap: 14px; margin-block: 8px; }
+.ch01t-lens {
+  flex: 1 1 260px;
+  min-inline-size: 0;
+  background: #f8f1df;
+  border: 1px solid #c9b48d;
+  border-radius: 8px;
+  padding: 4px 14px 8px;
+}
+.ch01t-lens h3 { margin: 8px 0 4px; font-size: 18px; }
+.ch01t-lens p { margin: 4px 0; }
