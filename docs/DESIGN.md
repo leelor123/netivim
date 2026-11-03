@@ -51,7 +51,7 @@ once research lands; the content validator fails the build if a mission has none
 | Ch1 Roots | Night Landing (Aliyah Bet, 1946) | STL+RSC | White Paper, Holocaust survivors, British blockade | 18 |
 | Ch1 Roots | The Vote (29 Nov 1947) | DEC | UNSCOP, Partition Plan map, reactions on all sides | 12 |
 | Ch2 1948 | The Road to Jerusalem | CNV | Siege, Sha'ar HaGai convoys, civil-war phase | 25 |
-| Ch2 1948 | 34 Hours (14 May 1948) | LOG | Declaration of Independence: how it was assembled in secret | 18 |
+| Ch2 1948 | Friday, Four O'Clock (12-14 May 1948) | LOG | Declaration of Independence: the 12 May vote, invitations on the morning of 14 May, the 16:00 ceremony | 18 |
 | Ch2 1948 | Negba Holds | HLD | Invasion by Arab armies, southern front, kibbutz defense | 25 |
 | Ch2 1948 | The Burma Road | PLN+LOG | Latrun, building the bypass road by night | 25 |
 | Ch2 1948 | Two Memories | EXP (reflective) | Nakba and Independence; refugees; armistice lines | 20 |
@@ -176,3 +176,5 @@ loop; flat geometry/texture counts in a 30-min soak.
 
 ## 10. Decision log
 - 2026-11-03 Initial design (this document).
+- 2026-11-03 Ch2 mission "34 Hours" renamed and re-scoped: research (ch02) found no support for a 34-hour assembly claim; the mission now follows the documented 12-14 May timeline.
+- 2026-11-03 Research rule: Wikipedia may be used only as an index; claims need an opened primary, academic or reputable source. Unverified claims never reach quiz or facts.
