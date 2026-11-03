@@ -28,7 +28,7 @@ export class DomScreenHost implements ScreenHost<UiScreen> {
     const el = screen.el;
     el.classList.add('nv-screen');
     el.classList.toggle('nv-screen--modal', !!screen.modal);
-    el.dataset.screen = screen.id;
+    el.dataset.uiScreen = screen.id;
     if (!this.reducedMotion()) {
       el.classList.add('is-entering');
       // Removed on the next task so the CSS animation plays once.

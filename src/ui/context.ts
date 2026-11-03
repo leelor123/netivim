@@ -12,8 +12,8 @@ export interface UiContext {
   readonly rtl: boolean;
   readonly screens: ScreenManager<UiScreen>;
   readonly focus: FocusManager;
-  /** Runs a UI-initiated flow / pause change (so the resume guard lets it through). */
-  withUi(fn: () => void): void;
+  /** Closes the pause menu and resumes play (resuming is owned by the UI). */
+  resume(): void;
   /** Leaves gameplay for the title screen (no prompt; callers decide). */
   exitToTitle(): void;
   formatDateTime(ms: number): string;

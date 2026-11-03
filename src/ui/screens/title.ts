@@ -15,7 +15,7 @@ export function titleScreen(ctx: UiContext): UiScreen {
 
   const startNew = (): void => {
     game.setState(createNewSave(Date.now()));
-    ctx.withUi(() => game.flow.send('openHub'));
+    game.flow.send('openHub');
   };
 
   const cont = button(
@@ -24,7 +24,7 @@ export function titleScreen(ctx: UiContext): UiScreen {
       const latest = game.save.loadNewest();
       if (!latest) return;
       game.setState(latest.data);
-      ctx.withUi(() => game.flow.send('openHub'));
+      game.flow.send('openHub');
     },
     { variant: 'primary', key: 'continue', disabled: !newest, sub: newest ? ctx.formatDateTime(newest.savedAt) : t('ui.menu.continueEmpty') },
   );

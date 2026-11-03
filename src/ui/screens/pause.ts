@@ -14,7 +14,7 @@ export interface PauseScreen extends UiScreen {
 export function pauseScreen(ctx: UiContext): PauseScreen {
   const { t, game } = ctx;
   const p = panel(ctx, t('ui.pause.title'));
-  const resume = (): void => ctx.withUi(() => game.flow.setPaused(false));
+  const resume = (): void => ctx.resume();
   const resumeButton = button(t('ui.pause.resume'), resume, { variant: 'primary', key: 'resume' });
 
   const exit = (): void => {

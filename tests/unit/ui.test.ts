@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { findNext, firstInReadingOrder, horizontalDelta, tabDelta, type Box } from '../../src/ui/nav';
-import { cycleOption, decideExit, exitPath, shouldVetoResume, sliderFromPointer, stepSlider, type ResumeContext } from '../../src/ui/logic';
+import { canPauseIn, cycleOption, decideExit, exitPath, pausePressResumes, sliderFromPointer, stepSlider } from '../../src/ui/logic';
 import { ScreenManager, type Screen, type ScreenHost } from '../../src/ui/screenManager';
 import { captureNextGamepadButton } from '../../src/ui/remap';
 import { formatCoverageDate, HISTORY_COVERED_UP_TO } from '../../src/ui/coverage';
@@ -113,32 +113,19 @@ describe('exit prompt (BRIEF 8.E)', () => {
   });
 });
 
-describe('pause resume guard', () => {
-  const base: ResumeContext = {
-    uiInitiated: false,
-    pauseOpen: true,
-    depth: 1,
-    pressedPause: false,
-    pressedBack: false,
-    pressedConfirm: false,
-    resumeFocused: true,
-    recentUiKey: false,
-  };
-  it('lets Start, back at the root and confirm on Resume through', () => {
-    expect(shouldVetoResume({ ...base, pressedPause: true })).toBe(false);
-    expect(shouldVetoResume({ ...base, pressedBack: true })).toBe(false);
-    expect(shouldVetoResume({ ...base, pressedConfirm: true })).toBe(false);
-    expect(shouldVetoResume({ ...base })).toBe(false); // e.g. controller reconnected
+describe('pause press while paused', () => {
+  it('Start resumes from anywhere in the pause menu', () => {
+    expect(pausePressResumes({ pressedPause: true, pressedBack: false, recentUiKey: false })).toBe(true);
+    expect(pausePressResumes({ pressedPause: false, pressedBack: true, recentUiKey: false })).toBe(false);
   });
-  it('keeps the game paused when the press belongs to the menu', () => {
-    expect(shouldVetoResume({ ...base, pressedConfirm: true, resumeFocused: false })).toBe(true);
-    expect(shouldVetoResume({ ...base, pressedBack: true, depth: 2 })).toBe(true);
-    expect(shouldVetoResume({ ...base, pressedBack: true, pressedPause: true, depth: 3 })).toBe(true);
-    expect(shouldVetoResume({ ...base, pressedPause: true, recentUiKey: true })).toBe(true);
+  it('Escape resumes at the pause root but not when the UI used it to go back', () => {
+    expect(pausePressResumes({ pressedPause: true, pressedBack: true, recentUiKey: false })).toBe(true);
+    expect(pausePressResumes({ pressedPause: true, pressedBack: true, recentUiKey: true })).toBe(false);
   });
-  it('never blocks UI-initiated resumes or resumes without the menu', () => {
-    expect(shouldVetoResume({ ...base, uiInitiated: true, pressedConfirm: true, resumeFocused: false })).toBe(false);
-    expect(shouldVetoResume({ ...base, pauseOpen: false, pressedConfirm: true, resumeFocused: false })).toBe(false);
+  it('never pauses on the title or boot screens', () => {
+    expect(canPauseIn('title')).toBe(false);
+    expect(canPauseIn('boot')).toBe(false);
+    expect(canPauseIn('mission')).toBe(true);
   });
 });
 
