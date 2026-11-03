@@ -18,6 +18,7 @@ export const LEVELS: Record<string, Loader<AnyLevelDefinition>> = {
   // SAMPLE (framework test level, not content).
   'sample-walk': () => import('./sample/sampleWalk').then((m) => m.default),
   // Chapter levels go below this line.
+  'the-vote': () => import('../levels/ch01/the-vote').then((m) => m.default),
 };
 
 export const CHAPTERS: Record<string, Loader<ChapterDefinition>> = {
