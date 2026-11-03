@@ -80,16 +80,21 @@ is_landscape() {
 
 # Visible system bars according to the window manager. Prints offending lines.
 # API 33+: "InsetsSource ... type=statusBars ... visible=true"; API 30-32: "type=ITYPE_STATUS_BAR".
-bars_visible_lines() {
+# dumpsys also lists inset states of other windows (e.g. the portrait launcher behind us), so
+# only bar sources whose frame spans the LANDSCAPE width (our app's window) are considered.
+landscape_width() {
+  adb shell wm size | tr -d '\r' | sed -n 's/.*: \([0-9]*\)x\([0-9]*\).*/\1 \2/p' | tail -1 \
+    | awk '{ print ($1 > $2) ? $1 : $2 }'
+}
+app_bar_lines() {
+  local w
+  w="$(landscape_width)"
   adb shell dumpsys window | tr -d '\r' \
     | grep -E "type=(statusBars|navigationBars|ITYPE_STATUS_BAR|ITYPE_NAVIGATION_BAR)" \
-    | grep -E "visible=true"
+    | grep -E "\]\[${w},"
 }
-bars_known() {
-  adb shell dumpsys window | tr -d '\r' \
-    | grep -E "type=(statusBars|navigationBars|ITYPE_STATUS_BAR|ITYPE_NAVIGATION_BAR)" \
-    | grep -qE "visible=(true|false)"
-}
+bars_visible_lines() { app_bar_lines | grep -E "visible=true"; }
+bars_known() { app_bar_lines | grep -qE "visible=(true|false)"; }
 bars_hidden() { bars_known && ! bars_visible_lines >/dev/null; }
 
 assert_immersive() {
