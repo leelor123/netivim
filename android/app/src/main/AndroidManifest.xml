@@ -7,8 +7,16 @@
 
     <!-- No INTERNET permission: the game is fully offline and never contacts any server. -->
 
+    <!--
+      allowBackup=true is deliberate: saves live in the WebView storage / Preferences and are
+      versioned, size-limited and migrated on load (docs/BRIEF.md section 9), so restoring them
+      onto a new phone is safe and is what players expect. The data holds no personal data and
+      no secrets. usesCleartextTraffic=false: no http traffic is ever allowed (and the app has
+      no INTERNET permission anyway).
+    -->
     <application
         android:allowBackup="true"
+        android:usesCleartextTraffic="false"
         android:appCategory="game"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
