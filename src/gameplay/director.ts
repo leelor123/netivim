@@ -55,6 +55,8 @@ export class Director {
   private hud: MissionHud | null = null;
   private cameFromTitle = true;
   private chapterEnd = false;
+  /** True while the flow is in a chapter run this director started (it never hijacks others). */
+  private owned = false;
   private viewerOpen = false;
   private token = 0;
   private readonly offs: (() => void)[] = [];
@@ -95,6 +97,12 @@ export class Director {
   // ---- flow ---------------------------------------------------------------------------------
 
   private onFlow(from: FlowState, to: FlowState): void {
+    if (to === 'title' || to === 'hub') this.owned = false;
+    else if (!this.owned) {
+      // Someone else (a test, a tool, another system) drives the flow: stay out of the way.
+      this.stack.clear();
+      return;
+    }
     switch (to) {
       case 'title':
         this.token++;
@@ -244,6 +252,7 @@ export class Director {
     this.levelDef = await loadLevel(run.levelId);
     if (mine !== this.token) return;
     const flow = this.game.flow;
+    this.owned = true;
     if (flow.state === 'hub') flow.send('openBriefing');
     else if (flow.state === 'debrief') flow.send('nextMission');
   }
@@ -257,7 +266,7 @@ export class Director {
     const run = this.run;
     const def = this.levelDef;
     if (!run || !def) {
-      this.game.flow.send('back');
+      this.stack.clear();
       return;
     }
     const meta = run.mission;
@@ -294,10 +303,7 @@ export class Director {
   private startMission(): void {
     const run = this.run;
     const def = this.levelDef;
-    if (!run || !def) {
-      this.game.flow.send('abandon');
-      return;
-    }
+    if (!run || !def) return;
     const game = this.game;
     const hud = new MissionHud(game, this.t);
     this.hud = hud;
