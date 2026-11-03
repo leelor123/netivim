@@ -10,5 +10,4 @@ All must be closed before the M2 release (DoD: this file empty).
 8. Adaptive quality lowered the preset right at launch in a slow (software GL) browser and its toast overlaps the title menu; add a grace period after launch and scene switches, and keep toasts clear of menus. Owner: graphics/UI.
 10. Timeline chapter names wrap or truncate at phone width (e.g. Ch8). Owner: timeline.
 11. The hub menu appears before the Archive hall scene has loaded, so the title scene shows behind it for a moment; show a loading state or switch the scene first. Owner: gameplay/world.
-12. Director plays a chapter cutscene only after the last mission; the Prologue needs ch00.opening between missions 1 and 2 (per-mission cutscenes), and CH00_OPENING is not yet registered with cinematics. Owner: lead (gameplay director).
 13. Codex is opened via the map button only; add a Codex item to the pause menu. Player figure reads dark against the archive room on lower presets. Owner: UI / world polish.

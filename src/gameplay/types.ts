@@ -1,3 +1,4 @@
+import type { CutsceneDefinition } from '../cinematics/types';
 import type { ChapterId } from '../content/eras';
 import type { ChapterContent, ContentLabel } from '../content/schema';
 import type { DifficultyLevel, DifficultyParams } from '../core/difficulty';
@@ -167,6 +168,10 @@ export interface ChapterDefinition {
   readonly briefingContextKey: string;
   /** Cutscene played after the last mission (registered with the cinematics system). */
   readonly cutsceneId?: string;
+  /** Cutscenes played between missions: level id -> cutscene id, played after that level. */
+  readonly cutsceneAfterLevel?: Readonly<Record<string, string>>;
+  /** Cutscene definitions this chapter uses; registered with the cinematics system on load. */
+  readonly cutscenes?: readonly CutsceneDefinition[];
   /** Decisions of all missions, for the chapter debrief ledger. */
   readonly decisions: readonly DecisionDef[];
   readonly sample?: boolean;

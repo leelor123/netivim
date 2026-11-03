@@ -1,5 +1,5 @@
 import { CH00_CHAPTER } from '../../content/ch00/chapter';
-import { CH00_OPENING_ID } from '../../content/ch00/cutscenes';
+import { CH00_OPENING, CH00_OPENING_ID } from '../../content/ch00/cutscenes';
 import { BRIEFING_KEYS } from '../../content/ch00/dialogue';
 import type { ChapterDefinition } from '../../gameplay/types';
 
@@ -13,7 +13,9 @@ const chapter: ChapterDefinition = {
   levels: ['archive-night', 'jaffa-letters'],
   briefingContextKey: BRIEFING_KEYS.chapter.body,
   decisions: [],
-  cutsceneId: CH00_OPENING_ID,
+  // The opening cutscene carries the player from the archive into 1890s Jaffa (missions.md).
+  cutsceneAfterLevel: { 'archive-night': CH00_OPENING_ID },
+  cutscenes: [CH00_OPENING],
 };
 
 export default chapter;

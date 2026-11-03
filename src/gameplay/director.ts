@@ -1,3 +1,4 @@
+import type { CutsceneDefinition } from '../cinematics/types';
 import type { ChapterId } from '../content/eras';
 import { getCinematics } from '../cinematics';
 import type { FlowState } from '../core/flow';
@@ -32,6 +33,7 @@ import {
 
 interface CinematicsLike {
   play(id: string, after?: 'none' | 'resumeMission' | 'toDebrief'): boolean;
+  register(def: CutsceneDefinition): void;
 }
 
 const UNLOCK_TOAST: Readonly<Record<UnlockKind, string>> = {
@@ -186,6 +188,9 @@ export class Director {
     loadChapter(id)
       .then((ch) => {
         if (mine !== this.token || this.game.flow.state !== 'hub') return;
+        // Chapter cutscenes are data owned by the chapter; register them before any mission ends.
+        const cine = this.cinematics();
+        if (cine) for (const def of ch.cutscenes ?? []) cine.register(def);
         const recap = buildRecap(this.game.getState(), ch.content);
         this.stack.push(
           recapScreen(this.t, recap, () => this.beginChapter(id, true), () => this.stack.pop()),
@@ -382,7 +387,7 @@ export class Director {
     this.chapterEnd = run.isLastMission;
     this.game.setState(completeMission(this.game.getState(), chapterId, host.def.missionId));
     const cine = this.cinematics();
-    const cutscene = run.chapter.cutsceneId;
+    const cutscene = run.cutsceneAfterCurrent;
     const event = run.afterMission(!!cine && !!cutscene);
     if (event === 'playCutscene' && cine && cutscene && cine.play(cutscene, 'toDebrief')) return;
     this.game.flow.send('missionDone');
