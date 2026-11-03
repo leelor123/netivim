@@ -161,7 +161,7 @@ describe('registry', () => {
   it('lists and lazily loads levels and the sample chapter (dev/test builds only)', async () => {
     expect(levelIds()).toContain('sample-walk');
     expect(chapterIds()).toContain('sample');
-    expect(chapterForSlot('prologue')).toBe('sample');
+    expect(chapterForSlot('prologue')).toBe('prologue');
     expect(chapterForSlot('ch05')).toBeNull();
     const ch = await loadChapter('sample');
     expect(ch.levels).toEqual(['sample-walk']);
