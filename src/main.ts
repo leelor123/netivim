@@ -72,6 +72,7 @@ function boot(): void {
   installHaptics(game);
   void import('./audio/install').then((m) => m.installAudio(game)).catch((e: unknown) => console.error('[netivim] audio install failed', e));
   installTimeline(game);
+  void import('./world/install').then((m) => m.installWorld(game));
   // END SYSTEM INSTALLS
   if (import.meta.env.VITE_TEST_HOOKS === '1') window.__netivim = game;
 }
