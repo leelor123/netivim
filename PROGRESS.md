@@ -35,18 +35,20 @@
 - Next research move: try alternative access (Google Books previews, JSTOR open, university
   repositories, archive.org full texts) and merge per-chapter registers into SOURCES.md.
 
-## M2 studio status (2026-11-03)
-Lead prerequisites done: settings model (src/core/settings.ts), per-area locales (src/locales/he/*.json),
-install contract (CONTRACTS.md 11-12), M2 events, glyph stub.
-Wave 1 running in worktrees (branch per agent; merge when green and reviewed):
-- UI & menus (opus), Graphics & settings (opus), World & art (opus), Controls (sonnet), Audio (sonnet),
-  Cinematics (sonnet), Timeline & Living Map (sonnet), Android/CI smoke test (sonnet),
-  Fact-checker Prologue+Ch1 (sonnet, no worktree: research/factcheck-ch00-ch01.md, SOURCES.md).
-If a session ends mid-wave: check `git worktree list` and `git branch` for agent branches, run
-`npm run check && npm run e2e` in each, merge green ones in this order: UI, Graphics, World,
-Controls, Audio, Cinematics, Timeline, Android CI. Re-launch any agent with no branch.
-Wave 2 queue (after merge): Prologue builder, Ch1 builder, then fresh Fact-checker + QA bot per
-chapter, then Code + Accessibility reviewers, then performance check and release.
+## M2 studio status (updated 2026-11-03 evening)
+Merged to main and green in CI (incl. emulator smoke): UI and menus, graphics pipeline, world and
+hub, controls and Android gamepad bridge, audio, cinematics, timeline and Living Map, Android CI,
+Prologue + Ch1 content data (src/content/ch00, ch01), fact-check and perspectives research.
+IN FLIGHT (stopped by the usage limit, work saved in their worktrees; resume with SendMessage, or
+if the agent is gone, re-launch with the same brief and point it at its branch):
+- Gameplay framework (opus): branch worktree-agent-a0ff6b86061370fe9 (player, interaction, mission
+  host, chapter flow, briefing/debrief/quiz, codex/archive screens, gameplay modules, QA bot).
+- Content reviewer ch00+ch01 (opus): branch worktree-agent-a256777216a2b9319 (facts, fairness,
+  labels, Hebrew editing, SOURCES fixes for eras.ts).
+QUEUE after those merge: level builders for Prologue (2 missions) and Ch1 (3 missions) on top of the
+gameplay framework, then QA bot + solvability per mission, then fresh code review and
+accessibility review, close KNOWN_ISSUES.md, release v0.2.0 and send the user the Hebrew update.
+Screenshots: npm run screenshots (writes screenshots/, gitignored).
 
 ## Next (M2 vertical slice): exact next steps
 1. M1 review findings are fixed (see QA_REPORT). Graphics agent must add a GameScene hook to rebuild GPU-only state after webglcontextrestored.
