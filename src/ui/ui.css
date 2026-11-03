@@ -452,6 +452,8 @@
   transform: translateY(10px);
   transition: opacity 180ms ease, transform 220ms var(--nv-ease);
 }
+.nv-toast[data-place='top'] { bottom: auto; top: calc(var(--nv-pad-t, 0px) + 12px); transform: translateY(-10px); }
+.nv-toast[data-place='top'].is-shown { transform: none; }
 .nv-toast:empty { padding: 0; border: 0; }
 .nv-toast.is-shown { opacity: 1; transform: none; }
 .nv-toast[data-tone='warn'] { border-inline-start-color: var(--nv-stamp); color: var(--nv-stamp); }

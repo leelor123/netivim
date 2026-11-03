@@ -15,6 +15,8 @@ export interface AdaptiveOptions {
   readonly cooldownMs: number;
   /** After reset (scene or settings change): shader compiles and uploads are not judged (ms). */
   readonly warmupMs: number;
+  /** Grace period after launch, the first-launch benchmark and scene switches (ms, see grace()). */
+  readonly graceMs: number;
   /** Frames longer than this are hitches (tab switch, GC, loading), not sustained load. */
   readonly ignoreAboveMs: number;
 }
@@ -27,6 +29,7 @@ export const DEFAULT_ADAPTIVE: AdaptiveOptions = {
   sustainMs: 3000,
   cooldownMs: 8000,
   warmupMs: 2000,
+  graceMs: 8000,
   ignoreAboveMs: 250,
 };
 
@@ -44,6 +47,7 @@ export class AdaptiveQuality {
   private stateSince = 0;
   private targetMs = 1000 / 60;
   private started = false;
+  private warmupLen = 0;
 
   constructor(private readonly opts: AdaptiveOptions = DEFAULT_ADAPTIVE) {
     this.times = new Float32Array(opts.windowSize);
@@ -67,7 +71,18 @@ export class AdaptiveQuality {
     this.clearWindow();
     this.state_ = 'warmup';
     this.stateSince = nowMs;
+    this.warmupLen = this.opts.warmupMs;
     this.started = true;
+  }
+
+  /**
+   * Starts the long grace period (graceMs) in which no frame is judged and no step down can
+   * happen. Call at launch, after the first-launch benchmark and after scene switches, when
+   * shader compiles and asset uploads make frames slow without the preset being too high.
+   */
+  grace(nowMs: number): void {
+    this.reset(nowMs);
+    this.warmupLen = Math.max(this.opts.warmupMs, this.opts.graceMs);
   }
 
   /** Feeds one rendered frame. Returns true exactly when quality should drop one level now. */
@@ -75,7 +90,7 @@ export class AdaptiveQuality {
     if (!this.started) this.reset(nowMs);
     const o = this.opts;
     if (this.state_ === 'warmup') {
-      if (nowMs - this.stateSince < o.warmupMs) return false;
+      if (nowMs - this.stateSince < this.warmupLen) return false;
       this.enter('ok', nowMs);
     } else if (this.state_ === 'cooldown') {
       if (nowMs - this.stateSince < o.cooldownMs) return false;

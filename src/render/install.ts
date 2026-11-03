@@ -148,6 +148,7 @@ export function installGraphics(game: Game): () => void {
       return;
     }
     persist({ preset: chosen, benchmarked: true });
+    adaptive.grace(performance.now());
     notify('graphics.toast.benchmarkDone', { preset: i18n.t('graphics.preset.' + chosen) });
   };
 
@@ -184,8 +185,14 @@ export function installGraphics(game: Game): () => void {
   };
 
   // ---- Adaptive quality --------------------------------------------------------------------
+  let lastScene = scenes.active;
   const adaptiveFrame = (frameMs: number, now: number): void => {
     if (planner || !adaptiveEnabled) return;
+    // A scene switch (compiles, uploads) gets the same grace period as launch.
+    if (scenes.active !== lastScene) {
+      lastScene = scenes.active;
+      adaptive.grace(now);
+    }
     const g = settings.value.graphics;
     if (g.mode === 'custom') return;
     if (!adaptive.sample(frameMs, now)) return;
@@ -277,6 +284,7 @@ export function installGraphics(game: Game): () => void {
   // ---- Start -----------------------------------------------------------------------------------
   scenes.setGraphics(pipeline.resolved);
   applyQuality();
+  adaptive.grace(performance.now());
   syncOverlay();
   maybeStartBenchmark();
 
