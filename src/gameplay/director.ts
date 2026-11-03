@@ -284,7 +284,7 @@ export class Director {
       briefingScreen(this.t, {
         chapter: run.chapter.content,
         mission: meta,
-        contextKey: run.chapter.briefingContextKey,
+        contextKey: def.briefingContextKey ?? (run.index === 0 ? run.chapter.briefingContextKey : null),
         map: def.briefingMap ?? null,
         difficultyKey: 'gameplay.difficulty.' + this.game.settings.value.gameplay.difficulty,
         resumes,

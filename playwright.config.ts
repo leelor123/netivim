@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// Parallel worktrees can set PW_PORT to avoid clashing on the default port.
+const PORT = Number(process.env.PW_PORT ?? 4174);
+
 export default defineConfig({
   testDir: 'tests/e2e',
   fullyParallel: true,
@@ -12,7 +15,7 @@ export default defineConfig({
   expect: { timeout: 15000 },
   reporter: [['list']],
   use: {
-    baseURL: 'http://localhost:4174',
+    baseURL: 'http://localhost:' + PORT,
     trace: 'retain-on-failure',
   },
   projects: [
@@ -22,8 +25,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npx vite preview --outDir dist-test --port 4174 --strictPort',
-    url: 'http://localhost:4174',
+    command: 'npx vite preview --outDir dist-test --port ' + PORT + ' --strictPort',
+    url: 'http://localhost:' + PORT,
     // Never reuse: parallel worktrees may leave a server with different code on this port.
     reuseExistingServer: false,
     timeout: 60000,

@@ -12,7 +12,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 700,
   },
   test: {
-    include: ['tests/unit/**/*.test.ts', 'tests/content/**/*.test.ts', 'tests/solvability/**/*.test.ts'],
+    include: ['tests/unit/**/*.test.ts', 'tests/content/**/*.test.ts', 'tests/solvability/**/*.test.ts', 'tests/qa/**/*.test.ts'],
     environment: 'node',
     // QA-bot solvability runs replay whole missions (up to 18 min of game time) from every
     // checkpoint on every difficulty.
