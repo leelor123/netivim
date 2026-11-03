@@ -66,7 +66,7 @@ function archive(id: string, license: ArchiveItem['license'], year: number, sour
 }
 
 const archiveItems: readonly ArchiveItem[] = [
-  archive('basel-program', 'recreation', 1897, ['P-044', 'P-031']),
+  archive('basel-program', 'recreation', 1897, ['P-044', 'P-043']),
   archive('herzl-diary-1897', 'excerpt', 1897, ['P-045']),
   archive('khalidi-letters-1899', 'excerpt', 1899, ['P-009']),
 ];
@@ -81,7 +81,7 @@ const testimonies: readonly Testimony[] = [
   testimony('composite-jaffa-clerk', 'composite', ['P-055']),
   testimony('composite-old-yishuv', 'composite', ['P-054']),
   testimony('composite-colony', 'composite', ['P-047', 'P-046']),
-  testimony('composite-village', 'composite', ['P-101', 'P-053']),
+  testimony('composite-village', 'composite', ['P-101', 'P-057']),
 ];
 
 function fact(id: string, sources: readonly string[]): Fact {
@@ -141,7 +141,7 @@ export const CH00_HISTORY_COVERED = {
   noteKey: k('history', 'note'),
   years: getEra('prologue').years,
   /** Event IDs from eras.ts that the prologue touches. */
-  eraEventIds: ['land-code-1858', 'rishon-1882', 'railway-1892', 'basel-1897', 'khalidi-1899', 'beersheba-1899', 'hashomer-1909', 'locust-1915'],
+  eraEventIds: ['basel-1897', 'khalidi-1899', 'beersheba-1899', 'hashomer-1909', 'locust-1915'],
 } as const;
 
 /** Two Lenses (DESIGN feature): contested ground the prologue touches. Each narrative in its own terms. */

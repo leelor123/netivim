@@ -53,7 +53,8 @@ export interface TwoLenses {
 const line = (speaker: SpeakerId, textKey: string, sources: readonly string[] = []): DialogueLine => ({
   speaker,
   textKey,
-  label: speaker === 'narrator' && sources.length > 0 ? 'documented' : 'composite',
+  // Noa and Samir are composites; the narrator states sourced facts (documented) or framing (reconstructed).
+  label: speaker === 'narrator' ? (sources.length > 0 ? 'documented' : 'reconstructed') : 'composite',
   sources,
 });
 
@@ -167,7 +168,7 @@ export const TWO_LENSES: readonly TwoLenses[] = [
   twoLenses('1929', ['C1-059', 'C1-101', 'C1-105']),
   twoLenses('revolt', ['C1-058', 'C1-059', 'C1-101', 'C1-103']),
   twoLenses('land', ['C1-064', 'C1-065', 'C1-101', 'C1-102', 'C1-103']),
-  twoLenses('immigration', ['C1-002', 'C1-101'], ['british']),
+  twoLenses('immigration', ['C1-002', 'C1-059', 'C1-055', 'C1-101'], ['british']),
   twoLenses('partition', ['C1-058', 'C1-060', 'C1-101']),
 ];
 
