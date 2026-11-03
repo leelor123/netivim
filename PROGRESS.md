@@ -35,6 +35,19 @@
 - Next research move: try alternative access (Google Books previews, JSTOR open, university
   repositories, archive.org full texts) and merge per-chapter registers into SOURCES.md.
 
+## M2 studio status (2026-11-03)
+Lead prerequisites done: settings model (src/core/settings.ts), per-area locales (src/locales/he/*.json),
+install contract (CONTRACTS.md 11-12), M2 events, glyph stub.
+Wave 1 running in worktrees (branch per agent; merge when green and reviewed):
+- UI & menus (opus), Graphics & settings (opus), World & art (opus), Controls (sonnet), Audio (sonnet),
+  Cinematics (sonnet), Timeline & Living Map (sonnet), Android/CI smoke test (sonnet),
+  Fact-checker Prologue+Ch1 (sonnet, no worktree: research/factcheck-ch00-ch01.md, SOURCES.md).
+If a session ends mid-wave: check `git worktree list` and `git branch` for agent branches, run
+`npm run check && npm run e2e` in each, merge green ones in this order: UI, Graphics, World,
+Controls, Audio, Cinematics, Timeline, Android CI. Re-launch any agent with no branch.
+Wave 2 queue (after merge): Prologue builder, Ch1 builder, then fresh Fact-checker + QA bot per
+chapter, then Code + Accessibility reviewers, then performance check and release.
+
 ## Next (M2 vertical slice): exact next steps
 1. M1 review findings are fixed (see QA_REPORT). Graphics agent must add a GameScene hook to rebuild GPU-only state after webglcontextrestored.
 2. Fan out system agents in worktrees (CONTRACTS.md ownership map): Graphics & Settings, Controls
