@@ -210,9 +210,8 @@ export function settingsScreen(ctx: UiContext, initialTab: SettingsTab = 'graphi
   };
 
   const applyBindings = (b: Settings['controls']['bindings']): void => {
+    // game.ts applies controls bindings to the input manager on settings:changed.
     update('controls', { bindings: b });
-    // Apply at once so the new layout works in this menu too.
-    game.input.setBindings(game.settings.value.controls.bindings);
   };
 
   const buttonsFor = (action: Action): string => {

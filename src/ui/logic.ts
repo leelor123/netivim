@@ -70,31 +70,12 @@ export function canPauseIn(state: FlowState): boolean {
   return state !== 'boot' && state !== 'title';
 }
 
-export interface ResumeContext {
-  /** The UI itself asked to resume. */
-  readonly uiInitiated: boolean;
-  /** The pause menu is on screen. */
-  readonly pauseOpen: boolean;
-  /** Number of screens on the stack (1 = pause menu root). */
-  readonly depth: number;
-  readonly pressedPause: boolean;
-  readonly pressedBack: boolean;
-  readonly pressedConfirm: boolean;
-  /** The focused item is the Resume button. */
-  readonly resumeFocused: boolean;
-  /** The UI handled a key press in the last moments (keyboard events arrive before the frame). */
-  readonly recentUiKey: boolean;
-}
-
 /**
- * The game loop resumes on confirm/back while paused (src/game.ts). Inside the pause menu those
- * buttons belong to the UI, so such a resume is cancelled unless it is what the player meant.
+ * While paused, a pause press (Start) resumes from anywhere in the pause menu. Escape is bound to
+ * back + pause: when the UI already handled it as back (popping a sub-screen), it must not also
+ * resume. Resuming is UI-owned; the core only pauses.
  */
-export function shouldVetoResume(c: ResumeContext): boolean {
-  if (c.uiInitiated || !c.pauseOpen) return false;
-  if (c.recentUiKey) return true;
-  if (c.pressedBack) return c.depth > 1;
-  if (c.pressedPause) return false;
-  if (c.pressedConfirm) return !(c.depth === 1 && c.resumeFocused);
-  return false;
+export function pausePressResumes(c: { readonly pressedPause: boolean; readonly pressedBack: boolean; readonly recentUiKey: boolean }): boolean {
+  if (!c.pressedPause) return false;
+  return !(c.pressedBack && c.recentUiKey);
 }

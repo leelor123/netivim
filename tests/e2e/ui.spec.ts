@@ -26,7 +26,7 @@ test.beforeEach(async ({ page }) => {
 async function bootToTitle(page: Page): Promise<void> {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await expect.poll(() => page.evaluate(() => window.__netivim?.flow.state)).toBe('title');
-  await expect(page.locator('[data-screen="title"]')).toBeVisible();
+  await expect(page.locator('[data-ui-screen="title"]')).toBeVisible();
 }
 
 /**
@@ -99,7 +99,7 @@ test('main menu -> settings -> change values -> back, controller only', async ({
   await pad(page, BTN.left);
   await expect.poll(() => focusedKey(page)).toBe('settings');
   await pad(page, BTN.a);
-  await expect(page.locator('[data-screen="settings"]')).toBeVisible();
+  await expect(page.locator('[data-ui-screen="settings"]')).toBeVisible();
   await expect.poll(() => focusedKey(page)).toBe('gfx-mode');
 
   // Left on an option control in RTL moves to the next option: auto -> preset.
@@ -118,7 +118,7 @@ test('main menu -> settings -> change values -> back, controller only', async ({
   await expect.poll(() => settingsValue<number>(page, 'audio.master')).toBe(0.85);
 
   await pad(page, BTN.b);
-  await expect(page.locator('[data-screen="settings"]')).toHaveCount(0);
+  await expect(page.locator('[data-ui-screen="settings"]')).toHaveCount(0);
   await expect.poll(() => focusedKey(page)).toBe('settings');
 
   // Saved immediately: survives a reload.
@@ -137,7 +137,7 @@ test('main menu -> settings -> change a value -> back, keyboard only', async ({ 
   await page.keyboard.press('ArrowLeft');
   await expect.poll(() => focusedKey(page)).toBe('settings');
   await page.keyboard.press('Enter');
-  await expect(page.locator('[data-screen="settings"]')).toBeVisible();
+  await expect(page.locator('[data-ui-screen="settings"]')).toBeVisible();
   await expect.poll(() => focusedKey(page)).toBe('gfx-mode');
   // Down to the debug overlay switch, then flip it with Enter.
   await page.keyboard.press('ArrowDown');
@@ -145,8 +145,8 @@ test('main menu -> settings -> change a value -> back, keyboard only', async ({ 
   await page.keyboard.press('Enter');
   await expect.poll(() => settingsValue<boolean>(page, 'graphics.debugOverlay')).toBe(true);
   await page.keyboard.press('Escape');
-  await expect(page.locator('[data-screen="settings"]')).toHaveCount(0);
-  await expect(page.locator('[data-screen="title"]')).toBeVisible();
+  await expect(page.locator('[data-ui-screen="settings"]')).toHaveCount(0);
+  await expect(page.locator('[data-ui-screen="title"]')).toBeVisible();
   expect(await page.evaluate(() => window.__netivim?.flow.paused)).toBe(false);
   expect(problems).toEqual([]);
 });
@@ -170,7 +170,7 @@ test('pause menu: save to slot 2, then the exit prompt mid-mission', async ({ pa
   await pad(page, BTN.down);
   await expect.poll(() => focusedKey(page)).toBe('save');
   await pad(page, BTN.a);
-  await expect(page.locator('[data-screen="slots"]')).toBeVisible();
+  await expect(page.locator('[data-ui-screen="slots"]')).toBeVisible();
   // The game stays paused although A was pressed (the press belongs to the menu).
   expect(await page.evaluate(() => window.__netivim?.flow.paused)).toBe(true);
   await expect.poll(() => focusedKey(page)).toBe('manual-1');
@@ -180,7 +180,7 @@ test('pause menu: save to slot 2, then the exit prompt mid-mission', async ({ pa
   await expect(page.getByRole('status')).toHaveText('המשחק נשמר');
   expect(await page.evaluate(() => window.__netivim?.save.load('manual-2') !== null)).toBe(true);
   expect(await page.evaluate(() => window.__netivim?.save.load('manual-1'))).toBeNull();
-  await expect(page.locator('[data-screen="slots"]')).toHaveCount(0);
+  await expect(page.locator('[data-ui-screen="slots"]')).toHaveCount(0);
   await expect.poll(() => focusedKey(page)).toBe('save');
 
   // New progress after the save: exiting must ask (BRIEF 8.E).
@@ -203,11 +203,59 @@ test('pause menu: save to slot 2, then the exit prompt mid-mission', async ({ pa
   await pad(page, BTN.down);
   await pad(page, BTN.a);
   await expect.poll(() => page.evaluate(() => window.__netivim?.flow.state)).toBe('title');
-  await expect(page.locator('[data-screen="title"]')).toBeVisible();
+  await expect(page.locator('[data-ui-screen="title"]')).toBeVisible();
   expect(await page.evaluate(() => window.__netivim?.flow.paused)).toBe(false);
   // Continue is now available (the slot 2 save).
   await expect(page.locator('[data-key="continue"]')).toBeEnabled();
   expect(problems).toEqual([]);
+});
+
+test('pause screen owns resuming: Start resumes, Escape steps back one level first', async ({ page }) => {
+  const problems = watchConsole(page);
+  await bootToTitle(page);
+  await page.evaluate(() => {
+    const g = window.__netivim;
+    for (const e of ['openHub', 'openBriefing', 'startMission'] as const) g?.flow.send(e);
+  });
+  await connectPad(page);
+  const paused = (): Promise<boolean | undefined> => page.evaluate(() => window.__netivim?.flow.paused);
+
+  await pad(page, BTN.start);
+  await expect.poll(paused).toBe(true);
+  await pad(page, BTN.down);
+  await expect.poll(() => focusedKey(page)).toBe('save');
+  await pad(page, BTN.start);
+  await expect.poll(paused).toBe(false);
+  await expect(page.getByRole('dialog')).toBeHidden();
+
+  // Keyboard: open settings from the pause menu, Escape goes back to the pause menu only.
+  await page.keyboard.press('Escape');
+  await expect.poll(paused).toBe(true);
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowDown');
+  await expect.poll(() => focusedKey(page)).toBe('settings');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('[data-ui-screen="settings"]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-ui-screen="settings"]')).toHaveCount(0);
+  await expect(page.locator('[data-ui-screen="pause"]')).toBeVisible();
+  expect(await paused()).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect.poll(paused).toBe(false);
+  expect(problems).toEqual([]);
+});
+
+test('hosted screens from other systems hide the menus', async ({ page }) => {
+  await bootToTitle(page);
+  await page.evaluate(() => {
+    const s = document.createElement('section');
+    s.dataset.screen = 'timeline';
+    s.id = 'foreign';
+    document.body.append(s);
+  });
+  await expect(page.locator('h1.title')).toBeHidden();
+  await page.evaluate(() => document.getElementById('foreign')?.remove());
+  await expect(page.locator('h1.title')).toBeVisible();
 });
 
 test('subtitles follow the subtitle size setting', async ({ page }) => {
