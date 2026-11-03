@@ -30,6 +30,13 @@ export interface Game {
   readonly scenes: SceneManager;
   /** Per-step hooks for systems installed after boot (UI, audio, missions). */
   onStep(fn: (dt: number) => void): () => void;
+  /**
+   * Per-frame hooks that also run while paused (input is updated first when paused).
+   * The UI uses this to drive menus; the core never resumes the game by itself.
+   */
+  onFrame(fn: (dt: number, paused: boolean) => void): () => void;
+  /** Who handles the Android Back button (the UI). Without a handler Back toggles pause. */
+  setBackHandler(fn: (() => void) | null): void;
   getState(): SaveData;
   setState(s: SaveData): void;
 }
@@ -110,7 +117,11 @@ export function startGame(canvas: HTMLCanvasElement, i18n: I18n, onPauseChanged:
     if (!paused) pausedByDisconnect = false;
   });
   bus.on('flow:pause-changed', ({ paused }) => onPauseChanged(paused));
-  void bindAndroidBackButton(() => flow.setPaused(!flow.paused));
+  let backHandler: (() => void) | null = null;
+  void bindAndroidBackButton(() => {
+    if (backHandler) backHandler();
+    else flow.setPaused(!flow.paused);
+  });
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -122,11 +133,13 @@ export function startGame(canvas: HTMLCanvasElement, i18n: I18n, onPauseChanged:
   scenes.switchTo(createTitleScene());
   let elapsed = 0;
   const stepHooks = new Set<(dt: number) => void>();
+  const frameHooks = new Set<(dt: number, paused: boolean) => void>();
 
   const loop = new GameLoop({
     step: (dt) => {
       input.update();
-      if (input.justPressed('pause')) flow.setPaused(!flow.paused);
+      // Pausing is core behavior; resuming belongs to the pause screen (UI).
+      if (input.justPressed('pause')) flow.setPaused(true);
       elapsed += dt;
       scenes.update(dt, elapsed);
       for (const fn of stepHooks) fn(dt);
@@ -144,14 +157,13 @@ export function startGame(canvas: HTMLCanvasElement, i18n: I18n, onPauseChanged:
   timer.connect(document);
   const frame = (): void => {
     timer.update();
-    // Input is still read while paused so the pause button can resume.
-    if (flow.paused) {
-      input.update();
-      // Resume is the focused button on the pause screen, so A / Enter resumes too.
-      if (input.justPressed('pause') || input.justPressed('back') || input.justPressed('confirm')) flow.setPaused(false);
-    }
+    const dt = timer.getDelta();
+    const paused = flow.paused;
+    // While paused the simulation stops, but input is still read so menus keep working.
+    if (paused) input.update();
+    for (const fn of frameHooks) fn(dt, paused);
     loop.paused = flow.paused;
-    loop.advance(timer.getDelta());
+    loop.advance(dt);
     const active = scenes.active;
     if (active) renderer.render(active.scene, active.camera);
   };
@@ -189,6 +201,13 @@ export function startGame(canvas: HTMLCanvasElement, i18n: I18n, onPauseChanged:
     onStep: (fn) => {
       stepHooks.add(fn);
       return () => stepHooks.delete(fn);
+    },
+    onFrame: (fn) => {
+      frameHooks.add(fn);
+      return () => frameHooks.delete(fn);
+    },
+    setBackHandler: (fn) => {
+      backHandler = fn;
     },
     getState: () => state,
     setState: (s) => {
