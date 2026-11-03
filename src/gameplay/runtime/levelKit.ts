@@ -8,7 +8,7 @@ import type { WorldQuality } from '../../world/quality';
 import { ResourceBag } from '../../world/resources';
 import type { RoadSpec } from '../../world/roads';
 import { bakePlacements } from '../../world/scatter';
-import { Terrain } from '../../world/terrain';
+import { Terrain, type TerrainConfig } from '../../world/terrain';
 import type { Bounds, Collider } from '../core/collision';
 
 /**
@@ -23,6 +23,8 @@ export interface LevelWorldOptions {
   /** Terrain side in meters (multiple of 32). Default 128. */
   readonly size?: number;
   readonly roads?: readonly RoadSpec[];
+  /** Optional second biome blended in by mask (e.g. hills inland of a coastal plain). */
+  readonly secondary?: TerrainConfig['secondary'];
   readonly waterLevel?: number | null;
   readonly quality: WorldQuality;
   /** Color grading palette for the render pipeline. */
@@ -102,6 +104,7 @@ export class LevelWorld {
         biome: opts.biome ?? 'coastalPlain',
         era: opts.era,
         roads: opts.roads ?? [],
+        ...(opts.secondary ? { secondary: opts.secondary } : {}),
         ...(opts.waterLevel !== undefined ? { waterLevel: opts.waterLevel } : {}),
         lodDistance: q.lodDistance,
         renderDistance: q.renderDistance,
