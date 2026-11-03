@@ -165,6 +165,7 @@ test.describe('controller-first mode (BRIEF 7)', () => {
     await enterMission(page);
     await page.evaluate(() => window.__netivim?.flow.setPaused(true));
     await page.getByRole('button', { name: 'שמירה' }).click();
+    await page.getByRole('button', { name: 'משבצת 1' }).click();
     await expect(page.getByRole('status')).toHaveText('המשחק נשמר');
     await page.getByRole('button', { name: 'המשך' }).click();
     await expect.poll(() => page.evaluate(() => window.__netivim?.flow.paused)).toBe(false);
