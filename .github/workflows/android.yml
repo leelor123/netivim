@@ -91,7 +91,7 @@ jobs:
           cp "$APK" out/netivim.apk
           ls -l out
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: github.event_name != 'pull_request'
         with:
           name: netivim-${{ steps.ver.outputs.version }}

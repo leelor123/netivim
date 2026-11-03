@@ -8,7 +8,7 @@
 | Unit tests | 5/5 pass | npm test (i18n + locale file) |
 | Production build | pass, 139.6 KB gzip JS | npm run build |
 | Title screen renders, no console messages | pass | local preview in Chromium |
-| Signed APK | see CI run | apksigner verify step in android.yml |
+| Signed APK | pass, 3.1 MB, APK Signature Scheme v2, cert SHA-256 ef0b4665...3ca5ff matches keystore | CI run 41637157169 (apksigner verify) |
 | On-device check (S26 Ultra) | pending | user installs v0.0.1 |
 
 Not yet covered (planned M1-M2): Playwright E2E, controller E2E, save tests, visual baselines,

@@ -17,6 +17,7 @@
   vector adaptive icon + splash, minSdk 26.
 - Release keystore generated outside the repo, stored as GitHub secrets.
 - CI: lint, typecheck, tests, signed APK, apksigner verify, GitHub Release on v* tags.
+- v0.0.1 released: https://github.com/leelor123/netivim/releases/tag/v0.0.1 (CI green on main and tag).
 
 ## Next (M1): exact next steps
 1. superpowers:brainstorming (autonomous) to write docs/DESIGN.md: title, loop, chapter/mission
