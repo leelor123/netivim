@@ -4,6 +4,8 @@ import { createI18n } from './core/i18n';
 import { hasWebGL2 } from './core/webgl';
 import { startGame, type Game } from './game';
 import { installCinematics } from './cinematics';
+import { installHaptics } from './core/input/haptics';
+import { installTouchControls } from './ui/touch/touchControls';
 
 declare global {
   interface Window {
@@ -65,6 +67,8 @@ function boot(): void {
   });
   // SYSTEM INSTALLS (one line per system; see docs/CONTRACTS.md section 11)
   installCinematics(game);
+  installTouchControls(game);
+  installHaptics(game);
   // END SYSTEM INSTALLS
   if (import.meta.env.VITE_TEST_HOOKS === '1') window.__netivim = game;
 }

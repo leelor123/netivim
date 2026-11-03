@@ -1,6 +1,8 @@
 package io.github.leelor123.netivim;
 
 import android.os.Bundle;
+import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.WindowManager;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -9,12 +11,32 @@ import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
 
+    // Fallback controller source for WebViews without a working Gamepad API (see the class doc).
+    private NativeGamepadBridge padBridge;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         // Keep the screen awake while the game is in the foreground.
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         enterImmersiveMode();
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            padBridge = new NativeGamepadBridge(getBridge().getWebView());
+            getBridge().getWebView().addJavascriptInterface(padBridge, "NetivimPadNative");
+        }
+    }
+
+    // Controller events go to the bridge first; it only consumes them while the page asked for it.
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (padBridge != null && padBridge.onKey(event)) return true;
+        return super.dispatchKeyEvent(event);
+    }
+
+    @Override
+    public boolean dispatchGenericMotionEvent(MotionEvent event) {
+        if (padBridge != null && padBridge.onMotion(event)) return true;
+        return super.dispatchGenericMotionEvent(event);
     }
 
     @Override

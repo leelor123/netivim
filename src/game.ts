@@ -4,6 +4,7 @@ import { GameFlow } from './core/flow';
 import type { GameEvents } from './core/gameEvents';
 import { GameLoop } from './core/loop';
 import { InputManager } from './core/input/inputManager';
+import { createInputSources } from './core/input/nativePad';
 import type { GamepadLike } from './core/input/gamepad';
 import { indexedDbStore } from './core/save/backends/indexedDbStore';
 import { preferencesStore } from './core/save/backends/preferencesStore';
@@ -63,11 +64,17 @@ export function startGame(canvas: HTMLCanvasElement, i18n: I18n, onPauseChanged:
     console.error('[netivim] handler failed for ' + event, error);
   });
   const flow = new GameFlow(bus);
-  const input = new InputManager(bus, { getGamepads: readGamepads });
+  // WebView gamepads first; the native Android bridge only fills in when the WebView sees none.
+  const input = new InputManager(bus, createInputSources(readGamepads));
   input.attach(window);
 
   const primary = primaryStore();
   const settings = new SettingsManager(bus, primary);
+  // Remapped buttons (BRIEF 7) take effect immediately and after every change.
+  input.setBindings(settings.value.controls.bindings);
+  bus.on('settings:changed', ({ key }) => {
+    if (key === 'controls') input.setBindings(settings.value.controls.bindings);
+  });
   let state: SaveData = createNewSave(Date.now());
   const save = new SaveManager({
     bus,
