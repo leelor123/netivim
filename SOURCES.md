@@ -1,6 +1,59 @@
 # Sources
 
 Every codex entry, quiz answer, archive item and "Did You Know?" fact cites an ID from this file.
-Format: ID, author/publisher, title, date, URL or archive reference, perspective, notes.
+Format: ID | author/publisher | title | date | URL or archive ref | perspective | license note | OPENED?
 
-_Research starts in M1 (Prologue, Ch1, Ch2)._
+OPENED? legend: YES-FC = opened by the fact-checker (2026-11-03). PRIOR = opened only by the earlier researcher, not re-opened. NO = not opened (pointer only; do not support a claim alone).
+Scope of this register: sources that support APPROVED claims in Prologue (P-) and Chapter 1 (C1-), per `research/factcheck-ch00-ch01.md`. Chapter 2 sources remain in `research/sources-ch02.md`. Wikipedia pages are indexes only and support no claim here.
+
+## Prologue (P-)
+P-009 | Rashid Khalidi (Columbia Univ.), excerpt of The Hundred Years' War on Palestine (Metropolitan Books), published by The Intercept | Excerpt on Yusuf Diya al-Khalidi's 1899 letter | 2020-02-01 | https://theintercept.com/2020/02/01/hundred-years-war-palestine-book-rashid-khalidi/ | Palestinian-American historian, descendant of the letter writer | Copyrighted; paraphrase plus two short phrases only | YES-FC
+P-031 | First Zionist Congress, transcribed on Wikisource from a 1920 Zionist Peace Conference document | The Basel Programme | 1897 text, transcription 2024 | https://en.wikisource.org/wiki/Basel_Program | Primary text, Zionist Organization English version | 1897 text PD by age; 1920 translation author unknown; transcription layer CC BY-SA, do not copy | PRIOR
+P-032 | Yehuda Slutsky, Encyclopaedia Judaica via Encyclopedia.com | Ha-Shomer | EJ 2nd ed. 2007 | https://www.encyclopedia.com/religion/encyclopedias-almanacs-transcripts-and-maps/ha-shomer | Israeli/Jewish encyclopedia | Copyrighted; paraphrase | YES-FC
+P-033 | Tom Segev, Haaretz | The Makings of History: the Hashomer Myth, Exploded (opening paragraphs only) | 2009-09-24 | https://haaretz.com/1.5394745 | Israeli journalist-historian, self-critical | Copyrighted; pointer only | YES-FC (partial)
+P-034 | Najwa al-Qattan, Public Books | Syria's Wartime Famine @100: "Martyrs of the Grass" | 2016-12-15 | https://www.publicbooks.org/syrias-wartime-famine-100-martyrs-grass/ | Academic historian of Ottoman Syria (Arab-world perspective) | Copyrighted; paraphrase | YES-FC
+P-037 | Johann Buessow (Ruhr-Univ. Bochum) and Yuval Ben-Bassat (Univ. of Haifa) | Frontier Cities during the Late Ottoman Period: Beersheba | n.d. | https://www.ruhr-uni-bochum.de/islamwiss/forschung/frontiercities.html.de | German-Israeli academic project | n/a | YES-FC
+P-038 | Nadav Solomonovich and Ruth Kark, Turkish Historical Review 10(2-3) | The Bedouins, the Ottoman Civilizing Mission and the Establishment of the Town of Beersheba | 2020 | https://cris.huji.ac.il/en/publications/the-bedouins-the-ottoman-civilizing-mission-and-the-establishment/ | Israeli academics (abstract) | Copyrighted | PRIOR
+P-043 | The Jewish Encyclopedia (Funk and Wagnalls) | Basel Congress | 1901-06 | https://www.jewishencyclopedia.com/articles/2610-basel-congress | Jewish encyclopedic, Zionist-era | Public domain by age (1906) | YES-FC
+P-044 | Jewish Virtual Library (American-Israeli Cooperative Enterprise) | Zionist Congress: First Zionist Congress and Basel Program | n.d. | https://www.jewishvirtuallibrary.org/first-zionist-congress-and-basel-program-1897 | Pro-Israel educational aggregator | Copyrighted; facts and a short phrase | YES-FC
+P-045 | Theodor Herzl; ed. Raphael Patai, trans. Harry Zohn | The Complete Diaries of Theodor Herzl, vol. 2 (entry 3 Sep 1897, p. 581) | 1960 | https://archive.org/download/TheCompleteDiariesOfTheodorHerzl_201606/TheCompleteDiariesOfTheodorHerzlEngVolume2_OCR_djvu.txt | Primary (Zionist leader) | Herzl d. 1904 (German original PD); English translation copyrighted; quote at most a few words | YES-FC
+P-046 | Jewish Virtual Library | Geography of Israel: Petah Tikvah | n.d. | https://www.jewishvirtuallibrary.org/petah-tikvah | Pro-Israel aggregator | Copyrighted; facts only | YES-FC
+P-047 | Jewish Virtual Library | Rishon Le-Zion | n.d. | https://jewishvirtuallibrary.org/rishon-le-zion | Pro-Israel aggregator | Copyrighted; facts only | YES-FC
+P-048 | Jewish Virtual Library | The Kattowitz Conference | n.d. | https://jewishvirtuallibrary.org/the-kattowitz-conference | Pro-Israel aggregator | Copyrighted; facts only | YES-FC
+P-049 | Jewish Virtual Library | Sites and Places in Jerusalem: Mishkenot Sha'ananim | n.d. | https://jewishvirtuallibrary.org/mishkenot-sha-ananim | Pro-Israel aggregator | Copyrighted; facts only | YES-FC
+P-050 | Jewish Virtual Library | The First Aliyah (1882-1903) | n.d. | https://jewishvirtuallibrary.org/the-first-aliyah-1882-1903 | Pro-Israel aggregator | Copyrighted; facts only | YES-FC
+P-051 | Jewish Virtual Library | Degania | n.d. | https://jewishvirtuallibrary.org/deganyah | Pro-Israel aggregator | Copyrighted; facts only | YES-FC
+P-052 | Jewish Virtual Library | The Second Aliyah (1904-1914) | n.d. | https://jewishvirtuallibrary.org/the-second-aliyah-1904-1914 | Pro-Israel aggregator | Copyrighted; facts only | YES-FC
+P-053 | F. Ongley (trans.), H. E. Miller (rev.), William Clowes | The Ottoman Land Code (Land Law 7 Ramazan 1274; Tapu Law 8 Jemazi ul akhir 1275) | 1892 | https://archive.org/details/ottomanlandcode00turkuoft | British translation of Ottoman primary law | Ottoman text PD by age; 1892 translation PD by age | YES-FC
+P-054 | Encyclopaedia Judaica via Encyclopedia.com | Halukkah | n.d. | https://www.encyclopedia.com/religion/encyclopedias-almanacs-transcripts-and-maps/halukkah | Israeli/Jewish encyclopedia | Copyrighted; paraphrase | YES-FC
+P-055 | First Station Jerusalem (cultural complex) | The History of the First Station | n.d. | https://www.firststation.co.il/en/the-history-of-the-first-station/ | Israeli institutional/heritage site | Copyrighted; facts only | YES-FC
+P-056 | Gulf Times (Qatar) | Falastin newspaper founded in 1911: a milestone in Arab history of journalism | n.d. | https://www.gulf-times.com/article/725986/qatar/falastin-newspaper-founded-in-1911-a-milestone-in-arab-history-of-journalism | Arab regional press (journalistic, weaker than academic) | Copyrighted; facts only | YES-FC
+P-057 | Jewish Virtual Library (table crediting Israel CBS, Rabinovich and Reinharz 2008, Della Pergola) | Jewish and Non-Jewish Population of Israel/Palestine, 1517-present | n.d. | https://jewishvirtuallibrary.org/jewish-and-non-jewish-population-of-israel-palestine-1517-present | Pro-Israel aggregator of demographic data | Numbers only; show as range | YES-FC
+
+## Chapter 1 (C1-)
+C1-001 | Arthur J. Balfour to Lord Rothschild; Avalon Project, Yale Law School | Balfour Declaration | 2 Nov 1917 | https://avalon.law.yale.edu/20th_century/balfour.asp | British government primary | Public domain (1917 UK official letter; author d. 1930; Crown copyright expired). Do not copy Avalon design | YES-FC
+C1-002 | UK Government (Cmd. 6019), Avalon copy | Palestine: Statement of Policy (White Paper) | May 1939 | https://avalon.law.yale.edu/20th_century/brwh1939.asp | British official | Public domain (Crown, 1939, expired) | YES-FC
+C1-005 | League of Nations / UK, Avalon copy | Mandate for Palestine | 24 Jul 1922 | https://avalon.law.yale.edu/20th_century/palmanda.asp | International-institutional | Public domain (1922 instrument) | YES-FC
+C1-055 | United States Holocaust Memorial Museum | Aliyah Bet (Holocaust Encyclopedia) | n.d. | https://encyclopedia.ushmm.org/content/en/article/aliyah-bet | American institutional | Copyrighted; facts only | YES-FC
+C1-057 | ibiblio (Sullivan archive) transcription | UN General Assembly Resolution 181 (II) | 29 Nov 1947 | https://www.ibiblio.org/sullivan/docs/UNRes181.html | Transcription of UN text | See C1-060 | YES-FC
+C1-058 | UK Palestine Royal Commission (Peel), Cmd. 5479; archive.org copy | Palestine Royal Commission Report | July 1937 | https://archive.org/details/palestine-royal-commission-report-1937 (text: .../download/palestine-royal-commission-report-1937/Palestine%20Royal%20Commission%20Report%20(1937)_djvu.txt) | British official, records Arab and Jewish positions | Crown 1937, expired; archive scan carries ProQuest 2006 notice, so re-typeset excerpts only | YES-FC
+C1-059 | Anglo-American Committee of Inquiry, Report (Appendices I, IV, V); Avalon copy | Report to the US Government and HMG | 20 Apr 1946 | https://avalon.law.yale.edu/20th_century/angap01.asp ; angap04.asp ; angap05.asp | US and British official | US government work PD; UK Crown expired | YES-FC
+C1-060 | UN General Assembly; Avalon copy | Resolution 181 (II), Future Government of Palestine (vote record: 128th plenary, 33-13-10) | 29 Nov 1947 | https://avalon.law.yale.edu/20th_century/res181.asp | International/UN | UN official record; reuse terms not confirmed (UN sites blocked): excerpt with attribution | YES-FC
+C1-061 | Bruce Hoffman (Georgetown), open-access repository copy | The Bombing of the King David Hotel, July 1946 | 2020 | https://research-repository.st-andrews.ac.uk/bitstream/handle/10023/24114/Hoffman_2020_SWI_BombingKingDavid_AAM.pdf | American academic, analyses Irgun, Haganah and British claims | Copyrighted; paraphrase and numbers only | YES-FC
+C1-062 | Jewish Virtual Library | The Bombing of the King David Hotel | n.d. | https://www.jewishvirtuallibrary.org/bombing-of-the-king-david-hotel | Pro-Israel aggregator | Copyrighted; facts only | YES-FC
+C1-063 | Jewish Virtual Library | Tel Hai | n.d. | https://www.jewishvirtuallibrary.org/tel-hai | Pro-Israel aggregator | Copyrighted; facts only | YES-FC
+C1-064 | Gems in Israel | Stockade and Tower - Tel Amal | n.d. | https://www.gemsinisrael.com/the-gems/the-beit-shean-and-jezreel-valleys/stockade-and-tower-tel-amal/ | Israeli tourism/heritage | Copyrighted; facts only | YES-FC
+C1-065 | Jewish Virtual Library | Museums in Israel: stockade and tower | n.d. | https://www.jewishvirtuallibrary.org/jsource/History/stockade1.html | Pro-Israel aggregator | Copyrighted; facts only | YES-FC
+C1-066 | UK Government, Wikisource copy | Palestine - Statement of Policy (title page: "Presented ... May, 1939") | 1939 | https://en.wikisource.org/wiki/British_White_Paper_of_Palestine_1939 | British official | PD-UKGov | YES-FC
+C1-067 | US Department of State, Office of the Historian | Creation of Israel (Milestones 1945-1952) | n.d. | https://history.state.gov/milestones/1945-1952/creation-israel | US official history | PD (US government work) | YES-FC
+
+## Cross-references
+- P-057 and the 1922 population figures: the JVL table is the only population page opened; 1922 total 757,182 also appears in C1-059 (as 757,000).
+- Sources used for CONTESTED ranges but only seen through search summaries (not opened, NO): Gorny and McCarthy 1914 Jewish population (academic article via search summary); Israel Mint "55 settlements"; ESRA railway date; Yad Vashem "September 1884" Kattowitz; UN site UNSCOP summary (report signed 31 Aug 1947).
+
+## Pointers only (NO), not supporting any approved claim
+P-012, P-013, P-022 (LoC), P-025, P-026, P-027, P-028, P-029 (flagged, do not use), P-030, P-036, P-039, P-040, P-041, P-042; C1-003 (official UN PDF, 403), C1-004, C1-006 to C1-008, C1-018 to C1-044 (books and archives), C1-045 to C1-048 (Palestinian-oriented lexicon, opinion piece, interview: PRIOR only, usable only as "reported by" ranges after re-check), C1-049 to C1-054, C1-056 (Wikipedia indexes: not used as sources).
+
+## Perspective summary of this register
+Israeli/Zionist: P-032, P-033, P-043, P-044, P-046 to P-052, P-055, C1-062, C1-063, C1-064, C1-065. Palestinian/Arab: P-009, P-034, P-056 (journalistic). British/international/US: C1-001, C1-002, C1-005, C1-058, C1-059, C1-060, C1-055, C1-067, C1-061 (US academic). Mixed academic: P-037.
+Gap: no Palestinian-authored scholarly source from the Institute for Palestine Studies could be opened (HTTP 403).
