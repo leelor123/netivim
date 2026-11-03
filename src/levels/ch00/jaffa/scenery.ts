@@ -19,6 +19,7 @@ import {
   LOAD_PARTS,
   OFFICE,
   PLATFORM,
+  POSTED_ROADS,
   RAIL_ROAD_INDEX,
   VENDOR,
   WELL,
@@ -406,8 +407,8 @@ export function buildScenery(world: LevelWorld, o: SceneryOptions): Scenery {
   stone('jerusalem', 'jr-4', 118, -138, 0, true);
   stone('jerusalem', 'jr-5', 158, -146, -PI2, true);
   if (vis) {
-    batches.jerusalem.add(terraceWall({ era: ERA, seed: 'jw1', length: 10, height: 1.2 }), 133, -120, 0.35);
-    batches.jerusalem.add(terraceWall({ era: ERA, seed: 'jw2', length: 10, height: 1.2 }), 146, -120, -0.2);
+    batches.jerusalem.add(terraceWall({ era: ERA, seed: 'jw1', length: 10, height: 1.2 }), 148, -113, 0.1);
+    batches.jerusalem.add(terraceWall({ era: ERA, seed: 'jw2', length: 10, height: 1.2 }), 118, -126, 1.2);
     batches.jerusalem.add(crate({ era: ERA, size: 0.8 }), 141.3, -131, 0.2);
   }
   // A stone bench and a low table for the shared bread.
@@ -427,10 +428,7 @@ export function buildScenery(world: LevelWorld, o: SceneryOptions): Scenery {
       batches.fields.addRaw(fieldGeometry(world, f, 'field-' + f.id));
       if (q.vegetation > 0.3) batches.fields.addRaw(sproutGeometry(world, f, 'sprout-' + String(i)));
     });
-    roads.forEach((r, i) => {
-      if (i === RAIL_ROAD_INDEX) return;
-      batches.country.addRaw(markerPosts(world, r, i === 0 ? 11 : 9, i === 0 ? 3.7 : 2.6));
-    });
+    POSTED_ROADS.forEach((i) => batches.country.addRaw(markerPosts(world, roads[i] as RoadPath, i === 0 ? 11 : 9, i === 0 ? 3.7 : 2.6)));
   }
 
   const free = (x: number, z: number): boolean => {

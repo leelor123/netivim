@@ -11,6 +11,7 @@ const LEASH = 3.9;
 const SPEED = 5.2;
 const TURN = 4;
 const RADIUS = 1.0;
+const CATCH_UP = 40;
 
 /** Four floating parts of the cart-load display; set() shows what is on the cart. */
 export class Cart {
@@ -92,9 +93,17 @@ export class Cart {
 
   /** Follows the leader on its leash (fixed step). */
   update(dt: number, leaderX: number, leaderZ: number): void {
-    const dx = leaderX - this.x;
-    const dz = leaderZ - this.z;
-    const d = Math.hypot(dx, dz);
+    let dx = leaderX - this.x;
+    let dz = leaderZ - this.z;
+    let d = Math.hypot(dx, dz);
+    if (d > CATCH_UP) {
+      // The donkey is never lost (a resumed save, a checkpoint): it stands behind the courier again.
+      this.x = leaderX - Math.sin(this.heading) * LEASH;
+      this.z = leaderZ - Math.cos(this.heading) * LEASH;
+      dx = leaderX - this.x;
+      dz = leaderZ - this.z;
+      d = Math.hypot(dx, dz);
+    }
     if (d > 0.05) this.heading = turnToward(this.heading, Math.atan2(dx, dz), TURN * dt);
     if (d > LEASH) {
       const step = Math.min(d - LEASH, SPEED * dt);

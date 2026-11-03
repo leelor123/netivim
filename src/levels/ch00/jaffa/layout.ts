@@ -62,12 +62,21 @@ export const ROADS: readonly RoadSpec[] = [
   { points: PATH_STATION_POINTS, width: 3, shoulder: 3, color: '#d3bb8c' },
   { points: RAIL_POINTS, width: 3, shoulder: 3, color: '#6f675d' },
   { points: PATH_JERUSALEM_POINTS, width: 3, shoulder: 2, color: '#d3bb8c' },
+  // Wide beaten-earth plazas flatten the ground under each community (no posts along them).
+  { points: [[-80, 2], [-56, 4], [-34, 8]], width: 34, shoulder: 12, color: '#c9b88f' },
+  { points: [[-62, 24], [-34, 22]], width: 14, shoulder: 8, color: '#c4b186' },
+  { points: [[0, 48], [30, 48]], width: 16, shoulder: 8, color: '#c9b88f' },
+  { points: [[74, 148], [100, 158]], width: 26, shoulder: 10, color: '#bba980' },
+  { points: [[56, 60], [88, 60]], width: 18, shoulder: 8, color: '#c4b186' },
+  { points: [[124, -116], [146, -132]], width: 22, shoulder: 10, color: '#c8b996' },
 ];
 export const RAIL_ROAD_INDEX = 3;
+/** Roads and paths that get marker posts (the first, second, third and fifth). */
+export const POSTED_ROADS: readonly number[] = [0, 1, 2, 4];
 
-/** Terrain blend toward the Judean hills in the north-east (Jerusalem). */
+/** Terrain blend toward gentle Judean hills in the north-east (Jerusalem). */
 export function hillMask(x: number, z: number): number {
-  return Math.min(1, Math.max(0, (x - z - 120) / 80));
+  return 0.45 * Math.min(1, Math.max(0, (x - z - 140) / 140));
 }
 
 // ---- sown fields (stepping in one is the "field crossing" failure) -----------------------------------
@@ -169,8 +178,8 @@ export function bedAt(x: number, z: number): Bed {
 // ---- dialogue pacing -------------------------------------------------------------------------------------
 
 /** Reading time for a subtitle, from its length. */
-export function readMs(text: string): number {
-  return Math.min(14000, Math.max(2600, 1500 + text.length * 55));
+export function readMs(text: string, cap = 14000): number {
+  return Math.min(cap, Math.max(2600, 1500 + text.length * 60));
 }
 
 export const LISTEN_SECONDS = 20;

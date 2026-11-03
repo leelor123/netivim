@@ -151,6 +151,7 @@ function build(ctx: LevelContext<E>): Level {
   let bellActive = false;
   let bellWarned = false;
   let lensUntil = 0;
+  let queuedUntil = 0;
   let stuckT = 0;
   let stuckShown = false;
   let nudgeCooldown = 0;
@@ -164,13 +165,22 @@ function build(ctx: LevelContext<E>): Level {
   const state = (): string => ctx.mission.state;
 
   // ---- dialogue helpers ----------------------------------------------------------------------------
-  const line = (key: string, speaker: string | null): Line => ({ textKey: key, speakerKey: speaker, durationMs: L.readMs(ctx.t(key)) });
+  const line = (key: string, speaker: string | null, cap?: number): Line => ({ textKey: key, speakerKey: speaker, durationMs: L.readMs(ctx.t(key), cap) });
   const fromContent = (d: DialogueLine): Line => line(d.key, speakerKey(d.speaker));
   const checkpointLines = (cp: string): Line[] => (MISSION_LINES[MISSION_ID]?.[cp] ?? []).map(fromContent);
   const seconds = (lines: readonly Line[]): number => lines.reduce((sum, l) => sum + l.durationMs, 0) / 1000;
-  const say = (lines: readonly Line[], label?: ContentLabel): void => ctx.say(lines, label);
   const later = (delay: number, fn: () => void): void => {
     timers.push({ at: elapsed + delay, fn });
+  };
+  /** Subtitles replace each other, except that the Two Lenses text is never cut off: later lines wait for it. */
+  const say = (lines: readonly Line[], label?: ContentLabel): void => {
+    if (elapsed >= lensUntil) {
+      ctx.say(lines, label);
+      return;
+    }
+    const at = Math.max(lensUntil, queuedUntil);
+    queuedUntil = at + seconds(lines) + 0.3;
+    later(at - elapsed + 0.2, () => ctx.say(lines, label));
   };
   const once = (kind: Parameters<LevelContext['unlock']>[0], id: string): void => {
     const key = kind + ':' + id;
@@ -440,7 +450,7 @@ function build(ctx: LevelContext<E>): Level {
   }
 
   function startLens(delay: number): void {
-    const c = (key: string, speaker: string): Line => line(key, speaker);
+    const c = (key: string, speaker: string): Line => line(key, speaker, 22000);
     const lens = [
       c('ch00.lens.land.common', 'ch00.lens.land.title'),
       c('ch00.lens.land.a.body', 'ch00.lens.land.a.title'),
@@ -448,8 +458,9 @@ function build(ctx: LevelContext<E>): Level {
       c('ch00.lens.land.limits', 'ch00.lens.land.title'),
     ];
     lensUntil = elapsed + delay + seconds(lens) + 0.4;
+    queuedUntil = lensUntil;
     ctx.bus.emit('audio:mood', { mood: 'reflective', era: 0 });
-    later(delay, () => say(lens, 'documented'));
+    later(delay, () => ctx.say(lens, 'documented'));
   }
 
   function startRide(): void {
@@ -480,6 +491,7 @@ function build(ctx: LevelContext<E>): Level {
     bellWarned = false;
     bell.reset();
     lensUntil = 0;
+    queuedUntil = 0;
     listenT = 0;
     stuckT = 0;
     stuckShown = false;
@@ -646,7 +658,7 @@ function build(ctx: LevelContext<E>): Level {
     } else if (s === 'road_colony' && near(L.ROAD_MID, L.MID_RADIUS)) advance('halfway');
     else if ((s === 'colony_delivered') && near(L.PATH_MID, L.MID_RADIUS)) advance('junction');
     else if ((s === 'colony_delivered' || s === 'path_mid') && near(L.VILLAGE_GATE, 5)) advance('atVillage');
-    else if (s === 'village_delivered' && elapsed >= lensUntil && near(L.STATION_ZONE, 5)) advance('atStation');
+    else if (s === 'village_delivered' && near(L.STATION_ZONE, 5)) advance('atStation');
 
     // Listening in the village (optional, 20 s within earshot).
     if (f.listening) {
@@ -684,7 +696,7 @@ function build(ctx: LevelContext<E>): Level {
       danger = fieldTelegraph.level;
     }
     // The station bell: only after the ticket, and the train waits on Story.
-    if (bellActive && s === 'station') {
+    if (bellActive && s === 'station' && elapsed >= lensUntil) {
       const left = bell.remaining / Math.max(1e-6, bell.duration);
       danger = Math.max(danger, Math.min(1, Math.max(0, (0.6 - left) / 0.6)));
       if (left < 0.25 && !bellWarned) {
