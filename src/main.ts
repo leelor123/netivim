@@ -39,14 +39,28 @@ function boot(): void {
     el('p', 'meta', i18n.t('app.version', { version: __APP_VERSION__ })),
   );
 
+  // Minimal pause screen; the full pause menu (slots, settings, exit prompt) arrives in M2.
   const pause = el('div', 'overlay');
   pause.hidden = true;
   pause.setAttribute('role', 'dialog');
-  pause.append(el('p', '', i18n.t('pause.title')), el('p', 'meta', i18n.t('pause.hint')));
+  pause.setAttribute('aria-modal', 'true');
+  const panel = el('div', 'pause-panel');
+  const resumeBtn = el('button', 'btn btn-primary', i18n.t('pause.resume'));
+  const saveBtn = el('button', 'btn', i18n.t('pause.save'));
+  const status = el('p', 'meta');
+  status.setAttribute('role', 'status');
+  panel.append(el('p', 'pause-title', i18n.t('pause.title')), resumeBtn, saveBtn, status, el('p', 'meta', i18n.t('pause.hint')));
+  pause.append(panel);
   document.body.append(pause);
 
   const game = startGame(canvas, (paused) => {
     pause.hidden = !paused;
+    status.textContent = '';
+    if (paused) resumeBtn.focus();
+  });
+  resumeBtn.addEventListener('click', () => game.flow.setPaused(false));
+  saveBtn.addEventListener('click', () => {
+    status.textContent = i18n.t(game.save.saveManual('manual-1') ? 'pause.saved' : 'pause.saveFailed');
   });
   if (import.meta.env.VITE_TEST_HOOKS === '1') window.__netivim = game;
 }

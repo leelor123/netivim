@@ -44,6 +44,8 @@ export class SaveManager {
   /** A manual save happened since the current mission or cutscene began. */
   private manualSinceVolatileStart = false;
   private dirtyFlag = false;
+  private ready = false;
+  private readonly mirrorChain = new Map<AsyncStore, Promise<void>>();
   private readonly pending = new Set<Promise<void>>();
   /** Highest sequence number seen per slot in any store, so numbering never goes backwards. */
   private readonly knownSeq = new Map<GameSlot, number>();
@@ -72,8 +74,22 @@ export class SaveManager {
     if (this.volatileNow) this.setDirty(true);
   }
 
-  /** Manual Save button (pause menu / HUD): always allowed, stores the exact state. */
+  /**
+   * Call once the existing save has been hydrated and loaded into the game state. Until then
+   * every write is refused: an exit event during boot would otherwise store the blank initial
+   * state over the player's real save.
+   */
+  markReady(): void {
+    this.ready = true;
+  }
+
+  get isReady(): boolean {
+    return this.ready;
+  }
+
+  /** Manual Save button (pause menu / HUD): always allowed once ready, stores the exact state. */
   saveManual(slot: GameSlot = 'manual-1'): boolean {
+    if (!this.ready) return false;
     const ok = this.write(slot, this.deps.snapshot(), 'manual');
     if (ok && this.volatileNow) this.manualSinceVolatileStart = true;
     if (ok) this.setDirty(false);
@@ -82,7 +98,7 @@ export class SaveManager {
 
   /** True when an auto-save right now would respect BRIEF 8.B. */
   get canAutosave(): boolean {
-    return !this.volatileNow || this.manualSinceVolatileStart;
+    return this.ready && (!this.volatileNow || this.manualSinceVolatileStart);
   }
 
   /** Safe-moment or exit auto-save into the auto slot. Returns false when skipped or failed. */
@@ -182,10 +198,13 @@ export class SaveManager {
       return false;
     }
     for (const mirror of this.deps.mirrors) {
-      const job = mirror
-        .set(slotKey(slot, buffer), raw)
+      // Writes to one mirror are chained so they land in order (no older envelope wins a race).
+      const previous = this.mirrorChain.get(mirror) ?? Promise.resolve();
+      const job: Promise<void> = previous
+        .then(() => mirror.set(slotKey(slot, buffer), raw))
         .catch((e: unknown) => this.deps.bus.emit('save:failed', { slot, reason: 'mirror:' + mirror.name, error: errorText(e) }))
         .finally(() => this.pending.delete(job));
+      this.mirrorChain.set(mirror, job);
       this.pending.add(job);
     }
     // Defensive read-back: a store that silently dropped the write is a failure.

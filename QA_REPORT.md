@@ -4,14 +4,17 @@
 | Check | Result | Evidence |
 |---|---|---|
 | ESLint 0 warnings, tsc strict | pass | npm run lint, npm run typecheck |
-| Unit tests | 84/84 pass | npm test (events, fsm, loop, flow, mission, difficulty, save, input, content, i18n) |
-| E2E | 7/7 pass | npm run e2e, Chromium, Galaxy S9+ landscape emulation |
+| Unit tests | 85/85 pass | npm test (events, fsm, loop, flow, mission, difficulty, save, input, content, i18n) |
+| E2E | 8/8 pass, 3 consecutive runs | npm run e2e, Chromium, Galaxy S9+ landscape emulation, 1 worker |
 | BRIEF 8.H save matrix | pass | unit + E2E (menus saves; mid-mission keeps stable; after manual saves; mid-cutscene keeps stable) |
 | Torn write, corruption, full storage, WebView data loss | pass | tests/unit/save.test.ts |
 | Controller hides touch UI, touch restores, disconnect pauses | pass | tests/e2e/core.spec.ts |
 | Bundle size | 145.6 KB gzip (budget 600 KB) | npm run build |
-| Independent code review | see below | fresh reviewer agent |
+| Independent code review | 5 findings, 4 fixed, 1 deferred by design | fresh reviewer agent; see below |
 | On-device (S26 Ultra), real controllers in WebView | not yet verified | needs the user, planned M2 |
+
+Review findings (M1): (1) HIGH exit during boot could overwrite the real save with the blank state: fixed with SaveManager.markReady() gate + test. (2) No touch Resume/Save on pause: fixed + E2E. (3) Controller reconnect did not resume: fixed + E2E. (4) Mirror writes could land out of order: fixed by chaining writes per mirror. (5) Scenes must rebuild GPU-only state after WebGL context restore: no such state exists yet; added to the M2 Graphics agent brief.
+
 
 ## M0 (2026-11-03)
 | Check | Result | Evidence |

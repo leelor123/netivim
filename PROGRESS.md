@@ -36,7 +36,7 @@
   repositories, archive.org full texts) and merge per-chapter registers into SOURCES.md.
 
 ## Next (M2 vertical slice): exact next steps
-1. Merge reviewer findings for M1 (if any open) and release v0.1.0.
+1. M1 review findings are fixed (see QA_REPORT). Graphics agent must add a GameScene hook to rebuild GPU-only state after webglcontextrestored.
 2. Fan out system agents in worktrees (CONTRACTS.md ownership map): Graphics & Settings, Controls
    (touch UI + glyphs + remap UI + Android gamepad check), Save UX (pause menu, slots, exit prompt),
    Audio, UI/Menus + focus navigation, Cinematics, World & Art.

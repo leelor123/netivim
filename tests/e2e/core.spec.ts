@@ -18,7 +18,7 @@ function watchConsole(page: Page): string[] {
 }
 
 async function bootToTitle(page: Page): Promise<void> {
-  await page.goto('/');
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
   await expect.poll(() => page.evaluate(() => window.__netivim?.flow.state)).toBe('title');
 }
 
@@ -154,5 +154,19 @@ test.describe('controller-first mode (BRIEF 7)', () => {
     await expect.poll(() => page.evaluate(() => window.__netivim?.flow.paused)).toBe(true);
     await expect(page.locator('html')).toHaveAttribute('data-input', 'touch');
     await expect(page.getByRole('dialog')).toBeVisible();
+    // Reconnecting resumes cleanly (BRIEF 7).
+    await connectPad(page, false);
+    await expect.poll(() => page.evaluate(() => window.__netivim?.flow.paused)).toBe(false);
+    await expect(page.getByRole('dialog')).toBeHidden();
+  });
+
+  test('touch players can resume and save from the pause screen', async ({ page }) => {
+    await bootToTitle(page);
+    await enterMission(page);
+    await page.evaluate(() => window.__netivim?.flow.setPaused(true));
+    await page.getByRole('button', { name: 'שמירה' }).click();
+    await expect(page.getByRole('status')).toHaveText('המשחק נשמר');
+    await page.getByRole('button', { name: 'המשך' }).click();
+    await expect.poll(() => page.evaluate(() => window.__netivim?.flow.paused)).toBe(false);
   });
 });

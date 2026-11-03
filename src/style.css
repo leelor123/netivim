@@ -39,5 +39,13 @@ html, body {
 .overlay[hidden] { display: none; }
 .overlay p { font-size: 28px; margin: 0; }
 .fatal { max-width: 32em; text-align: center; font-size: 20px; line-height: 1.6; padding: 24px; }
+.pause-panel { display: flex; flex-direction: column; align-items: stretch; gap: 14px; min-width: min(360px, 80vw); text-align: center; }
+.pause-title { font-size: 30px; font-weight: 700; margin: 0 0 8px; }
+.btn {
+  font: inherit; font-size: 20px; padding: 14px 28px; border-radius: 12px; cursor: pointer;
+  color: var(--ink); background: rgb(255 255 255 / 0.08); border: 1px solid rgb(255 255 255 / 0.18);
+}
+.btn-primary { background: var(--sand); color: var(--night); border-color: var(--sand); font-weight: 700; }
+.btn:focus-visible, .btn:focus { outline: 3px solid #fff; outline-offset: 3px; }
 /* Controller-first: no phone-style touch UI while a gamepad is the active device. */
 :root[data-input='gamepad'] [data-touch-ui] { display: none !important; }

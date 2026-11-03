@@ -3,6 +3,10 @@
   "app.subtitle": "מסע תלת־ממדי בתולדות מלחמות ישראל",
   "app.version": "גרסה {version} · אב־טיפוס",
   "pause.title": "המשחק מושהה",
-  "pause.hint": "לחצו על ״חזור״ שוב כדי להמשיך",
-  "error.noWebgl2": "המכשיר הזה לא תומך ב־WebGL2, ולכן המשחק לא יכול לרוץ עליו. נסו לעדכן את Android System WebView מחנות Play."
+  "pause.hint": "אפשר גם ללחוץ שוב על ״חזור״ או על Start בבקר",
+  "error.noWebgl2": "המכשיר הזה לא תומך ב־WebGL2, ולכן המשחק לא יכול לרוץ עליו. נסו לעדכן את Android System WebView מחנות Play.",
+  "pause.resume": "המשך",
+  "pause.save": "שמירה",
+  "pause.saved": "המשחק נשמר",
+  "pause.saveFailed": "השמירה נכשלה. נסו שוב בעוד רגע."
 }

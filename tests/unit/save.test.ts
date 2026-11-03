@@ -107,7 +107,7 @@ interface Harness {
   bus: EventBus<GameEvents>;
 }
 
-function makeManager(opts: { primary?: SyncStore; mirror?: MemoryAsyncStore } = {}): Harness {
+function makeManager(opts: { primary?: SyncStore; mirror?: MemoryAsyncStore; notReady?: boolean } = {}): Harness {
   const bus = new EventBus<GameEvents>();
   const primary = opts.primary ?? new MemoryStore();
   const mirror = opts.mirror ?? new MemoryAsyncStore();
@@ -125,6 +125,7 @@ function makeManager(opts: { primary?: SyncStore; mirror?: MemoryAsyncStore } = 
     snapshot: () => state.save,
     isVolatile: () => vol.value,
   });
+  if (!opts.notReady) mgr.markReady();
   return { mgr, primary, mirror, vol, state, events, bus };
 }
 
@@ -185,6 +186,15 @@ describe('SaveManager: BRIEF 8.H exit matrix', () => {
 });
 
 describe('SaveManager: reliability', () => {
+  it('refuses every write until the existing save has been loaded (boot race)', () => {
+    const h = makeManager({ notReady: true });
+    expect(h.mgr.onExit('pagehide')).toBe(false);
+    expect(h.mgr.saveManual()).toBe(false);
+    expect(h.mgr.load('auto')).toBeNull();
+    h.mgr.markReady();
+    expect(h.mgr.onExit('pagehide')).toBe(true);
+  });
+
   it('tracks the unsaved-progress flag', () => {
     const h = makeManager();
     const flags: boolean[] = [];

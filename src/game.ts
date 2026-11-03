@@ -76,9 +76,21 @@ export function startGame(canvas: HTMLCanvasElement, onPauseChanged: (paused: bo
     document.documentElement.dataset.input = device;
     document.documentElement.dataset.padFamily = family ?? '';
   });
-  // BRIEF 7: a controller lost mid-play pauses the game.
+  // BRIEF 7: a controller lost mid-play pauses the game; reconnecting resumes it, but only if
+  // that disconnect is what paused it.
+  let pausedByDisconnect = false;
   bus.on('input:gamepad-lost', () => {
-    if (flow.isVolatile) flow.setPaused(true);
+    if (flow.isVolatile && !flow.paused) {
+      flow.setPaused(true);
+      pausedByDisconnect = true;
+    }
+  });
+  bus.on('input:gamepad-connected', () => {
+    if (pausedByDisconnect && flow.paused) flow.setPaused(false);
+    pausedByDisconnect = false;
+  });
+  bus.on('flow:pause-changed', ({ paused }) => {
+    if (!paused) pausedByDisconnect = false;
   });
   bus.on('flow:pause-changed', ({ paused }) => onPauseChanged(paused));
   void bindAndroidBackButton(() => flow.setPaused(!flow.paused));
@@ -116,7 +128,8 @@ export function startGame(canvas: HTMLCanvasElement, onPauseChanged: (paused: bo
     // Input is still read while paused so the pause button can resume.
     if (flow.paused) {
       input.update();
-      if (input.justPressed('pause') || input.justPressed('back')) flow.setPaused(false);
+      // Resume is the focused button on the pause screen, so A / Enter resumes too.
+      if (input.justPressed('pause') || input.justPressed('back') || input.justPressed('confirm')) flow.setPaused(false);
     }
     loop.paused = flow.paused;
     loop.advance(timer.getDelta());
@@ -130,11 +143,19 @@ export function startGame(canvas: HTMLCanvasElement, onPauseChanged: (paused: bo
   });
   canvas.addEventListener('webglcontextrestored', () => renderer.setAnimationLoop(frame));
 
-  void save.hydrateFromMirrors().then(() => {
-    const loaded = save.loadNewest();
-    if (loaded) state = loaded.data;
-    flow.send('ready');
-  });
+  // Saves stay locked (markReady) until the real save is loaded, so an exit during boot can
+  // never overwrite it with the blank initial state. Boot always continues, even on failure.
+  void save
+    .hydrateFromMirrors()
+    .catch((error: unknown) => {
+      bus.emit('save:failed', { slot: 'auto', reason: 'hydrate', error: String(error) });
+    })
+    .finally(() => {
+      const loaded = save.loadNewest();
+      if (loaded) state = loaded.data;
+      save.markReady();
+      flow.send('ready');
+    });
 
   return {
     bus,
