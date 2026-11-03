@@ -80,6 +80,20 @@ describe('InputManager', () => {
     expect(h.log).toEqual(['connected:playstation', 'device:gamepad:playstation', 'device:touch:null']);
   });
 
+  it('a held button does not take the screen back after a touch; a new press does', () => {
+    const h = setup();
+    h.pads.list = [pad(0, 'Xbox 045e', [BTN.south])];
+    h.input.update();
+    expect(h.input.device).toBe('gamepad');
+    h.pointer('touch');
+    h.input.update();
+    h.input.update();
+    expect(h.input.device).toBe('touch');
+    h.pads.list = [pad(0, 'Xbox 045e', [BTN.south, BTN.east])];
+    h.input.update();
+    expect(h.input.device).toBe('gamepad');
+  });
+
   it('reports a disconnect and falls back to touch', () => {
     const h = setup();
     h.pads.list = [pad(0, 'Xbox 045e', [BTN.south])];

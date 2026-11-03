@@ -1,14 +1,20 @@
-import * as THREE from 'three';
 import './style.css';
 import he from './locales/he.json';
 import { createI18n } from './core/i18n';
 import { hasWebGL2 } from './core/webgl';
-import { createTitleScene } from './scene/titleScene';
-import { bindAndroidBackButton } from './platform/android';
+import { startGame, type Game } from './game';
+
+declare global {
+  interface Window {
+    /** E2E test hook; only present in builds made with VITE_TEST_HOOKS=1. */
+    __netivim?: Game;
+  }
+}
 
 const i18n = createI18n('he', he);
 document.documentElement.lang = i18n.locale;
 document.documentElement.dir = i18n.dir;
+document.documentElement.dataset.input = 'touch';
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text = ''): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
@@ -24,20 +30,9 @@ function showFatal(messageKey: string): void {
   document.body.append(overlay);
 }
 
-function start(): void {
+function boot(): void {
   const canvas = document.getElementById('scene') as HTMLCanvasElement;
   const ui = document.getElementById('ui') as HTMLElement;
-
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.toneMapping = THREE.AgXToneMapping;
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFShadowMap;
-
-  const title = createTitleScene();
-  const timer = new THREE.Timer();
-  timer.connect(document);
-
   ui.append(
     el('h1', 'title', i18n.t('app.title')),
     el('p', 'subtitle', i18n.t('app.subtitle')),
@@ -50,35 +45,14 @@ function start(): void {
   pause.append(el('p', '', i18n.t('pause.title')), el('p', 'meta', i18n.t('pause.hint')));
   document.body.append(pause);
 
-  const resize = (): void => {
-    renderer.setSize(window.innerWidth, window.innerHeight, false);
-    title.resize(window.innerWidth, window.innerHeight);
-  };
-  window.addEventListener('resize', resize);
-  resize();
-
-  const frame = (): void => {
-    timer.update();
-    if (!pause.hidden) return;
-    title.update(timer.getElapsed());
-    renderer.render(title.scene, title.camera);
-  };
-  renderer.setAnimationLoop(frame);
-
-  // three.js rebuilds GPU resources itself on restore; the loop just stops and restarts.
-  canvas.addEventListener('webglcontextlost', (e) => {
-    e.preventDefault();
-    renderer.setAnimationLoop(null);
+  const game = startGame(canvas, (paused) => {
+    pause.hidden = !paused;
   });
-  canvas.addEventListener('webglcontextrestored', () => renderer.setAnimationLoop(frame));
-
-  void bindAndroidBackButton(() => {
-    pause.hidden = !pause.hidden;
-  });
+  if (import.meta.env.VITE_TEST_HOOKS === '1') window.__netivim = game;
 }
 
 if (hasWebGL2()) {
-  start();
+  boot();
 } else {
   showFatal('error.noWebgl2');
 }

@@ -33,6 +33,11 @@ jobs:
       - name: Lint, typecheck, unit tests
         run: npm run lint && npm run typecheck && npm test
 
+      - name: E2E tests (Playwright, Android landscape emulation)
+        run: |
+          npx playwright install --with-deps chromium
+          npm run e2e
+
       - name: Resolve version
         id: ver
         run: |

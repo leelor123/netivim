@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { disposeObject, type GameScene } from '../render/sceneManager';
 
 const HILL_SEGMENTS = 96;
 const HILL_SIZE = 220;
@@ -38,16 +39,9 @@ function terrainHeight(x: number, z: number): number {
   return h * (0.25 + 0.75 * valley) - 4;
 }
 
-export interface TitleScene {
-  readonly scene: THREE.Scene;
-  readonly camera: THREE.PerspectiveCamera;
-  update(elapsed: number): void;
-  resize(width: number, height: number): void;
-  dispose(): void;
-}
 
 /** Placeholder title backdrop: low-poly hills at dusk with instanced olive trees. */
-export function createTitleScene(): TitleScene {
+export function createTitleScene(): GameScene {
   const scene = new THREE.Scene();
   const skyColor = new THREE.Color('#e9a76b');
   scene.background = skyColor;
@@ -128,7 +122,7 @@ export function createTitleScene(): TitleScene {
   return {
     scene,
     camera,
-    update(elapsed) {
+    update(_dt, elapsed) {
       const a = elapsed * 0.03;
       camera.position.set(Math.sin(a) * 34, 16 + Math.sin(elapsed * 0.11) * 1.5, 46 + Math.cos(a) * 10);
       camera.lookAt(lookTarget);
@@ -138,12 +132,7 @@ export function createTitleScene(): TitleScene {
       camera.updateProjectionMatrix();
     },
     dispose() {
-      scene.traverse((obj) => {
-        if (obj instanceof THREE.Mesh) {
-          obj.geometry.dispose();
-          (obj.material as THREE.Material).dispose();
-        }
-      });
+      disposeObject(scene);
     },
   };
 }

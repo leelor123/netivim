@@ -42,6 +42,7 @@ export class InputManager {
   private readonly stickHeld: Record<Dir, boolean> = { up: false, down: false, left: false, right: false };
   private readonly stickValue: Record<Dir, number> = { up: 0, down: 0, left: 0, right: 0 };
   private readonly tmp: Vec2 = { x: 0, y: 0 };
+  private readonly lastMask = new Map<number, number>();
 
   constructor(
     private readonly bus: EventBus<GameEvents>,
@@ -184,6 +185,7 @@ export class InputManager {
       for (const index of [...this.known.keys()]) {
         if (this.seen.has(index)) continue;
         this.known.delete(index);
+        this.lastMask.delete(index);
         this.bus.emit('input:gamepad-lost', { index });
         if (this.device === 'gamepad' && this.known.size === 0) this.setDevice('touch', null);
       }
@@ -192,13 +194,26 @@ export class InputManager {
   }
 
   private isActive(p: GamepadLike): boolean {
-    for (const b of p.buttons) if (b.pressed) return true;
-    for (const a of p.axes) if (Math.abs(a) > GAMEPAD_ACTIVITY) return true;
-    return false;
+    return this.activityMask(p) !== 0;
+  }
+
+  /** Bitmask of pressed buttons (bits 0-23) and deflected axes (bits 24-31). */
+  private activityMask(p: GamepadLike): number {
+    let mask = 0;
+    const nb = Math.min(p.buttons.length, 24);
+    for (let i = 0; i < nb; i++) if (p.buttons[i]?.pressed) mask |= 1 << i;
+    const na = Math.min(p.axes.length, 8);
+    for (let i = 0; i < na; i++) if (Math.abs(p.axes[i] ?? 0) > GAMEPAD_ACTIVITY) mask |= 1 << (24 + i);
+    return mask;
   }
 
   private readPad(p: GamepadLike): void {
-    if (this.isActive(p)) this.setDevice('gamepad', this.known.get(p.index) ?? detectFamily(p.id));
+    // Switch to gamepad only on NEW controller input, so a held or stuck button cannot take the
+    // screen back from a player who just touched it.
+    const mask = this.activityMask(p);
+    const before = this.lastMask.get(p.index) ?? 0;
+    this.lastMask.set(p.index, mask);
+    if ((mask & ~before) !== 0) this.setDevice('gamepad', this.known.get(p.index) ?? detectFamily(p.id));
 
     for (let i = 0; i < p.buttons.length; i++) {
       if (!p.buttons[i]?.pressed) continue;

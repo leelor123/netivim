@@ -19,3 +19,4 @@ android/local.properties
 android/.idea/
 android/app/release/
 android/capacitor-cordova-android-plugins/build/
+dist-test/

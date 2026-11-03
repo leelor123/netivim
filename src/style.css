@@ -39,3 +39,5 @@ html, body {
 .overlay[hidden] { display: none; }
 .overlay p { font-size: 28px; margin: 0; }
 .fatal { max-width: 32em; text-align: center; font-size: 20px; line-height: 1.6; padding: 24px; }
+/* Controller-first: no phone-style touch UI while a gamepad is the active device. */
+:root[data-input='gamepad'] [data-touch-ui] { display: none !important; }
