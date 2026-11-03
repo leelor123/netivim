@@ -63,6 +63,7 @@ function boot(): void {
     status.textContent = i18n.t(game.save.saveManual('manual-1') ? 'pause.saved' : 'pause.saveFailed');
   });
   // SYSTEM INSTALLS (one line per system; see docs/CONTRACTS.md section 11)
+  void import('./world/install').then((m) => m.installWorld(game));
   // END SYSTEM INSTALLS
   if (import.meta.env.VITE_TEST_HOOKS === '1') window.__netivim = game;
 }
