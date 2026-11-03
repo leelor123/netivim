@@ -288,7 +288,7 @@ describe('terrain', () => {
 
 describe('world quality', () => {
   it('maps presets and custom options', () => {
-    expect(worldQualityFromSettings(DEFAULT_SETTINGS)).toBe(PRESET_QUALITY.high);
+    expect(worldQualityFromSettings(DEFAULT_SETTINGS)).toEqual(PRESET_QUALITY.high);
     const custom = { ...DEFAULT_SETTINGS, graphics: { ...DEFAULT_SETTINGS.graphics, mode: 'custom' as const, custom: { ...DEFAULT_GRAPHICS_OPTIONS, vegetation: 0.3, shadows: 'off' as const } } };
     const q = worldQualityFromSettings(custom);
     expect(q.vegetation).toBe(0.3);

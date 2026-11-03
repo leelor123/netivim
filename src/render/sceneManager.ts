@@ -39,6 +39,8 @@ export interface GameScene {
 /** Frees GPU memory for everything in a scene graph (geometries, materials, textures). */
 export function disposeObject(root: THREE.Object3D): void {
   root.traverse((obj) => {
+    // Lights own shadow-map render targets; dispose() frees them.
+    if (obj instanceof THREE.Light) obj.dispose();
     const mesh = obj as Partial<THREE.Mesh>;
     mesh.geometry?.dispose();
     const mat = mesh.material;
