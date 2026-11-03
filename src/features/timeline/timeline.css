@@ -1,0 +1,121 @@
+.tl {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: max(16px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+  background: rgb(8 10 14 / 0.9);
+  color: var(--ink, #f3ede2);
+  pointer-events: auto;
+}
+.tl[data-embedded='true'] {
+  inset: auto 0 0 0;
+  padding-top: 8px;
+  gap: 4px;
+  background: linear-gradient(to top, rgb(8 10 14 / 0.92), rgb(8 10 14 / 0));
+  pointer-events: none;
+}
+.tl[data-embedded='true'] .tl-track { pointer-events: auto; }
+.tl[data-embedded='true'] .tl-title,
+.tl[data-embedded='true'] .tl-hint,
+.tl[data-embedded='true'] .tl-detail { display: none; }
+.tl-title { margin: 0; font-size: 26px; }
+.tl-hint { margin: 0; font-size: 14px; color: var(--ink-dim, #b9b2a6); }
+.tl-track {
+  position: relative;
+  height: 112px;
+  margin-inline: 52px;
+  touch-action: none;
+  cursor: grab;
+  flex: none;
+}
+.tl-rail {
+  position: absolute;
+  inset-inline: 0;
+  top: 18px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgb(255 255 255 / 0.25);
+}
+.tl-thumb {
+  position: absolute;
+  top: 8px;
+  width: 4px;
+  height: 24px;
+  margin-inline-start: -2px;
+  border-radius: 2px;
+  background: var(--sand, #d9b77a);
+  box-shadow: 0 0 0 3px rgb(217 183 122 / 0.35);
+  pointer-events: none;
+}
+.tl-node {
+  position: absolute;
+  top: 0;
+  width: 88px;
+  margin-inline-start: -44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 2px;
+  font: inherit;
+  font-size: 12px;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.tl-node:focus-visible, .tl-node:focus { outline: 3px solid #fff; outline-offset: 2px; }
+.tl-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 3px solid var(--ink-dim, #b9b2a6);
+  background: var(--night, #0e1116);
+}
+.tl-node[data-status='unlocked'] .tl-dot { border-color: var(--sand, #d9b77a); }
+.tl-node[data-status='completed'] .tl-dot { border-color: var(--sand, #d9b77a); background: var(--sand, #d9b77a); }
+.tl-node[data-status='locked'] { opacity: 0.6; }
+.tl-node[data-status='locked'] .tl-dot { border-style: dashed; }
+.tl-node[data-current='true'] { border-color: rgb(255 255 255 / 0.35); background: rgb(255 255 255 / 0.07); opacity: 1; }
+.tl-node-title { font-weight: 700; line-height: 1.2; text-align: center; }
+.tl-node-years { color: var(--ink-dim, #b9b2a6); }
+.tl-detail {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  touch-action: pan-y;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: rgb(255 255 255 / 0.05);
+}
+.tl-detail-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; }
+.tl-era-title { margin: 0; font-size: 22px; }
+.tl-era-years { color: var(--sand, #d9b77a); }
+.tl-badge { font-size: 13px; padding: 2px 10px; border-radius: 999px; border: 1px solid rgb(255 255 255 / 0.3); }
+.tl-badge[data-status='completed'] { border-color: var(--sand, #d9b77a); color: var(--sand, #d9b77a); }
+.tl-era-summary { margin: 8px 0; font-size: 16px; line-height: 1.6; max-width: 60em; }
+.tl-events { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.tl-event { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; font-size: 15px; line-height: 1.5; }
+.tl-event-date { font-weight: 700; min-width: 9em; }
+.tl-label { font-size: 12px; padding: 1px 8px; border-radius: 6px; background: rgb(217 183 122 / 0.2); }
+.tl-event-text { flex-basis: 100%; }
+.tl-sources { flex-basis: 100%; font-size: 12px; color: var(--ink-dim, #b9b2a6); text-align: start; }
+.tl-status { margin: 0; min-height: 1.4em; font-size: 14px; color: var(--sand, #d9b77a); }
+/* Narrow screens (phones in landscape): 13 chapters cannot all show a caption. */
+@media (max-width: 1100px) {
+  .tl-node { width: 40px; margin-inline-start: -20px; }
+  .tl-node:not([data-current='true']) .tl-node-title,
+  .tl-node:not([data-current='true']) .tl-node-years { display: none; }
+  .tl-node[data-current='true'] .tl-node-title,
+  .tl-node[data-current='true'] .tl-node-years { white-space: nowrap; background: rgb(8 10 14 / 0.85); padding: 0 6px; border-radius: 6px; }
+  .tl-track { margin-inline: 28px; height: 84px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tl * { transition: none !important; animation: none !important; }
+}
+
+.tl-node-years, .tl-era-years, .lm-year { direction: ltr; unicode-bidi: isolate; }
