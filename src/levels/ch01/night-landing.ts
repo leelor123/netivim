@@ -123,6 +123,8 @@ const BOAT_MOTOR: MotorParams = { maxSpeed: 5, accel: 1.5, turnRate: 2.5, radius
 const WALK_MOTOR: MotorParams = DEFAULT_MOTOR;
 const LOADED_MOTOR: MotorParams = { ...DEFAULT_MOTOR, maxSpeed: 3.5 };
 
+/** Closing beat length: the 9 s Samir line plus a short silence. */
+const REST_SECONDS = 10;
 const CONE_SEA_Y = 0.55;
 const CONE_LAND_Y = 0.45;
 /** Boat origin height so the kit boat sits in the water. */
@@ -303,6 +305,9 @@ function build(ctx: LevelContext<E>): Level {
   let engineClock = 0;
   let consecutiveSeen = 0;
   let seenAt = '';
+  /** Seconds left of the closing breath in the hollow (-1: not started); the dawn timer waits for it. */
+  let restLeft = -1;
+  let momentPlayed = false;
   const warned = patrols.map(() => false);
   let watchWarned = false;
   const alertOut = { v: 0 };
@@ -436,6 +441,7 @@ function build(ctx: LevelContext<E>): Level {
     clock = 0;
     idle = 0;
     dawnSaid = 0;
+    restLeft = -1;
     watchWarned = false;
     for (const m of Object.values(markers)) m.setVisible(false);
     if (s === 'sea' || s === 'patrols' || s === 'lights') {
@@ -560,6 +566,11 @@ function build(ctx: LevelContext<E>): Level {
       engineClock = 0;
       emit('engine.ship', 0.25 + 0.6 * Math.min(1, m.speed / BOAT_MOTOR.maxSpeed));
     }
+    // Calm beat on open water: the scarf moment (COMPOSITE), once, after the steering tip is done.
+    if (s === 'sea' && !momentPlayed && clock > 9) {
+      momentPlayed = true;
+      say(LINES.moment, true);
+    }
     if (s === 'sea' && Math.hypot(m.x - SEA_GOAL.x, m.z - SEA_GOAL.z) <= SEA_GOAL.radius) {
       ctx.mission.send('approach');
     } else if (s === 'patrols' && Math.hypot(m.x - PATROLS_GOAL.x, m.z - PATROLS_GOAL.z) <= PATROLS_GOAL.radius) {
@@ -666,10 +677,16 @@ function build(ctx: LevelContext<E>): Level {
     } else {
       const safe = rescue.settle(HOLLOW.x, HOLLOW.z, HOLLOW.radius);
       ctx.objectives.progress('o5', safe);
-      if (safe >= rescue.total) {
+      if (safe >= rescue.total && restLeft < 0) {
+        // A closing breath: everyone is hidden, the dawn timer stops mattering, and Samir's
+        // line on the Arab concern (multi-perspective) is heard in full before the mission ends.
+        restLeft = REST_SECONDS;
         say(LINES.arab);
         unlockOnce('fact', 'intercepted');
-        ctx.mission.send('hidden');
+      }
+      if (restLeft >= 0) {
+        restLeft -= dt;
+        if (restLeft < 0) ctx.mission.send('hidden');
       }
     }
   }
@@ -739,7 +756,7 @@ function build(ctx: LevelContext<E>): Level {
       if (ctx.mission.state === s) {
         if (s === 'landing' || s === 'shore' || s === 'hide') {
           updateDawn(s);
-          if (stepTimer(dt, s)) ctx.mission.fail(FAIL.dawn);
+          if (stepTimer(dt, s) && restLeft < 0) ctx.mission.fail(FAIL.dawn);
         } else dawn.set(0);
       }
       ctx.alert(alertOut.v);
