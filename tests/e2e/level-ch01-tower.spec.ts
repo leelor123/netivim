@@ -79,7 +79,6 @@ async function gameplayReady(page: Page): Promise<void> {
 
 const flowState = (page: Page): Promise<string | undefined> => page.evaluate(() => window.__netivim?.flow.state);
 const missionState = (page: Page): Promise<string | undefined> => page.evaluate(() => window.__netivimGameplay?.host?.state);
-const objective = (page: Page): Promise<string> => page.locator('.gp-hud__objective').innerText();
 
 interface Spot {
   readonly x: number;
@@ -155,7 +154,7 @@ test('controller only: Tower and Stockade from briefing through sunset, Two Lens
   await expect(panel).toBeVisible({ timeout: 60000 });
   await expect(panel).toContainText('הונחו 0 מתוך 14');
   await press(page, A); // the cursor starts on an empty yard cell: the frame does not fit
-  await expect(panel).toContainText('לא נכנסת');
+  await expect(panel).toContainText('אי אפשר לבנות כאן');
   await press(page, DPAD_LEFT);
   await press(page, DPAD_UP);
   await expect(panel).toContainText('המסגרת מתאימה');
