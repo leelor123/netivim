@@ -33,8 +33,9 @@
 .nv-layer { position: absolute; inset: 0; }
 .nv-screen { position: absolute; inset: 0; pointer-events: auto; }
 .nv-screen[hidden] { display: none; }
-/* Another system hosts a full screen (timeline, living map): step aside. */
-.nv-root.is-yielded .nv-layer, .nv-root.is-yielded .nv-sub, .nv-root.is-yielded .nv-hud__bar { display: none; }
+/* Another system hosts a full screen (timeline, living map): step aside. Subtitles stay visible:
+   testimonies and narration must remain readable over hosted screens. */
+.nv-root.is-yielded .nv-layer, .nv-root.is-yielded .nv-hud__bar { display: none; }
 
 /* Enter / leave transitions (skipped entirely with reduced motion). */
 .nv-screen.is-entering { animation: nv-in 200ms var(--nv-ease) both; }

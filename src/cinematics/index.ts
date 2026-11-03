@@ -66,6 +66,13 @@ declare global {
   }
 }
 
+let activeApi: CinematicsApi | null = null;
+
+/** The installed cinematics API (null before install or after uninstall). Gameplay plays chapter cutscenes through it. */
+export function getCinematics(): CinematicsApi | null {
+  return activeApi;
+}
+
 export function installCinematics(game: Game, seenStore: SeenStore = localSeenStore()): () => void {
   const overlay = createDomOverlay(game.i18n);
   const player = new CutscenePlayer({
@@ -117,6 +124,7 @@ export function installCinematics(game: Game, seenStore: SeenStore = localSeenSt
     player.update(dt);
   });
 
+  activeApi = api;
   if (import.meta.env.VITE_TEST_HOOKS === '1') window.__netivimCinematics = api;
 
   return () => {
@@ -125,5 +133,6 @@ export function installCinematics(game: Game, seenStore: SeenStore = localSeenSt
     player.skip();
     overlay.dispose();
     if (window.__netivimCinematics === api) delete window.__netivimCinematics;
+    if (activeApi === api) activeApi = null;
   };
 }
