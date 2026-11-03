@@ -20,6 +20,7 @@ export const LEVELS: Record<string, Loader<AnyLevelDefinition>> = {
   // Chapter levels go below this line.
   'archive-night': () => import('../levels/ch00/archive-night').then((m) => m.default),
   'the-vote': () => import('../levels/ch01/the-vote').then((m) => m.default),
+  'night-landing': () => import('../levels/ch01/night-landing').then((m) => m.default),
 };
 
 export const CHAPTERS: Record<string, Loader<ChapterDefinition>> = {
