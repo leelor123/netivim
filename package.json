@@ -21,6 +21,7 @@
     "@capacitor/android": "8.6.0",
     "@capacitor/app": "8.1.2",
     "@capacitor/core": "8.6.0",
+    "@capacitor/preferences": "8.0.1",
     "three": "0.186.1"
   },
   "devDependencies": {
