@@ -2,7 +2,7 @@
  * Netivim UI: "warm archive". Paper and ink sheets laid over the dusk-sand landscape.
  * Ink on paper is at least 9:1, secondary ink 7:1, umber/stamp accents about 6:1 (WCAG AA).
  */
-.nv-root {
+.nv-root, .nv-top {
   --nv-ink: #1f1a14;
   --nv-ink-2: #4a3f31;
   --nv-paper: #efe5cf;
@@ -29,7 +29,12 @@
   color: var(--nv-cream);
   line-height: 1.4;
 }
-.nv-root * { box-sizing: border-box; }
+.nv-root *, .nv-top * { box-sizing: border-box; }
+/* Top layer for subtitles and toasts: above cutscene bars (30), gameplay sheets (30), level
+   overlays (45) and the tower lenses, below only the graphics fatal-error screens. */
+.nv-top { z-index: 55; }
+.nv-sub-wrap { display: contents; }
+.nv-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .nv-layer { position: absolute; inset: 0; }
 .nv-screen { position: absolute; inset: 0; pointer-events: auto; }
 .nv-screen[hidden] { display: none; }
@@ -69,7 +74,7 @@
   transition: background-color 120ms ease, color 120ms ease;
 }
 .nv-btn__label { font-weight: 700; }
-.nv-btn__sub { font-size: 13px; color: var(--nv-ink-2); font-weight: 400; }
+.nv-btn__sub { font-size: 14px; color: var(--nv-ink-2); font-weight: 400; }
 .nv-btn--primary { background: var(--nv-ink); color: var(--nv-paper); border-block-end-color: transparent; }
 .nv-btn--primary .nv-btn__sub { color: var(--nv-cream-2); }
 .nv-btn--quiet { font-size: 16px; }
@@ -142,7 +147,7 @@
   background: linear-gradient(to left, var(--nv-sand), rgb(217 183 122 / 0));
 }
 .nv-brand__covered { margin: 0; font-size: 15px; color: var(--nv-cream); }
-.nv-brand__version { margin: 4px 0 0; font-size: 13px; color: var(--nv-cream-2); }
+.nv-brand__version { margin: 4px 0 0; font-size: 14px; color: var(--nv-cream-2); }
 
 .nv-title__card {
   align-self: end;
@@ -229,7 +234,7 @@
   font: inherit;
   font-size: 16px;
   font-weight: 700;
-  min-height: 44px;
+  min-height: 48px;
   min-width: 48px;
   padding: 6px 16px;
   color: var(--nv-ink-2);
@@ -255,7 +260,7 @@
   border-block-end: 1px dashed var(--nv-paper-edge);
 }
 .nv-row__label { grid-area: label; font-size: 17px; font-weight: 700; }
-.nv-row__note { grid-area: note; font-size: 13px; color: var(--nv-ink-2); }
+.nv-row__note { grid-area: note; font-size: 14px; color: var(--nv-ink-2); }
 .nv-row > :last-child:not(.nv-row__label):not(.nv-row__note) { grid-area: control; }
 .nv-row--action { display: flex; justify-content: flex-start; border: 0; }
 
@@ -293,7 +298,7 @@
   min-height: 48px;
   color: var(--nv-ink);
   background: var(--nv-paper-2);
-  border: 1px solid var(--nv-paper-edge);
+  border: 1px solid #8a7550;
   border-radius: 6px;
   cursor: pointer;
 }
@@ -315,13 +320,13 @@
 .nv-switch__state { font-weight: 700; }
 
 /* Choice */
-.nv-choice { display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; padding: 2px; }
+.nv-choice { display: grid; grid-template-columns: 48px 1fr 48px; align-items: center; padding: 2px; }
 .nv-choice__body { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .nv-choice__value { font-weight: 700; }
 .nv-choice__pips { display: flex; gap: 4px; }
 .nv-choice__pip { width: 6px; height: 6px; border-radius: 50%; background: rgb(31 26 20 / 0.22); }
 .nv-choice__pip.is-on { background: var(--nv-umber); }
-.nv-choice__arrow { display: grid; place-items: center; height: 44px; color: var(--nv-umber); }
+.nv-choice__arrow { display: grid; place-items: center; height: 48px; color: var(--nv-umber); }
 .nv-choice__arrow::before { font-size: 22px; line-height: 1; }
 /* Prev sits at the reading start (right in RTL); arrows point outward. */
 .nv-choice__arrow--prev::before { content: '‹'; }
@@ -390,9 +395,9 @@
   border-radius: 6px;
   cursor: pointer;
 }
-.nv-chapter__num { font-size: 13px; color: var(--nv-stamp); font-weight: 700; }
+.nv-chapter__num { font-size: 14px; color: var(--nv-stamp); font-weight: 700; }
 .nv-chapter__title { font-family: var(--nv-display); font-size: 18px; line-height: 1.25; }
-.nv-chapter__state { font-size: 13px; color: var(--nv-ink-2); }
+.nv-chapter__state { font-size: 14px; color: var(--nv-ink-2); }
 .nv-chapter.is-locked { background: transparent; border-style: dashed; cursor: default; }
 
 /* ---------- HUD ---------- */
@@ -436,7 +441,7 @@
 .nv-toast {
   position: absolute;
   inset-inline: 0;
-  bottom: calc(var(--nv-pad-b) + 8px);
+  bottom: calc(var(--nv-pad-b) + var(--cine-bar-offset, 0px) + 8px);
   margin-inline: auto;
   width: max-content;
   max-width: min(90vw, 480px);
@@ -462,13 +467,17 @@
 .nv-sub {
   position: absolute;
   inset-inline: var(--nv-pad-r);
-  bottom: calc(var(--nv-pad-b) + 12px);
+  /* html[data-letterbox] (set by the cutscene overlay) lifts captions above the black bars. */
+  bottom: calc(var(--nv-pad-b) + var(--cine-bar-offset, 0px) + 12px);
   display: flex;
   justify-content: center;
   pointer-events: none;
   --nv-sub-size: 20px;
 }
-.nv-sub[hidden], .nv-root.has-screen .nv-sub { display: none; }
+:root[data-letterbox] { --cine-bar-offset: var(--cine-bar, 12vh); }
+.nv-sub[hidden] { display: none; }
+/* While a menu is open the captions dock at the top so they never cover menu content. */
+.nv-top.has-screen .nv-sub { bottom: auto; top: calc(var(--nv-pad-t) + 64px); }
 .nv-sub[data-size='small'] { --nv-sub-size: 16px; }
 .nv-sub[data-size='large'] { --nv-sub-size: 26px; }
 .nv-sub[data-size='xlarge'] { --nv-sub-size: 32px; }

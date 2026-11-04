@@ -7,6 +7,13 @@ export interface CaptureOptions {
   readonly signal?: AbortSignal;
   /** Poll interval in ms. */
   readonly pollMs?: number;
+  /**
+   * Buttons that cancel the capture when held for `holdCancelMs` (normally the Back button).
+   * A short press of one of them is still captured as a binding, like any other button.
+   */
+  readonly holdCancelButtons?: readonly number[];
+  readonly holdCancelMs?: number;
+  readonly now?: () => number;
 }
 
 function defaultPads(): readonly (GamepadLike | null)[] {
@@ -34,6 +41,11 @@ export function captureNextGamepadButton(opts: CaptureOptions = {}): Promise<num
   const getPads = opts.getPads ?? defaultPads;
   const timeoutMs = opts.timeoutMs ?? 6000;
   const pollMs = opts.pollMs ?? 16;
+  const holdMs = opts.holdCancelMs ?? 1000;
+  const cancelBtns = new Set(opts.holdCancelButtons ?? []);
+  const clock = opts.now ?? Date.now;
+  /** Cancel-capable button currently being held: its index and when it went down. */
+  let pending: { button: number; since: number } | null = null;
   return new Promise((resolve) => {
     const held = new Map<number, number>();
     const now = new Map<number, number>();
@@ -57,10 +69,28 @@ export function captureNextGamepadButton(opts: CaptureOptions = {}): Promise<num
     const onAbort = (): void => finish(null);
     const timer = setInterval(() => {
       snapshot(read(), now);
+      if (pending) {
+        let still = false;
+        for (const mask of now.values()) if ((mask & (1 << pending.button)) !== 0) still = true;
+        if (!still) {
+          finish(pending.button);
+          return;
+        }
+        if (clock() - pending.since >= holdMs) {
+          finish(null);
+          return;
+        }
+        return;
+      }
       for (const [index, mask] of now) {
         const fresh = mask & ~(held.get(index) ?? 0);
         if (fresh !== 0) {
-          finish(31 - Math.clz32(fresh & -fresh));
+          const button = 31 - Math.clz32(fresh & -fresh);
+          if (cancelBtns.has(button)) {
+            pending = { button, since: clock() };
+            return;
+          }
+          finish(button);
           return;
         }
         // Released buttons may be pressed again and then count as new.

@@ -1,8 +1,9 @@
+:root { --cine-bar: 12vh; }
 .cine { position: fixed; inset: 0; z-index: 30; pointer-events: none; }
 .cine[hidden] { display: none; }
 .cine-fade { position: absolute; inset: 0; background: #000; opacity: 0; }
 .cine-fade[data-color='sepia'] { background: #3b2a1a; }
-.cine-bar { position: absolute; inset-inline: 0; height: 12vh; background: #000; transition: transform 0.6s ease; }
+.cine-bar { position: absolute; inset-inline: 0; height: var(--cine-bar, 12vh); background: #000; transition: transform 0.6s ease; }
 .cine-bar-top { top: 0; transform: translateY(-100%); }
 .cine-bar-bottom { bottom: 0; transform: translateY(100%); }
 .cine-letterbox .cine-bar-top, .cine-letterbox .cine-bar-bottom { transform: none; }

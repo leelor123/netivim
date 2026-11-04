@@ -1,6 +1,7 @@
 import type { Action, InputDevice, Vec2 } from '../core/input/types';
 import type { Bindings } from '../core/input/bindings';
 import { findNext, firstInReadingOrder, horizontalDelta, tabDelta, type Box, type Dir } from './nav';
+import { SCROLL_DEAD, SCROLL_SPEED } from './scrollRouting';
 import type { ScreenManager } from './screenManager';
 import type { UiScreen } from './uiScreen';
 import { adjusterFor } from './widgets';
@@ -24,8 +25,8 @@ const REPEAT_DELAY = 0.38;
 const REPEAT_EVERY = 0.11;
 /** Android may deliver one controller press both as a key event and through the Gamepad API. */
 const DUPLICATE_WINDOW = 150;
-const SCROLL_SPEED = 900;
-const SCROLL_DEAD = 0.15;
+
+
 const SELECTOR = '[data-focusable]';
 
 export interface FocusManagerDeps {

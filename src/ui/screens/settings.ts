@@ -4,6 +4,7 @@ import { DEFAULT_BINDINGS, remapGamepad } from '../../core/input/bindings';
 import { dialog, panel, type UiContext } from '../context';
 import { focusable, h } from '../dom';
 import { resolveGraphics } from '../../render/presets';
+import { buttonLabel } from '../glyphs';
 import { captureNextGamepadButton } from '../remap';
 import type { UiScreen } from '../uiScreen';
 import { button, choiceRow, customRow, heading, sliderRow, toggleRow } from '../widgets';
@@ -232,7 +233,8 @@ export function settingsScreen(ctx: UiContext, initialTab: SettingsTab = 'graphi
   const buttonsFor = (action: Action): string => {
     const names: string[] = [];
     for (const [k, list] of Object.entries(s().controls.bindings.gamepad)) {
-      if (list.includes(action)) names.push(ctx.t('ui.pad.' + k) === 'ui.pad.' + k ? t('ui.pad.other', { n: k }) : t('ui.pad.' + k));
+      // Same family glyphs / names as the prompts everywhere else (PlayStation shapes, Xbox letters...).
+      if (list.includes(action)) names.push(buttonLabel(Number(k), ctx.game.input.family));
     }
     return names.length > 0 ? names.join(' · ') : t('ui.controls.unbound');
   };
@@ -249,7 +251,7 @@ export function settingsScreen(ctx: UiContext, initialTab: SettingsTab = 'graphi
 
   async function capture(action: Action): Promise<void> {
     const abort = new AbortController();
-    const prompt = dialog('remap-capture', t('ui.controls.capture'), t('ui.controls.captureFor', { action: t('ui.action.' + action) }), [
+    const prompt = dialog('remap-capture', t('ui.controls.capture'), t('ui.controls.captureFor', { action: t('ui.action.' + action) }) + ' ' + t('ui.controls.captureCancelHint'), [
       { label: t('ui.common.cancel'), run: () => abort.abort() },
     ]);
     const onKey = (e: KeyboardEvent): void => {
@@ -258,13 +260,20 @@ export function settingsScreen(ctx: UiContext, initialTab: SettingsTab = 'graphi
     window.addEventListener('keydown', onKey);
     ctx.screens.push(prompt);
     ctx.focus.suspended = true;
-    const button = await captureNextGamepadButton({ signal: abort.signal });
+    // Holding the Back button for a second cancels (a quick press still binds it, like any button).
+    const backButtons = Object.entries(s().controls.bindings.gamepad)
+      .filter(([, list]) => list.includes('back'))
+      .map(([k]) => Number(k));
+    const button = await captureNextGamepadButton({ signal: abort.signal, holdCancelButtons: backButtons });
     window.removeEventListener('keydown', onKey);
     ctx.focus.suspended = false;
     if (ctx.screens.top === prompt) ctx.screens.pop();
     if (button !== null) {
+      const others = (s().controls.bindings.gamepad[button] ?? []).filter((a) => a !== action);
       applyBindings(remapGamepad(s().controls.bindings, action, button));
       render('remap-' + action);
+      // A button may serve two actions; say so instead of letting it happen silently.
+      if (others.length > 0) ctx.game.bus.emit('ui:toast', { textKey: 'ui.controls.sharedButton', params: { action: others.map((a) => t('ui.action.' + a)).join(', ') } });
     }
   }
 

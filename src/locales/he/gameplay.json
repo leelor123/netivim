@@ -104,7 +104,9 @@
   "gameplay.logistics.title": "תכנון לוגיסטי",
   "gameplay.logistics.route": "{hours} שעות לסבב · {supplies} אספקה · {people} אנשים לרכב",
   "gameplay.logistics.summary": "אספקה: {supplies}/{goalSupplies} · אנשים: {people}/{goalPeople} · רכבים פנויים: {free}",
-  "gameplay.logistics.confirm": "אישור התוכנית",
+  "gameplay.logistics.add": "{route}: להוסיף רכב",
+  "gameplay.logistics.remove": "{route}: להסיר רכב",
+  "gameplay.logistics.confirm":"אישור התוכנית",
   "gameplay.logistics.problem.tooSlow": "בדרך הזאת אין זמן לסבב שלם.",
   "gameplay.logistics.problem.vehicles": "אין מספיק רכבים.",
 

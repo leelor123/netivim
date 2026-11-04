@@ -118,6 +118,8 @@
   "ui.controls.reset": "חזרה למיפוי המקורי",
   "ui.controls.capture": "לחצו עכשיו על כפתור בבקר",
   "ui.controls.captureFor": "כפתור חדש עבור: {action}",
+  "ui.controls.captureCancelHint": "לביטול: החזיקו את כפתור החזרה שנייה אחת.",
+  "ui.controls.sharedButton": "הכפתור משמש גם עבור: {action}",
   "ui.controls.unbound": "לא ממופה",
   "ui.action.confirm": "אישור",
   "ui.action.back": "חזרה",

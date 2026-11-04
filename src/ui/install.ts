@@ -28,8 +28,9 @@ export function installUI(game: Game): () => void {
   const layer = h('div', { class: 'nv-layer' });
   const rtl = game.i18n.dir === 'rtl';
   const html = document.documentElement;
-  const motionQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
-  const reducedMotion = (): boolean => game.settings.value.accessibility.reducedMotion || (motionQuery?.matches ?? false);
+  const motionQuery = game.motionQuery;
+  // One source of truth (in-game setting OR OS preference), shared with every other system.
+  const reducedMotion = (): boolean => game.reducedMotion();
   const applyMotion = (): void => {
     html.dataset.motion = reducedMotion() ? 'reduced' : 'full';
   };
@@ -73,14 +74,18 @@ export function installUI(game: Game): () => void {
     () => openPause(),
   );
   const subtitles = createSubtitles(game);
-  // Subtitles sit under menus; toasts stay on top of everything.
-  root.append(subtitles.el, layer, hud.el);
+  root.append(layer, hud.el);
+  // Subtitles and toasts live in their own top layer, above cutscene bars, gameplay sheets and
+  // level overlays (they are the only channel for speech, and save warnings must be seen).
+  const top = h('div', { class: 'nv-top', attrs: { dir: rtl ? 'rtl' : 'ltr' } }, subtitles.el, hud.toastEl);
+  document.body.append(top);
 
   /** Another system hosts a full screen (e.g. timeline): hide ours and leave input to it. */
   let foreign = false;
   const syncChrome = (): void => {
     hud.setVisible(canPauseIn(game.flow.state) && !game.flow.paused && !foreign, game.flow.isVolatile);
     root.classList.toggle('has-screen', screens.depth > 0);
+    top.classList.toggle('has-screen', screens.depth > 0);
     hud.setMenuOpen(screens.depth > 0);
     root.classList.toggle('is-yielded', foreign);
     focus.suspended = foreign;
@@ -215,6 +220,7 @@ export function installUI(game: Game): () => void {
     screens.clear();
     hud.dispose();
     subtitles.dispose();
+    top.remove();
     layer.remove();
   };
 }

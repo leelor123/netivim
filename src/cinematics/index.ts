@@ -78,7 +78,7 @@ export function installCinematics(game: Game, seenStore: SeenStore = localSeenSt
   const player = new CutscenePlayer({
     bus: game.bus,
     getCamera: () => game.scenes.active?.camera ?? null,
-    isReducedMotion: () => game.settings.value.accessibility.reducedMotion,
+    isReducedMotion: () => game.reducedMotion(),
     overlay,
     getDepthOfFieldTarget: () => dofTarget,
   });
@@ -115,7 +115,7 @@ export function installCinematics(game: Game, seenStore: SeenStore = localSeenSt
       after = afterFlow;
       currentSeen = seenStore.has(id);
       skip.reset();
-      overlay.setReducedMotion(game.settings.value.accessibility.reducedMotion);
+      overlay.setReducedMotion(game.reducedMotion());
       player.play(def);
       return true;
     },
@@ -124,7 +124,7 @@ export function installCinematics(game: Game, seenStore: SeenStore = localSeenSt
   const stepOff = game.onStep((dt) => {
     if (!player.playing) return;
     const down = game.input.isDown('confirm') || game.input.isDown('back') || overlay.pointerHeld;
-    if (skip.update(dt, down, currentSeen)) {
+    if (overlay.consumeSkipRequest() || skip.update(dt, down, currentSeen)) {
       player.skip();
       return;
     }
