@@ -199,9 +199,7 @@ export class Director {
     loadChapter(id)
       .then((ch) => {
         if (mine !== this.token || this.game.flow.state !== 'hub') return;
-        // Chapter cutscenes are data owned by the chapter; register them before any mission ends.
-        const cine = this.cinematics();
-        if (cine) for (const def of ch.cutscenes ?? []) cine.register(def);
+        this.registerCutscenes(ch);
         const recap = buildRecap(this.game.getState(), ch.content);
         this.stack.push(
           recapScreen(this.t, recap, () => this.beginChapter(id, true), () => this.stack.pop()),
@@ -237,6 +235,7 @@ export class Director {
     loadChapter(id)
       .then((ch) => {
         if (mine !== this.token || this.game.flow.state !== 'hub') return;
+        this.registerCutscenes(ch);
         const s = this.game.getState();
         const snapMission = resume ? s.resume.mission?.missionId : undefined;
         const fromSnap = snapMission ? ch.content.missions.findIndex((m) => m.id === snapMission) : -1;
@@ -411,6 +410,15 @@ export class Director {
     const event = run.afterMission(!!cine && !!cutscene);
     if (event === 'playCutscene' && cine && cutscene && cine.play(cutscene, 'toDebrief')) return;
     this.game.flow.send('missionDone');
+  }
+
+  /**
+   * Chapter cutscenes are data owned by the chapter: register them whenever a chapter is opened
+   * (new game, timeline pick and Continue alike), or a mission would silently skip its cutscene.
+   */
+  private registerCutscenes(ch: ChapterDefinition): void {
+    const cine = this.cinematics();
+    if (cine) for (const def of ch.cutscenes ?? []) cine.register(def);
   }
 
   /** Installed cinematics API (works in release builds too). */

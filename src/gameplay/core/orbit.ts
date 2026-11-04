@@ -1,4 +1,4 @@
-import { contains, type Collider } from './collision';
+import type { Collider } from './collision';
 import type { HeightFn } from './movement';
 
 /** Third-person orbit camera math (pure). Camera sits at target - forward * distance. */
@@ -58,25 +58,76 @@ export function safeDistance(
   const dx = -Math.sin(yaw) * cp;
   const dz = -Math.cos(yaw) * cp;
   const dy = Math.sin(pitch);
+  // Terrain: march (the ground is smooth, so a coarse step is enough).
   const steps = 16;
-  let ok = p.minDistance;
+  let ok = desired;
   for (let i = 1; i <= steps; i++) {
     const d = p.minDistance + ((desired - p.minDistance) * i) / steps;
-    const x = tx + dx * d;
-    const y = ty + dy * d;
-    const z = tz + dz * d;
-    if (y < heightAt(x, z) + p.margin) break;
-    let blocked = false;
-    for (const c of colliders) {
-      if (y < heightAt(c.x, c.z) + (c.height ?? 3) && contains(c, x, z)) {
-        blocked = true;
-        break;
-      }
+    if (ty + dy * d < heightAt(tx + dx * d, tz + dz * d) + p.margin) {
+      ok = p.minDistance + ((desired - p.minDistance) * (i - 1)) / steps;
+      break;
     }
-    if (blocked) break;
-    ok = d;
   }
-  return Math.max(p.minDistance, ok - (ok > p.minDistance ? p.margin * 0.5 : 0));
+  // Colliders: exact entry distance of the ray into each footprint, so a thin wall can never fall
+  // between two samples and a wall closer than minDistance still stops the camera.
+  let wall = Infinity;
+  for (const c of colliders) {
+    const entry = rayEntry(tx, tz, dx, dz, desired, c);
+    if (entry === null) continue;
+    const top = heightAt(c.x, c.z) + (c.height ?? 3);
+    // The ray rises with pitch > 0, so it is lowest where it enters (lowest at the far end when it descends).
+    const yAt = ty + dy * (dy >= 0 ? entry.enter : Math.min(entry.exit, desired));
+    if (yAt < top && entry.enter < wall) wall = entry.enter;
+  }
+  // Keep half a margin in front of whatever stopped the camera.
+  let result = ok < desired ? Math.max(p.minDistance, ok - p.margin * 0.5) : ok;
+  if (wall < Infinity) result = Math.min(result, Math.max(MIN_WALL_DISTANCE, wall - p.margin * 0.5));
+  return result;
+}
+
+/** Closest the camera may come to the player when a wall is right behind them. */
+const MIN_WALL_DISTANCE = 0.3;
+
+/** Distances along the ray (xz = origin + dir * d, d in [0, max]) where it enters and leaves a footprint. */
+function rayEntry(ox: number, oz: number, dx: number, dz: number, max: number, c: Collider): { enter: number; exit: number } | null {
+  if (c.kind === 'circle') {
+    const fx = ox - c.x;
+    const fz = oz - c.z;
+    const a = dx * dx + dz * dz;
+    if (a < 1e-12) return null;
+    const b = 2 * (fx * dx + fz * dz);
+    const cc = fx * fx + fz * fz - c.r * c.r;
+    const disc = b * b - 4 * a * cc;
+    if (disc < 0) return null;
+    const sq = Math.sqrt(disc);
+    const t0 = (-b - sq) / (2 * a);
+    const t1 = (-b + sq) / (2 * a);
+    if (t1 < 0 || t0 > max) return null;
+    return { enter: Math.max(0, t0), exit: t1 };
+  }
+  let t0 = 0;
+  let t1 = max;
+  const axes: readonly (readonly [number, number, number, number])[] = [
+    [ox, dx, c.x - c.hw, c.x + c.hw],
+    [oz, dz, c.z - c.hd, c.z + c.hd],
+  ];
+  for (const [o, d, lo, hi] of axes) {
+    if (Math.abs(d) < 1e-9) {
+      if (o < lo || o > hi) return null;
+      continue;
+    }
+    let ta = (lo - o) / d;
+    let tb = (hi - o) / d;
+    if (ta > tb) {
+      const t = ta;
+      ta = tb;
+      tb = t;
+    }
+    t0 = Math.max(t0, ta);
+    t1 = Math.min(t1, tb);
+    if (t0 > t1) return null;
+  }
+  return { enter: t0, exit: t1 };
 }
 
 /**
