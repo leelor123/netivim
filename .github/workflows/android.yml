@@ -167,6 +167,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Locate the downloaded APK wherever the artifact action placed it, and keep the stable
+          # download name netivim.apk for the releases/latest link.
+          ls -laR out || true
+          APK="$(find out -name '*.apk' -type f | head -n 1)"
+          if [ -z "$APK" ]; then echo "::error::No APK found in the downloaded artifact"; exit 1; fi
+          [ "$APK" = out/netivim.apk ] || cp "$APK" out/netivim.apk
           gh release create "$GITHUB_REF_NAME" out/netivim.apk \
             --repo "$GITHUB_REPOSITORY" \
             --title "נתיבים $GITHUB_REF_NAME" \
