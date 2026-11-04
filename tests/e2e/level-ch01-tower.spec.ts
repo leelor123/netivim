@@ -139,7 +139,7 @@ test('controller only: Tower and Stockade from briefing through sunset, Two Lens
   await press(page, A);
   await expect.poll(() => flowState(page), { timeout: 60000 }).toBe('mission');
   await expect.poll(() => missionState(page), { timeout: 60000 }).toBe('dawn');
-  await expect(page.locator('.gp-hud__objective')).toHaveText('פרקו את מסגרות העץ המוכנות מהעגלות.');
+  await expect(page.locator('.gp-hud__objective')).toHaveText('סמנו את ארבע פינות החצר ופרקו את מסגרות העץ מהעגלות.');
   await expect(page.locator('.gp-hud__steps')).toHaveText('0 מתוך 8');
 
   // Dawn: tie the four corner cords (stakes), then unload the four carts, in either order.
