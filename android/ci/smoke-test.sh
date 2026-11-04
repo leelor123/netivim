@@ -126,6 +126,12 @@ assert_alive() {
 # ---------------------------------------------------------------------------
 step "Prepare device"
 adb wait-for-device
+# A "full startup" emulator answers adb before the package manager is up; installing then fails.
+for _ in $(seq 1 90); do
+  if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && \
+     adb shell pm path android >/dev/null 2>&1; then break; fi
+  sleep 2
+done
 adb shell input keyevent KEYCODE_WAKEUP
 adb shell wm dismiss-keyguard >/dev/null 2>&1 || true
 adb shell settings put system accelerometer_rotation 1 >/dev/null 2>&1 || true
@@ -134,7 +140,13 @@ adb uninstall "$PKG" >/dev/null 2>&1 || true
 adb logcat -c
 
 step "1. Install and launch"
-adb install -r "$APK" || fail "adb install failed"
+installed=0
+for attempt in 1 2 3; do
+  if adb install -r "$APK"; then installed=1; break; fi
+  echo "adb install attempt $attempt failed; retrying"
+  sleep 10
+done
+[ "$installed" = 1 ] || fail "adb install failed"
 # Android shows a one-time "Viewing full screen" notice on the first immersive app; confirm it
 # up front so it cannot cover the screenshots (it is proof of immersive mode, not a failure).
 adb shell settings put secure immersive_mode_confirmations confirmed || true
