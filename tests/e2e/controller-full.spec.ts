@@ -13,11 +13,8 @@ import { decide, focusKey, driveBot, finishDebrief, interact, openBriefing, play
  * CTRL_FAMILIES=xbox,playstation limits the families (default: all three).
  */
 
-const KNOWN: KnownBugs = {
-  'focus-ring-stale': 'CQA-1: bumper tab switch leaves earlier tabs with .is-focus (src/ui/focusManager.ts refocusKey)',
-  'focus-offscreen': 'CQA-2: archive viewer card clips on a phone, the Back button is below the screen (src/gameplay/ui/codex.ts provenanceScreen, gameplay.css .gp-provenance)',
-  'phone-wording': 'CQA-3: timeline hint says "or with the finger" on a controller (src/locales/he/timeline.json timeline.hint)',
-};
+// CQA-1..3 are fixed; any new finding fails the run until it is fixed or documented here.
+const KNOWN: KnownBugs = {};
 
 const only = (process.env.CTRL_FAMILIES ?? '').split(',').filter(Boolean);
 const families = FAMILIES.filter((f) => only.length === 0 || only.includes(f));
