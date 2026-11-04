@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { applyCpuThrottle } from './helpers/throttle';
 
 /**
  * "The Archive at Night" (Prologue mission 1), controller only (mocked navigator.getGamepads):
@@ -31,6 +32,8 @@ interface PadState {
 }
 
 test.beforeEach(async ({ page }) => {
+  // E2E_CPU_THROTTLE=<rate> emulates the slow CI machine (helpers/throttle.ts).
+  await applyCpuThrottle(page);
   await page.addInitScript(() => {
     const pad = {
       id: 'Xbox Wireless Controller (Vendor: 045e)',
@@ -61,11 +64,18 @@ async function setButton(page: Page, index: number, pressed: boolean): Promise<v
   );
 }
 
+/** Test-side marker in the recorder log (no-op until installRecorder ran). */
+const mark = (page: Page, what: string): Promise<void> =>
+  page.evaluate((m) => {
+    (window as unknown as { __rec?: unknown[] }).__rec?.push({ kind: 'test', t: Math.round(performance.now()), what: m });
+  }, what);
+
 const isDown = (page: Page, action: string): Promise<boolean> => page.evaluate((a) => window.__netivim?.input.isDown(a as 'confirm') ?? false, action);
 
 /** One press, held until a simulation step has seen it, released until a step has seen that. */
 async function press(page: Page, index: number): Promise<void> {
   const action = ACTION_OF[index] ?? 'confirm';
+  await mark(page, 'press ' + action);
   await setButton(page, index, true);
   await expect.poll(() => isDown(page, action), { timeout: 30000 }).toBe(true);
   await setButton(page, index, false);
@@ -102,21 +112,40 @@ let lastTarget: { x: number; z: number; within: number } | null = null;
 
 async function walkTo(page: Page, tx: number, tz: number, within = 0.5): Promise<void> {
   lastTarget = { x: tx, z: tz, within };
-  for (let i = 0; i < 400; i++) {
-    const p = await probe(page);
-    const dx = tx - p.x;
-    const dz = tz - p.z;
-    const d = Math.hypot(dx, dz);
-    if (d <= within) break;
-    if (i === 399) throw new Error('walkTo gave up at ' + JSON.stringify(p) + ' toward ' + String(tx) + ',' + String(tz));
-    const fwd = (dx / d) * Math.sin(p.yaw) + (dz / d) * Math.cos(p.yaw);
-    const right = (dx / d) * -Math.cos(p.yaw) + (dz / d) * Math.sin(p.yaw);
-    const s = Math.min(1, d / 1.5);
-    await setStick(page, right * s, -fwd * s);
-    await page.waitForTimeout(80);
+  const dist = (p: Probe): number => Math.hypot(tx - p.x, tz - p.z);
+  let end = await probe(page);
+  // On slow frames the walker reads a stale position and the stick release lands late, so it
+  // can coast well past the target (CI: 1.2 m past case B, nearer to case C). After each
+  // approach, wait until the player has stopped and re-check; walk back if it overshot.
+  for (let attempt = 0; attempt < 6; attempt++) {
+    for (let i = 0; i < 400; i++) {
+      const p = await probe(page);
+      const dx = tx - p.x;
+      const dz = tz - p.z;
+      const d = Math.hypot(dx, dz);
+      if (d <= within) break;
+      if (i === 399) throw new Error('walkTo gave up at ' + JSON.stringify(p) + ' toward ' + String(tx) + ',' + String(tz));
+      const fwd = (dx / d) * Math.sin(p.yaw) + (dz / d) * Math.cos(p.yaw);
+      const right = (dx / d) * -Math.cos(p.yaw) + (dz / d) * Math.sin(p.yaw);
+      // Gentler on later attempts (an overshoot means the frames are slow), but always above
+      // the stick dead zone (0.2) so the walker never stalls just outside the target.
+      const s = Math.max(0.3, Math.min(1, d / (1.5 * (attempt + 1))));
+      await setStick(page, right * s, -fwd * s);
+      await page.waitForTimeout(80);
+    }
+    await setStick(page, 0, 0);
+    await page.waitForTimeout(250);
+    end = await probe(page);
+    for (let i = 0; i < 20; i++) {
+      await page.waitForTimeout(150);
+      const next = await probe(page);
+      const moved = Math.hypot(next.x - end.x, next.z - end.z);
+      end = next;
+      if (moved < 0.01) break;
+    }
+    if (dist(end) <= within) break;
   }
-  await setStick(page, 0, 0);
-  await page.waitForTimeout(250);
+  await mark(page, 'walked to ' + String(tx) + ',' + String(tz) + ' at ' + end.x.toFixed(2) + ',' + end.z.toFixed(2));
 }
 
 /** Presses interact until `done()` holds (slow software frames can swallow a press). */
@@ -144,7 +173,92 @@ const progressFlag = (page: Page, flag: string): Promise<boolean> =>
     const lv = window.__netivimGameplay?.host?.level as unknown as { qa?: { progress: Record<string, boolean> } } | undefined;
     return lv?.qa?.progress[f] ?? false;
   }, flag);
+/** The display case whose sheet is open (null: no case sheet). */
+const openCase = (page: Page): Promise<string | null> =>
+  page.evaluate(() => {
+    const qa = (window.__netivimGameplay?.host?.level as unknown as { qa?: { modal: string; activeCase: string | null } } | undefined)?.qa;
+    return qa?.modal === 'case' ? qa.activeCase : null;
+  });
 const visible = async (page: Page, sel: string): Promise<boolean> => page.locator(sel).first().isVisible();
+
+/**
+ * Diagnostics for slow-frame failures: records every input update and mission step (confirm
+ * down / justPressed, modal, activeCase, justOpened, warm-up hold, mission sim time).
+ */
+async function installRecorder(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    interface Rec { kind: string; t: number; [k: string]: unknown }
+    const w = window as unknown as { __rec?: Rec[]; __recOn?: boolean };
+    if (w.__recOn) return;
+    w.__recOn = true;
+    const log: Rec[] = (w.__rec = []);
+    const push = (r: Rec): void => {
+      log.push(r);
+      if (log.length > 600) log.shift();
+    };
+    const game = window.__netivim;
+    const director = window.__netivimGameplay;
+    if (!game || !director) return;
+    const input = game.input;
+    const held = (): boolean => {
+      const scene = director.host?.level?.scene.scene;
+      return !!scene && !!window.__netivimPipeline?.holdsSimulation(scene);
+    };
+    // Event log, not a per-step log: presses, holds and modal changes only.
+    let last = '';
+    let inputs = 0;
+    let hostSteps = 0;
+    const origInput = input.update.bind(input);
+    input.update = () => {
+      origInput();
+      inputs++;
+      const h = held();
+      const key = String(input.isDown('confirm')) + String(input.isDown('interact')) + String(h);
+      if (key !== last || input.justPressed('confirm') || input.justPressed('interact')) {
+        last = key;
+        push({ kind: 'input', t: Math.round(performance.now()), n: inputs, hostSteps, down: input.isDown('confirm'), jp: input.justPressed('confirm'), downX: input.isDown('interact'), jpX: input.justPressed('interact'), held: h });
+      }
+    };
+    const host = director.host;
+    if (!host) return;
+    let lastHost = '';
+    const origHost = host.update.bind(host);
+    host.update = (dt: number) => {
+      const jp = input.justPressed('confirm') || input.justPressed('interact');
+      origHost(dt);
+      hostSteps++;
+      const lv = host.level as unknown as { qa?: { modal: string; activeCase: string | null; justOpened: boolean }; player?: { x: number; z: number } } | null;
+      const qa = lv?.qa;
+      const key = String(qa?.modal) + String(qa?.activeCase) + String(qa?.justOpened);
+      if (key !== lastHost || jp) {
+        lastHost = key;
+        push({ kind: 'host', t: Math.round(performance.now()), n: inputs, sim: Math.round(host.simTime * 1000) / 1000, modal: qa?.modal, activeCase: qa?.activeCase, justOpened: qa?.justOpened, x: Math.round((lv?.player?.x ?? 0) * 100) / 100, z: Math.round((lv?.player?.z ?? 0) * 100) / 100 });
+      }
+    };
+  });
+}
+
+async function dumpDiagnostics(page: Page, label: string): Promise<void> {
+  const d = await page.evaluate(() => {
+    const director = window.__netivimGameplay;
+    const host = director?.host;
+    const qa = (host?.level as unknown as { qa?: { modal: string; activeCase: string | null; justOpened: boolean; progress: unknown } } | null)?.qa;
+    const scene = host?.level?.scene.scene;
+    return {
+      modal: qa?.modal,
+      activeCase: qa?.activeCase,
+      justOpened: qa?.justOpened,
+      progress: qa?.progress,
+      holdsSimulation: scene ? window.__netivimPipeline?.holdsSimulation(scene) : null,
+      sceneReady: scene ? window.__netivimPipeline?.sceneReady(scene) : null,
+      simTime: host?.simTime,
+      state: host?.state,
+      fps: window.__netivimPipeline?.stats.fps,
+      rec: (window as unknown as { __rec?: unknown[] }).__rec,
+    };
+  });
+  console.log('[archive diagnostics] ' + label + ' ' + JSON.stringify(d));
+}
 
 async function shot(page: Page, name: string): Promise<void> {
   if (SHOTS) await page.screenshot({ path: 'test-results/archive-' + name + '.png' });
@@ -211,16 +325,21 @@ test('controller only: the whole Archive at Night tutorial, to the debrief', asy
   await expect.poll(() => missionState(page), { timeout: 30000 }).toBe('shelf_tour');
 
   // Label tour: three display cases (documented, composite, reconstructed), then the reflection.
+  await installRecorder(page);
   await walkTo(page, -5.2, 6.4, 0.8);
   for (const [x, z, flag] of [[-6.6, 5.6, 'caseA'], [-6.6, 8.2, 'caseB'], [-6.6, 10.6, 'caseC']] as const) {
     await walkTo(page, x, z, 0.4);
-    await interact(page, () => visible(page, '.an-sheet'));
-    // A closes the case sheet and marks the case seen. On a slow frame the press can land before
-    // the sheet takes input; A only ever closes here, so pressing again until the flag is set is safe.
-    for (let tries = 0; tries < 5 && !(await progressFlag(page, flag)); tries++) {
-      await press(page, A);
-      await expect.poll(() => progressFlag(page, flag), { timeout: 6000 }).toBe(true).catch(() => undefined);
-    }
+    // Wait for THIS case's sheet, not any sheet: standing between two cases opens the nearer one.
+    await interact(page, async () => (await openCase(page)) === flag);
+    expect(await openCase(page), 'the sheet open at ' + flag).toBe(flag);
+    // One A press closes the case sheet and marks the case seen, at any frame rate.
+    await press(page, A);
+    const marked = await expect
+      .poll(() => progressFlag(page, flag), { timeout: 15000 })
+      .toBe(true)
+      .then(() => true)
+      .catch(() => false);
+    if (!marked) await dumpDiagnostics(page, flag);
     expect(await progressFlag(page, flag)).toBe(true);
     // The next case's interact check looks for a visible sheet: wait until this one is gone.
     if (flag !== 'caseC') await expect(page.locator('.an-sheet')).toBeHidden({ timeout: 30000 });
