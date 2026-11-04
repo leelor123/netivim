@@ -174,6 +174,10 @@ test('controller only: the whole Archive at Night tutorial, to the debrief', asy
   await walkTo(page, 0, -4.2, 0.8);
   await expect.poll(() => missionState(page), { timeout: 30000 }).toBe('reading_room');
 
+  // Step fully through the doorway first: the arrival trigger can fire while the walker is still
+  // just outside, and a straight line to the lamp would then press into the outer wall.
+  await walkTo(page, 0, -1.5, 0.5);
+
   // Reading room: lamp, then drawer.
   await walkTo(page, 6, 1.5, 0.4);
   await expect(page.locator('.gp-hud__prompt')).toBeVisible({ timeout: 30000 });

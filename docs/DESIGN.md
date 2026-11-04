@@ -177,5 +177,6 @@ loop; flat geometry/texture counts in a 30-min soak.
 ## 10. Decision log
 - 2026-11-03 Initial design (this document).
 - 2026-11-03 Ch2 mission "34 Hours" renamed and re-scoped: research (ch02) found no support for a 34-hour assembly claim; the mission now follows the documented 12-14 May timeline.
+- 2026-11-04 M2 measurement (QA pass): the five built missions play in roughly half their target minutes (projected 5.5-11 min vs 12-18). Decision: no padding (BRIEF 1, 4). M3 deepens each mission with designed beats already in missions.md (e.g. Night Landing second rescue wave, more Jaffa and Tower stations) and per-mission briefings; lengths are re-measured with a human playtest on the S26 Ultra before Act 1 ships.
 - 2026-11-03 UN documents (Res 181, 194, SC resolutions, armistice texts) are not freely redistributable; the archive shows a short cited excerpt plus a paraphrased summary, never the full text. Full texts only for items confirmed public domain.
 - 2026-11-03 Research rule: Wikipedia may be used only as an index; claims need an opened primary, academic or reputable source. Unverified claims never reach quiz or facts.
