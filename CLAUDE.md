@@ -79,3 +79,6 @@ Before ending: update `PROGRESS.md` (done / in progress / exact next step), comm
   "unexpected EOF while looking for matching quote"; when that happens use the Write tool.
 - `keytool` is not on PATH: use `/c/Program Files/Java/jdk-22/bin/keytool.exe`.
 - An ECC "GateGuard" hook asks for facts before first-touch file writes and destructive commands.
+- Local E2E is slow and timing-sensitive while several agents run software-GL browsers; use
+  PW_PORT=<free port> to avoid clashes. CI (one clean machine) is the gate.
+- Screenshots: npm run screenshots (Ultra, adaptive off; very slow on software GL).

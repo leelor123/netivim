@@ -3,7 +3,7 @@
 ## Milestone status
 - [x] M0 Setup: project, pinned stack, skills, Capacitor Android, signing secret, CI release (v0.0.1)
 - [x] M1 Design + core (v0.1.0)
-- [ ] M2 Vertical slice
+- [x] M2 Vertical slice (v0.2.0)
 - [ ] M3 Act 1 (Prologue + Ch1-4)
 - [ ] M4 Waves (Ch5-11 + Epilogue)
 - [ ] Final polish (end of Phase 1)
@@ -35,18 +35,24 @@
 - Next research move: try alternative access (Google Books previews, JSTOR open, university
   repositories, archive.org full texts) and merge per-chapter registers into SOURCES.md.
 
-## M2 studio status (updated 2026-11-03 evening)
-Merged to main and green in CI (incl. emulator smoke): UI and menus, graphics pipeline, world and
-hub, controls and Android gamepad bridge, audio, cinematics, timeline and Living Map, Android CI,
-Prologue + Ch1 content data (src/content/ch00, ch01), fact-check and perspectives research.
-Also merged: gameplay framework (src/gameplay), content review of ch00/ch01.
-IN FLIGHT (wave 2b, worktree per agent, sonnet): level builders for prologue/archive-night (+ prologue
-chapter module), prologue/jaffa-letters, ch01/tower-stockade (+ ch01 chapter module), ch01/night-landing,
-ch01/the-vote. Each adds one LEVELS line in src/gameplay/registry.ts (merge conflicts there are
-expected: keep all lines).
-QUEUE after merge: QA playthrough + balance check per mission (fresh agent), fresh code review and
-accessibility review, close KNOWN_ISSUES.md, release v0.2.0, Hebrew update to the user.
-Screenshots: npm run screenshots (writes screenshots/, gitignored).
+## M2 status (2026-11-04): complete pending release v0.2.0
+Playable: Prologue (archive-night, jaffa-letters) and Ch1 (tower-stockade, night-landing, the-vote) with
+the full chapter flow (hub, timeline, content note, briefing, missions, cutscenes, debrief ledger, quiz).
+Reviews done by fresh agents: content (ch00/ch01), 1948 timeline/lenses fact-check, QA and balance,
+code review (7 findings fixed), accessibility review (all High and Medium fixed).
+
+## Ch2 prerequisites (before building Chapter 2)
+- Upgrade secondary citations in 1948 captions (Rabin paraphrase, Morris 50,000) to primary/book sources;
+  add Palestinian-lens counterparts for Negba and Kfar Etzion captions.
+- Precisely sourced coordinates for the 1947 partition and 1949 armistice line layers (empty today).
+- Verify Living Map relief control points GEO-001..004 against opened sources.
+
+## M3 backlog (from M2 reviews)
+- Deepen missions to their design length with designed beats (DESIGN.md decision log), human playtest on S26.
+- Accessibility Low items 1-5, 7-9, 11-12 (docs/ACCESSIBILITY_REVIEW_M2.md); UI text-size setting.
+- Per-mission briefing context keys for night-landing and the-vote (LevelDefinition.briefingContextKey).
+- Pause-menu Codex inside missions; HUD prompt refresh on the same focus target (the-vote).
+- On-device checks: Ultra 60 fps, subtitles above letterbox, focus rings, gamepads in the WebView.
 
 ## Next (M2 vertical slice): exact next steps
 1. M1 review findings are fixed (see QA_REPORT). Graphics agent must add a GameScene hook to rebuild GPU-only state after webglcontextrestored.
