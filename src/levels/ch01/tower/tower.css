@@ -33,7 +33,7 @@
 .ch01t-plan__progress { margin: 6px 0 0; font-size: 14px; color: #d9d2c5; }
 .ch01t-plan__status { margin: 2px 0 0; font-size: 15px; color: #bfe3a8; min-block-size: 1.4em; }
 .ch01t-plan__status.is-bad { color: #f1b49a; }
-.ch01t-plan__controls { margin: 4px 0 0; font-size: 13px; color: #cfc6b4; }
+.ch01t-plan__controls { margin: 4px 0 0; font-size: 14px; color: #cfc6b4; }
 
 .ch01t-lenses {
   position: fixed;

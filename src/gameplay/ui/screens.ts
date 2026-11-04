@@ -2,12 +2,13 @@ import type { ChapterContent, ContentLabel, Fact, MissionMeta } from '../../cont
 import type { AssistOption } from '../../core/difficulty';
 import type { Action } from '../../core/input/types';
 import { h } from '../../ui/dom';
+import { scrollableAttrs } from '../../ui/scrollRouting';
 import type { DecisionDef, LedgerRow } from '../core/ledger';
 import type { Recap } from '../core/progress';
 import { QuizSession } from '../core/quiz';
 import type { FailureReport } from '../runtime/missionHost';
 import type { BriefingMap } from '../types';
-import { focusables, gpButton, type GpScreen } from './host';
+import { activeKey, findByKey, focusables, gpButton, type GpScreen } from './host';
 
 /** replaceChildren that skips null / false children. */
 export function fill(el: HTMLElement, ...children: (Node | null | false)[]): void {
@@ -26,7 +27,7 @@ export function sourcesLine(t: T, sources: readonly string[]): HTMLElement | nul
 }
 
 function sheet(id: string, title: string, ...children: (Node | null)[]): { el: HTMLElement; body: HTMLElement } {
-  const body = h('div', { class: 'gp-sheet__body' }, ...children);
+  const body = h('div', { class: 'gp-sheet__body', attrs: scrollableAttrs(title) }, ...children);
   const el = h('section', { class: 'gp-sheet gp-sheet--' + id, attrs: { role: 'dialog', 'aria-label': title } }, h('h2', { class: 'gp-sheet__title', text: title }), body);
   return { el: h('div', { class: 'gp-stage' }, el), body };
 }
@@ -281,13 +282,19 @@ export function quizScreen(t: T, chapter: ChapterContent, facts: readonly Fact[]
   const body = h('div', { class: 'gp-col' });
   const s = sheet('quiz', t('gameplay.quiz.title'), body);
   const focusFirst = (): void => focusables(body)[0]?.focus();
+  /** After a re-render, keep focus on the same control when it still exists (else the first one). */
+  const refocus = (key: string | undefined): void => {
+    const same = key ? findByKey(body, key) : null;
+    if (same && !(same as HTMLButtonElement).disabled) same.focus();
+    else focusFirst();
+  };
 
   const renderEnd = (): void => {
     const sc = session.score();
     const factList = h('ul', { class: 'gp-list' });
     for (const f of facts) factList.append(h('li', {}, document.createTextNode(t(f.textKey) + ' '), labelChip(t, f.label)));
     fill(body, 
-      h('p', { class: 'gp-stars', text: '★'.repeat(sc.stars) + '☆'.repeat(3 - sc.stars), attrs: { 'aria-label': t('gameplay.quiz.stars', { n: sc.stars }) } }),
+      h('p', { class: 'gp-stars', text: '★'.repeat(sc.stars) + '☆'.repeat(3 - sc.stars), attrs: { role: 'img', 'aria-label': t('gameplay.quiz.stars', { n: sc.stars }) } }),
       h('p', { class: 'gp-lead', text: t('gameplay.quiz.score', { correct: sc.correct, total: sc.total }) }),
       facts.length > 0 ? h('h3', { class: 'gp-subtitle', text: t('gameplay.quiz.didYouKnow') }) : null,
       facts.length > 0 ? factList : null,
@@ -297,6 +304,7 @@ export function quizScreen(t: T, chapter: ChapterContent, facts: readonly Fact[]
   };
 
   const render = (feedback: string | null): void => {
+    const prevKey = activeKey(body);
     const q = session.current;
     if (!q) {
       renderEnd();
@@ -332,7 +340,7 @@ export function quizScreen(t: T, chapter: ChapterContent, facts: readonly Fact[]
             }, { key: 'quiz-skip' }),
       ),
     );
-    focusFirst();
+    refocus(prevKey);
   };
   render(null);
   return { id: 'quiz', el: s.el };

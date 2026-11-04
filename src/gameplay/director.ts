@@ -217,7 +217,7 @@ export class Director {
       getCompletedChapters: () => this.game.getState().completedChapters,
       onSelect: (slot) => this.selectSlot(slot),
       onBack: () => this.stack.pop(),
-      reducedMotion: () => this.game.settings.value.accessibility.reducedMotion,
+      reducedMotion: () => this.game.reducedMotion(),
     });
     this.stack.push(featureScreen('chapters', timeline));
   }
@@ -340,7 +340,7 @@ export class Director {
       difficulty: () => game.settings.value.gameplay.difficulty,
       headless: false,
       quality: worldQualityFromSettings(game.settings.value),
-      reducedMotion: () => game.settings.value.accessibility.reducedMotion,
+      reducedMotion: () => game.reducedMotion(),
       t: this.t,
       glyph: (a) => glyphFor(a, game.input.device, game.input.family).label,
       recordChoice: (d, opt) => game.setState(recordChoice(game.getState(), d, opt)),
@@ -499,7 +499,7 @@ export class Director {
 
   private openViewer(e: ArchiveEntry): void {
     const game = this.game;
-    const viewer = createArchiveViewer(e.item, this.t(e.item.titleKey), this.t(e.item.descriptionKey), () => game.settings.value.accessibility.reducedMotion);
+    const viewer = createArchiveViewer(e.item, this.t(e.item.titleKey), this.t(e.item.descriptionKey), () => game.reducedMotion());
     game.scenes.switchTo(viewer);
     this.viewerOpen = true;
     const screen = provenanceScreen(this.t, e, () => {

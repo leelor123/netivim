@@ -1,7 +1,7 @@
 import type { Action } from '../../core/input/types';
 
 /** Actions a hosted screen reacts to (the host forwards justPressed actions). */
-export type ScreenAction = Extract<Action, 'confirm' | 'back' | 'left' | 'right' | 'tabPrev' | 'tabNext' | 'alt'>;
+export type ScreenAction = Extract<Action, 'confirm' | 'back' | 'left' | 'right' | 'up' | 'down' | 'tabPrev' | 'tabNext' | 'alt'>;
 
 /** Analog input for one frame, same conventions as InputManager (-1..1, y down). */
 export interface AnalogInput {

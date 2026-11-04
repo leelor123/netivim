@@ -42,7 +42,7 @@ declare global {
 export function installTimeline(game: Game): () => void {
   const host = sceneManagerHost(game.scenes, createTitleScene);
   const rtl = game.i18n.dir === 'rtl';
-  const reducedMotion = (): boolean => game.settings.value.accessibility.reducedMotion;
+  const reducedMotion = (): boolean => game.reducedMotion();
   const common = { t: game.i18n.t, rtl, reducedMotion };
 
   const feature: TimelineFeature = {

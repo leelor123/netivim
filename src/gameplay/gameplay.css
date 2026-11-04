@@ -35,7 +35,7 @@
 .gp-subtitle { margin: 12px 0 6px; font-size: 20px; }
 .gp-dim { color: #6e5f4c; }
 .gp-hint { background: #fff6dc; border-inline-start: 4px solid #d9a441; padding: 8px 12px; border-radius: 4px; }
-.gp-sources { font-size: 13px; color: #6e5f4c; }
+.gp-sources { font-size: 14px; color: #6e5f4c; }
 .gp-feedback { font-weight: 700; color: #7a3b1d; }
 .gp-badge { font-size: 14px; font-weight: 700; color: #4a6b3a; }
 .gp-stars { font-size: 34px; color: #b8860b; margin: 0; letter-spacing: 4px; }
@@ -49,8 +49,9 @@
   font-size: 17px;
   min-block-size: 48px;
   padding: 8px 18px;
+  padding-inline-start: 24px;
   border-radius: 8px;
-  border: 1px solid #a88b5e;
+  border: 1px solid #8a7550;
   background: #f8f1df;
   color: #2b2118;
   cursor: pointer;
@@ -60,12 +61,32 @@
   text-align: start;
 }
 .gp-btn--primary { background: #2b2118; color: #f3ede2; border-color: #2b2118; font-weight: 700; }
-.gp-btn__sub { font-size: 13px; opacity: 0.75; }
-.gp-btn:focus-visible, .gp-btn:focus { outline: 3px solid #d9a441; outline-offset: 2px; }
+.gp-btn__sub { font-size: 14px; opacity: 0.75; }
+/* Focus ring (WCAG 1.4.11): a dark 3px ring (12:1 on paper) plus a sand glow that keeps it visible
+   on dark surfaces, and a diamond marker so position never relies on colour alone. */
+.gp-btn, .gp-tab { position: relative; }
+.an-sheet .gp-btn:focus-visible::before { inset-inline-start: 7px; }
+.gp-btn:focus-visible, .gp-btn:focus, .gp-tab:focus-visible, .gp-tab:focus, .an-card.is-cursor, .an-tray.is-cursor {
+  outline: 3px solid #2b2118;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 8px rgb(217 164 65 / 0.75);
+}
+.gp-btn:focus-visible::before, .gp-btn:focus::before, .an-card.is-cursor::before, .an-tray.is-cursor::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 6px;
+  inset-block-start: 50%;
+  inline-size: 8px;
+  block-size: 8px;
+  transform: translateY(-50%) rotate(45deg);
+  background: #d9a441;
+  border: 1px solid #2b2118;
+}
+.gp-btn--primary:focus-visible, .gp-btn--primary:focus { outline-color: #2b2118; }
 .gp-btn:disabled { opacity: 0.5; cursor: default; }
 .gp-btn.is-wrong { text-decoration: line-through; }
 .gp-btn.is-right { background: #dcebd0; border-color: #4a6b3a; }
-.gp-label { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 99px; border: 1px solid currentColor; }
+.gp-label { display: inline-block; font-size: 14px; font-weight: 700; padding: 1px 8px; border-radius: 99px; border: 1px solid currentColor; }
 .gp-label--documented { color: #2f5d3a; }
 .gp-label--reconstructed { color: #7a5a1d; }
 .gp-label--composite { color: #5a3d6b; }
@@ -75,10 +96,10 @@
 .gp-ledger__row { background: #f8f1df; border: 1px solid #c9b48d; border-radius: 8px; padding: 8px 14px; }
 .gp-ledger__row h4 { margin: 4px 0; }
 .gp-ledger__row p { margin: 4px 0; }
-.gp-search { font: inherit; font-size: 17px; inline-size: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #a88b5e; background: #fffaf0; color: #2b2118; }
-.gp-search:focus { outline: 3px solid #d9a441; }
-.gp-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; }
-.gp-tab { font-size: 14px; padding: 2px 10px; border-radius: 99px; border: 1px solid #c9b48d; }
+.gp-search { font: inherit; font-size: 17px; inline-size: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #8a7550; background: #fffaf0; color: #2b2118; }
+.gp-search:focus { outline: 3px solid #2b2118; outline-offset: 2px; box-shadow: 0 0 0 8px rgb(217 164 65 / 0.75); }
+.gp-tabs { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 4px; }
+.gp-tab { font: inherit; font-size: 16px; min-block-size: 48px; min-inline-size: 48px; padding: 4px 16px; border-radius: 99px; border: 1px solid #8a7550; background: #f8f1df; color: #2b2118; cursor: pointer; }
 .gp-tab.is-active { background: #2b2118; color: #f3ede2; }
 .gp-entries { display: flex; flex-direction: column; gap: 6px; min-inline-size: 220px; flex: 1; }
 .gp-detail { flex: 2; min-inline-size: 240px; }
@@ -103,7 +124,7 @@
   padding: 8px 14px;
   border-radius: 6px;
 }
-.gp-hud__label { margin: 0; font-size: 12px; letter-spacing: 0.05em; color: #d9b77a; }
+.gp-hud__label { margin: 0; font-size: 14px; letter-spacing: 0.05em; color: #d9b77a; }
 .gp-hud__objective { margin: 2px 0 0; font-size: 18px; font-weight: 600; }
 .gp-hud__steps { font-size: 14px; color: #d9d2c5; }
 .gp-hud__prompt {

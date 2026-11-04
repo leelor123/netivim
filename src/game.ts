@@ -19,6 +19,7 @@ import { resolveGraphics } from './render/presets';
 import { createTitleScene } from './scene/titleScene';
 import type { I18n } from './core/i18n';
 import { SettingsManager } from './core/settings';
+import { createReducedMotion, osMotionQuery } from './core/reducedMotion';
 
 export interface Game {
   readonly bus: EventBus<GameEvents>;
@@ -28,6 +29,10 @@ export interface Game {
   readonly loop: GameLoop;
   readonly settings: SettingsManager;
   readonly i18n: I18n;
+  /** In-game reduced-motion setting OR the OS preference (one source of truth). */
+  reducedMotion(): boolean;
+  /** The live OS query behind reducedMotion(), for change listeners; null when unavailable. */
+  readonly motionQuery: MediaQueryList | null;
   readonly renderer: THREE.WebGLRenderer;
   readonly scenes: SceneManager;
   /** Per-step hooks for systems installed after boot (UI, audio, missions). */
@@ -194,6 +199,9 @@ export function startGame(canvas: HTMLCanvasElement, i18n: I18n, onPauseChanged:
       flow.send('ready');
     });
 
+  const motionQuery = osMotionQuery();
+  const reducedMotion = createReducedMotion(() => settings.value.accessibility.reducedMotion, motionQuery);
+
   return {
     bus,
     flow,
@@ -202,6 +210,8 @@ export function startGame(canvas: HTMLCanvasElement, i18n: I18n, onPauseChanged:
     loop,
     settings,
     i18n,
+    reducedMotion,
+    motionQuery,
     renderer,
     scenes,
     onStep: (fn) => {

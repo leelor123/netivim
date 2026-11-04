@@ -139,5 +139,9 @@
   "timeline.map.title": "המפה החיה",
   "timeline.map.places": "המקומות על המפה ({n})",
   "timeline.map.reliefNote": "תבליט מסוגנן, מוגזם פי {n} לגובה. נקודות הבקרה הגאוגרפיות הן הערכות מעוגלות, ולכל אחת מצוין מקור הבדיקה שלה.",
+  "timeline.map.zoomIn": "הגדלת המפה",
+  "timeline.map.zoomOut": "הקטנת המפה",
+  "timeline.map.zoomGroup": "שליטה בתצוגת המפה",
+  "timeline.map.panel": "פרטי התקופה במפה",
   "timeline.map.back": "חזרה"
 }

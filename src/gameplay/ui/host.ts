@@ -2,6 +2,8 @@ import type { Game } from '../../game';
 import type { Action } from '../../core/input/types';
 import type { AnalogInput } from '../../features/timeline/screen';
 import { h } from '../../ui/dom';
+import { routeModalScroll, routeScroll } from '../../ui/scrollRouting';
+import { ignoreKeyForTextEntry } from '../../core/input/textEntry';
 
 /**
  * Hosted gameplay screens (hub menu, briefing, failure card, debrief, quiz, codex...). They live
@@ -36,6 +38,7 @@ export class ScreenStack {
   private readonly offs: (() => void)[] = [];
   private readonly analog = { moveX: 0, moveY: 0, lookX: 0, lookY: 0, scroll: 0 };
   private readonly rtl: boolean;
+  private readonly lastFocus = new WeakMap<GpScreen, { key: string | undefined; el: HTMLElement }>();
 
   constructor(private readonly game: Game) {
     this.rtl = game.i18n.dir === 'rtl';
@@ -61,6 +64,7 @@ export class ScreenStack {
   push(s: GpScreen): void {
     const below = this.top;
     if (below) {
+      this.remember(below);
       below.el.hidden = true;
       below.el.removeAttribute('data-screen');
     }
@@ -76,7 +80,7 @@ export class ScreenStack {
     if (top) {
       top.el.hidden = false;
       top.el.dataset.screen = 'gp-' + top.id;
-      this.focusFirst(top);
+      this.restoreFocus(top);
     }
     this.changed();
   }
@@ -131,6 +135,20 @@ export class ScreenStack {
     s.dispose?.();
   }
 
+  /** Remembers what had focus on a screen that is about to be covered (by data-key, else element). */
+  private remember(s: GpScreen): void {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && s.el.contains(active)) this.lastFocus.set(s, { key: active.dataset.key, el: active });
+  }
+
+  /** Returns focus to what the player had when the screen was covered; first control otherwise. */
+  private restoreFocus(s: GpScreen): void {
+    const mem = this.lastFocus.get(s);
+    const target = (mem?.key ? findByKey(s.el, mem.key) : null) ?? (mem?.el.isConnected && s.el.contains(mem.el) ? mem.el : null);
+    if (target && this.attached) target.focus({ preventScroll: true });
+    else this.focusFirst(s);
+  }
+
   private focusFirst(s: GpScreen): void {
     const first = focusables(s.el)[0];
     // Focus after the element is in the document (same task).
@@ -147,24 +165,46 @@ export class ScreenStack {
     if (want === this.attached) return;
     this.attached = want;
     if (want) {
+      window.addEventListener('keydown', this.onKey, true);
+      window.addEventListener('keyup', this.onKey, true);
       document.body.append(this.root);
       const top = this.top;
       if (top) this.focusFirst(top);
     } else {
+      window.removeEventListener('keydown', this.onKey, true);
+      window.removeEventListener('keyup', this.onKey, true);
       this.root.remove();
     }
   }
 
+  /**
+   * The step loop already turns the confirm key into one click. Swallow the browser's own
+   * Enter / Space activation of a focused button so a key press never acts twice
+   * (same rule as FocusManager). Text fields keep their keys.
+   */
+  private readonly onKey = (e: KeyboardEvent): void => {
+    const target = e.target;
+    if (!(target instanceof HTMLElement) || !this.root.contains(target)) return;
+    if (ignoreKeyForTextEntry(e.code, target)) return;
+    if (!(target instanceof HTMLButtonElement)) return;
+    if (this.game.input.getBindings().keyboard[e.code]?.includes('confirm')) e.preventDefault();
+  };
+
   private step(dt: number): void {
     const top = this.top;
-    if (!top || !this.attached) return;
     const input = this.game.input;
+    if (!top || !this.attached) {
+      routeModalScroll(input.scroll, input.look.y, dt);
+      return;
+    }
     this.analog.moveX = input.move.x;
     this.analog.moveY = input.move.y;
     this.analog.lookX = input.look.x;
     this.analog.lookY = input.look.y;
     this.analog.scroll = input.scroll;
-    top.update?.(dt, this.analog);
+    if (top.update) top.update(dt, this.analog);
+    // Plain sheets have no update: triggers / right stick scroll their body (same as menus).
+    else routeScroll(top.el, this.analog.scroll, this.analog.lookY, dt);
     if (this.settle > 0) {
       this.settle--;
       return;
@@ -211,6 +251,28 @@ export class ScreenStack {
   }
 }
 
+/** Finds a control by its data-key (items carry one so they survive a re-render). */
+export function findByKey(root: HTMLElement, key: string): HTMLElement | null {
+  return root.querySelector<HTMLElement>('[data-key="' + key.replace(/["\\]/g, '\\$&') + '"]');
+}
+
+/** data-key of the focused control inside root, if any. */
+export function activeKey(root: HTMLElement): string | undefined {
+  const a = document.activeElement;
+  return a instanceof HTMLElement && root.contains(a) ? a.dataset.key : undefined;
+}
+
+/**
+ * Runs a re-render and puts focus back on the control with the same data-key (or `fallbackKey`
+ * when that control is gone), so replaceChildren never drops focus to body.
+ */
+export function rerenderKeepingFocus(root: HTMLElement, render: () => void, fallbackKey?: string): void {
+  const key = activeKey(root);
+  render();
+  const target = (key ? findByKey(root, key) : null) ?? (key && fallbackKey ? findByKey(root, fallbackKey) : null);
+  if (target && document.activeElement !== target) target.focus({ preventScroll: true });
+}
+
 export function focusables(root: HTMLElement): HTMLElement[] {
   const out: HTMLElement[] = [];
   for (const el of root.querySelectorAll<HTMLElement>('[' + FOCUS_ATTR + ']')) {
@@ -221,8 +283,9 @@ export function focusables(root: HTMLElement): HTMLElement[] {
 }
 
 /** A focusable button for hosted screens. */
-export function gpButton(label: string, onClick: () => void, opts: { primary?: boolean; key?: string; sub?: string } = {}): HTMLButtonElement {
+export function gpButton(label: string, onClick: () => void, opts: { primary?: boolean; key?: string; sub?: string; ariaLabel?: string } = {}): HTMLButtonElement {
   const b = h('button', { class: 'gp-btn' + (opts.primary ? ' gp-btn--primary' : ''), attrs: { type: 'button', [FOCUS_ATTR]: '' } });
+  if (opts.ariaLabel) b.setAttribute('aria-label', opts.ariaLabel);
   b.append(h('span', { class: 'gp-btn__label', text: label }));
   if (opts.sub) b.append(h('span', { class: 'gp-btn__sub', text: opts.sub }));
   if (opts.key) b.dataset.key = opts.key;

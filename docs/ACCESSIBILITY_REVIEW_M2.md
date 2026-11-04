@@ -122,3 +122,29 @@ Roughly 780x360 CSS px viewed from controller distance. Informational text at 12
 2. H3 plus M2 (codex tabs as buttons, focus restoration), M3 (hit areas), M9 (input guard).
 3. M1 (single reduced-motion source), M6 (subtitle timers), M5, M7.
 4. Low items in passing.
+
+## Fixed (accessibility fix pass)
+
+All High and Medium findings are fixed. Unit tests: `tests/unit/a11yLogic.test.ts`, `tests/unit/livingMapLabels.test.ts`. E2E for ui, timeline, cinematics, gameplay, controls, archive and tower specs pass.
+
+| Id | What changed |
+|---|---|
+| H1 | New `ui/scrollRouting.ts` (shared with `FocusManager`). `ScreenStack.step` scrolls the nearest `.gp-sheet__body`, `.gp-provenance` or `[data-scroller]` with triggers or the right stick when the top screen has no `update`; while no hosted screen is open it scrolls level modals (archive-night sheets and sorter, tower Two Lenses). Scroll bodies are `tabindex=0` named regions. Living Map panel: left stick vertical and D-pad up/down scroll it (the right stick and triggers stay on the camera, so zoom is kept); `ScreenAction` gained `up`/`down`. The places `<details>` is now an always-open list, so nothing needs a toggle. |
+| H2 | `gameplay.css`: focus ring is a 3px `#2b2118` outline (12:1 on paper) plus a sand glow and a diamond marker, for buttons, tabs, search, sorter cards and trays. Control borders darkened to `#8a7550`. |
+| H3 | Codex tabs are `<button role="tab" data-gp-focus>` (48px), click/touch/Enter select, `aria-controls` the list (`role=tabpanel`), focus moves to the chosen tab (also for LB/RB). |
+| H4 | Subtitles and toasts moved to a `.nv-top` layer on `body` (z-index 55), above cutscene bars (30), gameplay (30), level overlays (45). `html[data-letterbox]` (set by the cutscene overlay) lifts them above the bars via `--cine-bar`. While a menu is open captions dock at the top. |
+| M1 | `game.reducedMotion()` (setting OR OS query, `core/reducedMotion.ts`) is the only source. Used by UI, cinematics, timeline, living map, director camera, archive viewer. Timeline and map CSS now react to `html[data-motion=reduced]`. The setting default is not seeded from the OS (the OR already honors it). |
+| M2 | `ScreenStack` remembers focus per screen and restores it on `pop()`. Codex search and tab re-renders keep focus (`rerenderKeepingFocus`); quiz re-renders keep the same `data-key` when it still exists. |
+| M3 | Timeline nodes 48x48, map buttons and zoom buttons 48px, `.nv-tab` and `nv-choice` arrows 48px, archive sheet buttons 48px. |
+| M4 | Map zoom +/- buttons (48px, named). Places list no longer behind a toggle. |
+| M5 | Cutscene root is no longer `aria-hidden`; only the fade, bars and ring are. Title card is `role=status`; skip has an accessible name and a tap-tap (double confirm) alternative to the hold (`cinematics/skipConfirm.ts`). |
+| M6 | Subtitle lifetime runs on game steps (`ui/subtitleTimer.ts`), so it pauses with the game. A persistent visually hidden live region carries the text; the visible caption is `aria-hidden`. |
+| M7 | Floor of 14px for secondary text in `ui.css`, `gameplay.css`, `timeline.css`, `livingMap.css`, `tower.css`, map labels 14px. No UI text-size setting (not added). |
+| M8 | Sorter items get `aria-current` and real focus after each rebuild; the key handler stops native double activation. The DOM is still rebuilt per step. |
+| M9 | `inputManager` ignores keys aimed at text fields (Escape and vertical arrows still pass). `ScreenStack` swallows native Enter/Space activation of a focused button so one press acts once. |
+| M10 | Holding Back for 1s cancels the remap capture (a quick press still binds it); hint shown in the dialog. Remap rows use the controller-family labels. Binding a button that already has another action shows a notice (no swap prompt). |
+| M11 | Planner buttons have `aria-label` with the route name; rows are `role=group` labelled by the route. |
+
+Low items fixed in passing: 6 (quiz stars `role=img`), 10 (control borders). KNOWN_ISSUES 16 (map label collision) is closed: labels use measured text width (canvas, cached, re-measured when fonts load) and try small offsets (up to 56px) before hiding.
+
+Not done: Low 1-5, 7-9, 11-12; device check of the H4 stacking; a UI text-size setting; a swap prompt for shared remap buttons.

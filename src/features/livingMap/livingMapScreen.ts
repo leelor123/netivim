@@ -5,7 +5,8 @@ import type { AnalogInput, HostedScreen, ScreenAction } from '../timeline/screen
 import { clampPosition, nearestIndex, scrubWithStick, stepIndex, yearAtPosition } from '../timeline/scrub';
 import './livingMap.css';
 import { layerHasGeometry, lineLayersAt } from './layers';
-import { LabelCollider } from './labelLayout';
+import { scrollBy, SCROLL_DEAD, SCROLL_SPEED } from '../../ui/scrollRouting';
+import { LabelCollider, makeTextMeasurer } from './labelLayout';
 import { LensState, type Lens } from './lenses';
 import { LivingMapScene } from './mapScene';
 import { MARKERS, markersVisibleAt } from './markers';
@@ -34,6 +35,12 @@ export type ScrubListener = (position: number, year: number, index: number) => v
 
 const ORBIT_PX = 0.006;
 const STICK_HOLD_SECONDS = 0.3;
+const ZOOM_STEP_IN = 0.8;
+const ZOOM_STEP_OUT = 1.25;
+/** Horizontal padding (7px each side) plus a little slack around the measured text. */
+const LABEL_CHROME_PX = 18;
+/** D-pad up / down scroll the side panel by this much per press. */
+const PANEL_STEP_PX = 90;
 
 /**
  * Living Map screen: 3D relief (LivingMapScene) plus DOM labels, lens controls and source panel.
@@ -115,15 +122,29 @@ export class LivingMapScreen implements HostedScreen {
       MARKERS.length,
       MARKERS.map((m) => kindWeight[m.kind]),
     );
-    MARKERS.forEach((m, i) => {
-      collider.width[i] = t(m.nameKey).length * 8 + 16;
-    });
     this.collider = collider;
-    const panel = h('aside', 'lm-panel', '', { 'aria-live': 'polite' });
-    el.append(gesture, labelBox, panel);
+    // Panel is a named, focusable region so keyboard / AT users can reach and scroll it.
+    const panel = h('aside', 'lm-panel', '', { 'aria-live': 'polite', tabindex: '0', 'aria-label': t('timeline.map.panel') });
+    // Single-pointer zoom alternative to the two-finger pinch (WCAG 2.5.1), 48px targets.
+    const zoomIn = h('button', 'lm-zoom-btn', '+', { type: 'button', 'aria-label': t('timeline.map.zoomIn'), 'data-action': 'zoom-in' });
+    const zoomOut = h('button', 'lm-zoom-btn', '−', { type: 'button', 'aria-label': t('timeline.map.zoomOut'), 'data-action': 'zoom-out' });
+    zoomIn.addEventListener('click', () => this.zoomBy(ZOOM_STEP_IN));
+    zoomOut.addEventListener('click', () => this.zoomBy(ZOOM_STEP_OUT));
+    const zoom = h('div', 'lm-zoom', '', { role: 'group', 'aria-label': t('timeline.map.zoomGroup') });
+    zoom.append(zoomIn, zoomOut);
+    el.append(gesture, labelBox, zoom, panel);
     root.append(el);
     this.root = el;
     this.panel = panel;
+    this.measureLabels();
+    // Web fonts change glyph widths: measure again once they are ready.
+    if (typeof document !== 'undefined' && document.fonts?.ready) {
+      void document.fonts.ready.then(() => {
+        if (this.root !== el) return;
+        this.measureLabels();
+        this.labelFrames = Math.max(this.labelFrames, 2);
+      });
+    }
 
     const scene = new LivingMapScene({ ...(this.opts.reducedMotion ? { reducedMotion: this.opts.reducedMotion } : {}), ...(this.opts.grid ? { grid: this.opts.grid } : {}) });
     this.scene = scene;
@@ -184,6 +205,9 @@ export class LivingMapScreen implements HostedScreen {
       case 'confirm':
         this.toggleLens(1);
         return true;
+      case 'up':
+      case 'down':
+        return this.scrollPanel((action === 'up' ? -1 : 1) * PANEL_STEP_PX);
       case 'back':
         if (this.opts.onBack) {
           this.opts.onBack();
@@ -193,6 +217,11 @@ export class LivingMapScreen implements HostedScreen {
       default:
         return false;
     }
+  }
+
+  /** Scrolls the side panel (D-pad up / down, left stick vertical). The camera keeps the right stick. */
+  scrollPanel(delta: number): boolean {
+    return this.panel ? scrollBy(this.panel, delta) : false;
   }
 
   update(dt: number, analog: AnalogInput): void {
@@ -208,6 +237,7 @@ export class LivingMapScreen implements HostedScreen {
       const target = Math.round(this.position);
       this.setPosition(reduced || Math.abs(target - this.position) < 0.005 ? target : this.position + (target - this.position) * Math.min(1, dt * 12));
     }
+    if (Math.abs(analog.moveY) > SCROLL_DEAD) this.scrollPanel(analog.moveY * SCROLL_SPEED * dt);
     scene.rig.applyAnalog(dt, analog.lookX, analog.lookY, analog.scroll, reduced);
     const rig = scene.rig;
     if (rig.azimuth !== this.lastRig.az || rig.polar !== this.lastRig.polar || rig.distance !== this.lastRig.dist) {
@@ -220,6 +250,23 @@ export class LivingMapScreen implements HostedScreen {
       this.labelFrames--;
       this.placeLabels();
     }
+  }
+
+  /** Zoom by a factor (< 1 in, > 1 out); the +/- buttons use this. */
+  zoomBy(factor: number): void {
+    this.scene?.rig.zoom(factor);
+  }
+
+  /** Measures the real rendered width of every label once (cached per string), not 8px per char. */
+  private measureLabels(): void {
+    const collider = this.collider;
+    const first = this.labels[0];
+    if (!collider || !first) return;
+    const font = getComputedStyle(first).font;
+    const measure = makeTextMeasurer(font || '700 14px sans-serif');
+    MARKERS.forEach((m, i) => {
+      collider.width[i] = measure(this.opts.t(m.nameKey)) + LABEL_CHROME_PX;
+    });
   }
 
   /** Resets the hold timer once the stick is back at rest; always true so it chains in an else-if. */
@@ -379,15 +426,15 @@ export class LivingMapScreen implements HostedScreen {
       panel.append(box);
     }
 
-    const details = h('details', 'lm-places');
-    const summary = h('summary', '', t('timeline.map.places', { n: visible.length }), { 'data-focusable': '' });
-    details.append(summary);
+    // Always open: a <details> toggle cannot be operated with a controller, but scrolling can.
+    const places = h('section', 'lm-places');
+    places.append(h('h3', 'lm-places-title', t('timeline.map.places', { n: visible.length })));
     for (const m of visible) {
-      details.append(
+      places.append(
         h('p', 'lm-place', t(m.nameKey) + ' · ' + t('timeline.label.' + m.label) + ' · ' + t('timeline.sources', { ids: m.sources.join(', ') }), { 'data-marker': m.id }),
       );
     }
-    panel.append(details);
+    panel.append(places);
     panel.append(h('p', 'lm-muted', t('timeline.map.reliefNote', { n: RELIEF_EXAGGERATION })));
     if (this.opts.onBack) {
       const back = h('button', 'lm-btn', t('timeline.map.back'), { type: 'button', 'data-focusable': '', 'data-action': 'back' });

@@ -2,6 +2,7 @@ import type { EventBus } from '../events';
 import type { GameEvents } from '../gameEvents';
 import { DEFAULT_BINDINGS, type Bindings } from './bindings';
 import { applyDeadZone, BTN, detectFamily, type GamepadLike } from './gamepad';
+import { ignoreKeyForTextEntry, type TextEntryLike } from './textEntry';
 import type { Action, GamepadFamily, InputDevice, Vec2 } from './types';
 
 export interface InputSources {
@@ -94,6 +95,7 @@ export class InputManager {
     const onKeyDown = (e: Event): void => {
       const code = (e as KeyboardEvent).code;
       if (!code) return;
+      if (ignoreKeyForTextEntry(code, e.target as TextEntryLike | null)) return;
       this.keys.add(code);
       this.setDevice('keyboard', null);
     };

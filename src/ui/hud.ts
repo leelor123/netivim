@@ -6,6 +6,8 @@ const TOAST_MS = 2600;
 
 export interface Hud {
   readonly el: HTMLElement;
+  /** The toast status region. Lives in the top layer (above cutscene bars and gameplay sheets). */
+  readonly toastEl: HTMLElement;
   /** Shows a short message in the status region (replaces the previous one). */
   toast(text: string, tone?: 'ok' | 'warn'): void;
   setVisible(visible: boolean, inMission: boolean): void;
@@ -32,7 +34,7 @@ export function createHud(game: Game, onSave: () => void, onPause: () => void): 
   bar.hidden = true;
 
   const toastEl = h('div', { class: 'nv-toast', attrs: { role: 'status', 'aria-live': 'polite' } });
-  const el = h('div', { class: 'nv-hud' }, bar, toastEl);
+  const el = h('div', { class: 'nv-hud' }, bar);
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
   const gate = new ToastGate(({ text, tone }) => hud.toast(text, tone));
 
@@ -55,6 +57,7 @@ export function createHud(game: Game, onSave: () => void, onPause: () => void): 
 
   const hud: Hud = {
     el,
+    toastEl,
     toast(text, tone = 'ok') {
       clearTimeout(toastTimer);
       toastEl.textContent = text;
@@ -77,6 +80,7 @@ export function createHud(game: Game, onSave: () => void, onPause: () => void): 
     dispose() {
       clearTimeout(toastTimer);
       for (const off of offs) off();
+      toastEl.remove();
       el.remove();
     },
   };

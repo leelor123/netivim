@@ -1,5 +1,6 @@
 import { TWO_LENSES } from '../../../content/ch01/dialogue';
 import { h } from '../../../ui/dom';
+import { scrollableAttrs } from '../../../ui/scrollRouting';
 import type { Planner } from './planner';
 import { PIECE_COUNTS, PIECE_TYPES, type PieceType } from './rules';
 import './tower.css';
@@ -89,7 +90,7 @@ export class LensesPanel {
     this.button.addEventListener('click', onContinue);
     const body = h(
       'div',
-      { class: 'gp-sheet__body' },
+      { class: 'gp-sheet__body', attrs: scrollableAttrs(t(topic.topicKey)) },
       h('p', { class: 'gp-kicker', text: t('levels.ch01.tower.lenses.kicker') }),
       h('h3', { class: 'gp-subtitle', text: t('levels.ch01.tower.lenses.accepted') }),
       h('p', { text: t(topic.factsKey) }),

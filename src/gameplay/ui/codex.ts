@@ -1,8 +1,9 @@
 import type { ArchiveItem, CodexCategory, CodexEntry } from '../../content/schema';
 import type { Action } from '../../core/input/types';
 import { h } from '../../ui/dom';
+import { scrollableAttrs } from '../../ui/scrollRouting';
 import type { ChapterDefinition } from '../types';
-import { FOCUS_ATTR, gpButton, type GpScreen } from './host';
+import { findByKey, FOCUS_ATTR, gpButton, rerenderKeepingFocus, type GpScreen } from './host';
 import { fill, labelChip, sourcesLine, type T } from './screens';
 
 /** Codex categories shown as tabs (BRIEF mandatory system 2). */
@@ -22,7 +23,7 @@ export function codexScreen(t: T, chapters: readonly ChapterDefinition[], unlock
   let tab = 0;
   const search = h('input', { class: 'gp-search', attrs: { type: 'search', [FOCUS_ATTR]: '', 'aria-label': t('gameplay.codex.search'), placeholder: t('gameplay.codex.search') } });
   const tabs = h('div', { class: 'gp-tabs', attrs: { role: 'tablist' } });
-  const list = h('div', { class: 'gp-entries' });
+  const list = h('div', { class: 'gp-entries', attrs: { id: 'gp-codex-list', role: 'tabpanel' } });
   const detail = h('article', { class: 'gp-detail', attrs: { 'aria-live': 'polite' } });
   const count = h('p', { class: 'gp-dim' });
 
@@ -34,15 +35,37 @@ export function codexScreen(t: T, chapters: readonly ChapterDefinition[], unlock
       sourcesLine(t, e.sources),
     );
   };
+  const renderTabs = (): void => {
+    tabs.replaceChildren(
+      ...CODEX_TABS.map((c, i) => {
+        const b = h('button', {
+          class: 'gp-tab' + (i === tab ? ' is-active' : ''),
+          text: t('gameplay.codex.cat.' + c),
+          attrs: { type: 'button', role: 'tab', 'aria-selected': String(i === tab), 'aria-controls': 'gp-codex-list', [FOCUS_ATTR]: '' },
+        });
+        b.dataset.key = 'codex-tab-' + c;
+        b.addEventListener('click', () => select(i));
+        return b;
+      }),
+    );
+  };
   const render = (): void => {
     const cat = CODEX_TABS[tab] ?? 'all';
-    tabs.replaceChildren(...CODEX_TABS.map((c, i) => h('span', { class: 'gp-tab' + (i === tab ? ' is-active' : ''), text: t('gameplay.codex.cat.' + c), attrs: { role: 'tab', 'aria-selected': String(i === tab) } })));
     const shown = filterCodex(open, cat, search.value, t);
     list.replaceChildren(...shown.map((e) => gpButton(t(e.titleKey), () => show(e), { key: 'codex-' + e.id, sub: String(e.year) })));
     count.textContent = t('gameplay.codex.count', { open: open.length, total: all.length });
     if (shown.length === 0) list.append(h('p', { class: 'gp-dim', text: t(open.length === 0 ? 'gameplay.codex.empty' : 'gameplay.codex.noMatch') }));
   };
-  search.addEventListener('input', render);
+  /** Switches category (click, touch, Enter, or LB / RB) and keeps focus on the chosen tab. */
+  const select = (i: number): void => {
+    tab = (i + CODEX_TABS.length) % CODEX_TABS.length;
+    renderTabs();
+    render();
+    const cat = CODEX_TABS[tab] ?? 'all';
+    findByKey(tabs, 'codex-tab-' + cat)?.focus({ preventScroll: true });
+  };
+  search.addEventListener('input', () => rerenderKeepingFocus(list, render));
+  renderTabs();
   render();
   const el = h(
     'div',
@@ -51,7 +74,7 @@ export function codexScreen(t: T, chapters: readonly ChapterDefinition[], unlock
       'section',
       { class: 'gp-sheet gp-sheet--wide', attrs: { role: 'dialog', 'aria-label': t('gameplay.codex.title') } },
       h('h2', { class: 'gp-sheet__title', text: t('gameplay.codex.title') }),
-      h('div', { class: 'gp-sheet__body' }, search, tabs, count, h('div', { class: 'gp-split' }, list, detail), h('div', { class: 'gp-actions' }, gpButton(t('gameplay.common.back'), onBack, { key: 'codex-back' }))),
+      h('div', { class: 'gp-sheet__body', attrs: scrollableAttrs(t('gameplay.codex.title')) }, search, tabs, count, h('div', { class: 'gp-split' }, list, detail), h('div', { class: 'gp-actions' }, gpButton(t('gameplay.common.back'), onBack, { key: 'codex-back' }))),
     ),
   );
   return {
@@ -60,8 +83,7 @@ export function codexScreen(t: T, chapters: readonly ChapterDefinition[], unlock
     back: onBack,
     onAction(a: Action) {
       if (a !== 'tabPrev' && a !== 'tabNext') return false;
-      tab = (tab + (a === 'tabNext' ? 1 : -1) + CODEX_TABS.length) % CODEX_TABS.length;
-      render();
+      select(tab + (a === 'tabNext' ? 1 : -1));
       return true;
     },
   };
@@ -84,7 +106,7 @@ export function archiveListScreen(t: T, chapters: readonly ChapterDefinition[], 
       'section',
       { class: 'gp-sheet', attrs: { role: 'dialog', 'aria-label': t('gameplay.archive.title') } },
       h('h2', { class: 'gp-sheet__title', text: t('gameplay.archive.title') }),
-      h('div', { class: 'gp-sheet__body' }, h('p', { class: 'gp-dim', text: t('gameplay.archive.count', { open: open.length, total: entries.length }) }), list, h('div', { class: 'gp-actions' }, gpButton(t('gameplay.common.back'), onBack, { key: 'archive-back' }))),
+      h('div', { class: 'gp-sheet__body', attrs: scrollableAttrs(t('gameplay.archive.title')) }, h('p', { class: 'gp-dim', text: t('gameplay.archive.count', { open: open.length, total: entries.length }) }), list, h('div', { class: 'gp-actions' }, gpButton(t('gameplay.common.back'), onBack, { key: 'archive-back' }))),
     ),
   );
   return { id: 'archive', el, back: onBack };
@@ -95,7 +117,7 @@ export function provenanceScreen(t: T, e: ArchiveEntry, onBack: () => void): GpS
   const it = e.item;
   const card = h(
     'aside',
-    { class: 'gp-provenance', attrs: { role: 'dialog', 'aria-label': t(it.titleKey) } },
+    { class: 'gp-provenance', attrs: { role: 'dialog', 'aria-label': t(it.titleKey), tabindex: '0' } },
     h('h2', { class: 'gp-sheet__title', text: t(it.titleKey) }),
     h('p', { class: 'gp-kicker' }, document.createTextNode(t(e.chapterTitleKey) + ' · ' + String(it.year) + ' · '), labelChip(t, it.label)),
     h('p', { text: t(it.descriptionKey) }),

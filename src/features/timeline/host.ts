@@ -3,7 +3,7 @@ import type { LivingMapScreen } from '../livingMap/livingMapScreen';
 import type { AnalogInput, HostedScreen, ScreenAction } from './screen';
 import type { TimelineScreen } from './timelineScreen';
 
-const ALL_ACTIONS: readonly ScreenAction[] = ['confirm', 'back', 'left', 'right', 'tabPrev', 'tabNext', 'alt'];
+const ALL_ACTIONS: readonly ScreenAction[] = ['confirm', 'back', 'left', 'right', 'up', 'down', 'tabPrev', 'tabNext', 'alt'];
 
 function readAnalog(game: Game): AnalogInput {
   const { move, look, scroll } = game.input;
@@ -46,12 +46,12 @@ export function hostTimelineWithMap(game: Game, timeline: TimelineScreen, map: L
   const off = game.onStep((dt) => {
     for (const a of ALL_ACTIONS) {
       if (!game.input.justPressed(a)) continue;
-      if (a === 'alt' || a === 'tabPrev' || a === 'tabNext') map.onAction(a);
+      if (a === 'alt' || a === 'tabPrev' || a === 'tabNext' || a === 'up' || a === 'down') map.onAction(a);
       else timeline.onAction(a);
     }
     const analog = readAnalog(game);
     timeline.update(dt, analog);
-    map.update(dt, { ...analog, moveX: 0, moveY: 0 });
+    map.update(dt, { ...analog, moveX: 0 });
   });
   return () => {
     off();
