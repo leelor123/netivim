@@ -194,7 +194,11 @@ function build(ctx: LevelContext<E>): TowerLevel {
   let bed = '';
   let planMessage: string | null = null;
   let planMessageT = 0;
+  /** Planning-table stick: delay before the first auto-repeat, then the repeat interval (seconds). */
+  const STICK_FIRST_REPEAT_S = 0.4;
+  const STICK_REPEAT_S = 0.17;
   let stickRepeat = 0;
+  let stickHeld = false;
   let lastAlert = -1;
   let disposed = false;
   const unlocked = new Set<string>();
@@ -313,9 +317,14 @@ function build(ctx: LevelContext<E>): TowerLevel {
       if (stickRepeat <= 0 && dx === 0 && dy === 0) {
         if (Math.abs(mx) >= Math.abs(my)) dx = mx > 0 ? 1 : -1;
         else dy = my > 0 ? 1 : -1;
-        stickRepeat = 0.17;
+        // One cell per push; holding repeats only after a menu-style initial delay.
+        stickRepeat = stickHeld ? STICK_REPEAT_S : STICK_FIRST_REPEAT_S;
+        stickHeld = true;
       }
-    } else stickRepeat = 0;
+    } else {
+      stickRepeat = 0;
+      stickHeld = false;
+    }
     if (dx !== 0 || dy !== 0) {
       planner.move(dx, dy);
       planMessage = null;
