@@ -35,6 +35,14 @@ export type FrameListener = (frameMs: number, nowMs: number) => void;
 const DEFAULT_SHADOW_DISTANCE = 80;
 const SHAFT_STRENGTH = 0.6;
 const SUN_FAR = 500;
+/**
+ * Longest a new scene waits for its shaders before it is drawn anyway (ms). On drivers with
+ * KHR_parallel_shader_compile (Chrome / Android WebView) programs link off the main thread and are
+ * usually ready within a few frames; meanwhile the canvas keeps showing the previous frame.
+ */
+export const WARMUP_TIMEOUT_MS = 2000;
+/** How often the active scene is rescanned for new instanced shadow casters (ms). */
+const CASTER_SCAN_MS = 1000;
 
 const registry = new WeakMap<THREE.WebGLRenderer, RenderPipeline>();
 
@@ -44,6 +52,18 @@ const registry = new WeakMap<THREE.WebGLRenderer, RenderPipeline>();
  */
 export function getRenderPipeline(renderer: THREE.WebGLRenderer): RenderPipeline | undefined {
   return registry.get(renderer);
+}
+
+/**
+ * Gives an instanced shadow caster its own depth material (plain or instance-color variant) unless
+ * the scene set a custom one. Pure scene-graph work, exported for unit tests.
+ */
+export function assignInstancedCasterDepth(o: THREE.Object3D, plain: THREE.Material, colored: THREE.Material): void {
+  const im = o as THREE.InstancedMesh;
+  if (im.isInstancedMesh !== true || !im.castShadow) return;
+  const current = im.customDepthMaterial;
+  if (current !== undefined && current !== plain && current !== colored) return;
+  im.customDepthMaterial = im.instanceColor !== null ? colored : plain;
 }
 
 function smoothstep(a: number, b: number, x: number): number {
@@ -95,6 +115,24 @@ export class RenderPipeline {
   private shadowSun: THREE.DirectionalLight | null = null;
   private shadowSize = -1;
 
+  private warmScene: THREE.Scene | null = null;
+  private warmPending = false;
+  private warmDeadline = 0;
+  /** Scene warm-ups so far (tests and the perf report). */
+  warmups = 0;
+
+  /**
+   * Shadow depth materials for instanced casters. three.js draws every caster with ONE shared
+   * depth material; when instanced and plain meshes both cast, that material flips its
+   * instancing variant several times per frame, and each flip re-runs getProgram (parameters +
+   * cache-key string: kilobytes of garbage and CPU per frame). Instanced casters get their own
+   * depth material (one per instance-color variant), so the shared one never changes variant.
+   */
+  private readonly instancedDepth = new THREE.MeshDepthMaterial();
+  private readonly instancedColorDepth = new THREE.MeshDepthMaterial();
+  private lastCasterScan = -Infinity;
+  private readonly assignCasterDepth = (o: THREE.Object3D): void => assignInstancedCasterDepth(o, this.instancedDepth, this.instancedColorDepth);
+
   private lastFrameTime = -1;
   private lost = false;
   private readonly listeners: FrameListener[] = [];
@@ -134,6 +172,7 @@ export class RenderPipeline {
 
   /** True once everything the current options need is loaded (the post chunk is lazy). */
   get ready(): boolean {
+    if (this.warmPending) return false;
     return !needsComposer(this.config_, this.dofActive) || (this.chain !== null && this.builtKey === this.wantedKey);
   }
 
@@ -231,7 +270,16 @@ export class RenderPipeline {
     if (this.lost) return;
     const info = this.renderer.info;
     info.reset();
+    if (active && active.scene !== this.warmScene) this.startWarmup(active, now);
+    if (active && this.warmPending && now < this.warmDeadline) {
+      // Shaders of the new scene are still linking: draw nothing, the canvas keeps the last frame.
+      active = null;
+    } else this.warmPending = false;
     if (active) {
+      if (now - this.lastCasterScan >= CASTER_SCAN_MS) {
+        this.lastCasterScan = now;
+        active.scene.traverse(this.assignCasterDepth);
+      }
       this.applyShadows(active);
       this.syncChain(active);
       const chain = this.chain;
@@ -273,6 +321,8 @@ export class RenderPipeline {
    */
   handleContextRestored(active: GameScene | null): void {
     this.lost = false;
+    this.warmScene = null;
+    this.warmPending = false;
     // The old GL objects died with the old context: drop them without dispose() (deleting them
     // on the new context is an INVALID_OPERATION). Fresh ones are created on the next frame.
     this.chain = null;
@@ -290,7 +340,44 @@ export class RenderPipeline {
 
   dispose(): void {
     this.disposeChain();
+    this.instancedDepth.dispose();
+    this.instancedColorDepth.dispose();
     this.renderer.dispose();
+  }
+
+  /**
+   * Precompiles every material of a newly active scene (including hidden objects: markers, LOD
+   * cross-fade variants) with renderer.compileAsync, so the first frames of a level never stall on
+   * a synchronous shader link. Shadow state is applied first: it is part of the program key.
+   */
+  private startWarmup(active: GameScene, now: number): void {
+    this.warmScene = active.scene;
+    this.warmups++;
+    this.applyShadows(active);
+    const scene = active.scene;
+    scene.traverse(this.assignCasterDepth);
+    this.lastCasterScan = now;
+    let materials: Promise<unknown>;
+    try {
+      if (!this.renderer.extensions.has('KHR_parallel_shader_compile')) {
+        // No parallel compile: link everything now (including hidden variants) and draw at once.
+        this.renderer.compile(scene, active.camera);
+        return;
+      }
+      materials = this.renderer.compileAsync(scene, active.camera);
+    } catch (error) {
+      console.error('[netivim] shader warm-up failed', error);
+      return;
+    }
+    this.warmPending = true;
+    this.warmDeadline = now + WARMUP_TIMEOUT_MS;
+    materials
+      .then(() => {
+        if (this.warmScene === scene) this.warmPending = false;
+      })
+      .catch(() => {
+        if (this.warmScene === scene) this.warmPending = false;
+      });
   }
 
   private updateSizeStats(): void {
@@ -318,6 +405,15 @@ export class RenderPipeline {
   private syncChain(active: GameScene): void {
     if (this.wantedKey === '') return;
     if (this.chain && this.builtKey === this.wantedKey && this.chainScene === active.scene && this.chainCamera === active.camera) return;
+    if (this.chain && this.builtKey === this.wantedKey) {
+      // Same configuration, new scene or camera: retarget instead of rebuilding (no buffer churn,
+      // no shader re-link on the first frame of a level).
+      this.chain.retarget(active.scene, active.camera);
+      this.chainScene = active.scene;
+      this.chainCamera = active.camera;
+      this.gradedEra = null;
+      return;
+    }
     const m = this.postModule;
     if (!m) return;
     this.disposeChain();
@@ -346,7 +442,15 @@ export class RenderPipeline {
 
   private applyShadows(active: GameScene): void {
     const sun = active.sun;
-    if (!sun) return;
+    if (!sun) {
+      // Never keep the previous scene's sun: its parent chain would retain that whole scene graph
+      // (tens of MB of CPU-side geometry) until the next sunlit scene.
+      if (this.shadowSun) {
+        this.shadowSun = null;
+        this.shadowSize = -1;
+      }
+      return;
+    }
     const size = this.config_.shadowMapSize;
     if (size === 0) {
       if (sun.castShadow) sun.castShadow = false;

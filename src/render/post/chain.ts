@@ -96,8 +96,9 @@ export class PostChain {
   private readonly bloom: UnrealBloomPass | null = null;
   private readonly grade: ShaderPass | null = null;
   private readonly fxaa: FXAAPass | null = null;
+  private readonly gtao: SharedDepthGTAOPass | null = null;
   private readonly placeholderDepth: THREE.DepthTexture | null = null;
-  private readonly camera: THREE.PerspectiveCamera;
+  private camera: THREE.PerspectiveCamera;
   private readonly prevViewProjection = new THREE.Matrix4();
   private hasPrev = false;
 
@@ -130,6 +131,7 @@ export class PostChain {
       gtao.updateGtaoMaterial({ radius: 1.6, thickness: 1.2, scale: 1, samples: 12 });
       gtao.updatePdMaterial({ radius: 6, rings: 2, samples: 12 });
       gtao.blendIntensity = 0.85;
+      this.gtao = gtao;
       this.composer.addPass(gtao);
     }
 
@@ -179,6 +181,30 @@ export class PostChain {
     if (this.grade) uniform(this.grade.uniforms, 'aspect').value = aspect;
     if (this.shafts) uniform(this.shafts.uniforms, 'aspect').value = aspect;
     if (this.bokeh) uniform(this.bokeh.uniforms as Uniforms, 'aspect').value = aspect;
+  }
+
+  /**
+   * Points the chain at another scene / camera (a scene switch). Keeps every render target and
+   * every compiled post shader: rebuilding the chain per scene switch re-allocated the buffers and
+   * re-linked a dozen programs (a visible hitch on the first frame of every level).
+   */
+  retarget(scene: THREE.Scene, camera: THREE.PerspectiveCamera): void {
+    this.camera = camera;
+    this.hasPrev = false;
+    this.scenePass.scene = scene;
+    this.scenePass.camera = camera;
+    if (this.gtao) {
+      this.gtao.scene = scene;
+      this.gtao.camera = camera;
+    }
+    if (this.bokeh) {
+      this.bokeh.scene = scene;
+      this.bokeh.camera = camera;
+      const u = this.bokeh.uniforms as Uniforms;
+      uniform(u, 'nearClip').value = camera.near;
+      uniform(u, 'farClip').value = camera.far;
+      uniform(u, 'aspect').value = camera.aspect;
+    }
   }
 
   setPixelRatio(pixelRatio: number): void {

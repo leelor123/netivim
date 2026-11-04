@@ -52,6 +52,10 @@ export function disposeObject(root: THREE.Object3D): void {
   });
 }
 
+function disposeLightShadow(obj: THREE.Object3D): void {
+  if (obj instanceof THREE.Light) obj.dispose();
+}
+
 /** Holds the active scene; switching disposes the previous one so memory stays flat. */
 export class SceneManager {
   private current: GameScene | null = null;
@@ -65,7 +69,14 @@ export class SceneManager {
 
   switchTo(next: GameScene): void {
     if (this.current === next) return;
-    this.current?.dispose();
+    const prev = this.current;
+    if (prev) {
+      // Safety net: every light's shadow map is a render target (2 GPU textures). A scene whose
+      // dispose() frees only the lights it knows about (sun, hemi) leaked the rest per visit.
+      // LightShadow.dispose() is idempotent, so scenes that already free their lights are fine.
+      prev.scene.traverse(disposeLightShadow);
+      prev.dispose();
+    }
     this.current = next;
     next.resize(this.width, this.height);
     if (this.graphics) next.applyGraphics?.(this.graphics);
