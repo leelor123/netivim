@@ -81,15 +81,15 @@ describe('Content Intensity', () => {
   it('applies to actual playback: quieter, filtered and shorter', async () => {
     const std = await setup();
     std.sfx.handleCue('siren.alert', 1);
-    // Gains 0-5 are the buses; the next one is the voice gain.
-    const stdGain = std.fake.gains[6]?.gain.value ?? 0;
+    // Gains 0-7 are the buses and gate; the next one is the voice gain.
+    const stdGain = std.fake.gains[8]?.gain.value ?? 0;
     const stdFilters = std.fake.filters.length;
     expect(stdGain).toBeGreaterThan(0);
 
     const gentle = await setup();
     gentle.sfx.setContentIntensity('gentle');
     gentle.sfx.handleCue('siren.alert', 1);
-    const gentleGain = gentle.fake.gains[6]?.gain.value ?? stdGain;
+    const gentleGain = gentle.fake.gains[8]?.gain.value ?? stdGain;
     expect(gentleGain).toBeLessThan(stdGain * 0.5);
     expect(gentle.fake.filters.length).toBeGreaterThan(stdFilters);
     const lowpass = gentle.fake.filters.find((f) => f.frequency.value === 700);

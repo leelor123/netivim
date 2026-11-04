@@ -1,9 +1,10 @@
 import type { Game } from '../game';
 import { TITLE_CUE } from './cues';
-import { AudioEngine } from './engine';
+import { AudioEngine, type EngineOptions } from './engine';
 import { Narrator, browserSpeech } from './narration';
 import { EraScore } from './score';
 import { SfxPlayer } from './sfx';
+import { BED_PREFIX } from './cues';
 
 export interface AudioSystem {
   readonly engine: AudioEngine;
@@ -21,9 +22,9 @@ declare global {
  * Installs the audio system: lazy AudioContext resumed on the first gesture, buses bound to
  * settings, the Era Score, the cue library and Hebrew narration. Returns a disposer.
  */
-export function installAudio(game: Game): () => void {
+export function installAudio(game: Game, engineOptions: EngineOptions = {}): () => void {
   const { bus, settings } = game;
-  const engine = new AudioEngine();
+  const engine = new AudioEngine(engineOptions);
   const sfx = new SfxPlayer(engine);
   const score = new EraScore(engine);
   const speech = browserSpeech();
@@ -32,11 +33,29 @@ export function installAudio(game: Game): () => void {
     createUtterance: speech.createUtterance,
     i18n: game.i18n,
     getLevels: () => ({ voice: settings.value.audio.voice, narration: settings.value.audio.narration, master: settings.value.audio.master }),
-    onSpeaking: (speaking) => engine.setDucked(speaking),
+    onSpeaking: (speaking) => {
+      engine.setDucked(speaking);
+      score.setSparse(speaking || captionOn);
+    },
   });
+  // Captions duck the music lightly even when no Hebrew voice exists; a timer releases the duck
+  // if the clear event never arrives.
+  let captionOn = false;
+  let captionTimer: ReturnType<typeof setTimeout> | null = null;
+  const setCaption = (on: boolean, holdMs = 0): void => {
+    if (captionTimer !== null) {
+      clearTimeout(captionTimer);
+      captionTimer = null;
+    }
+    captionOn = on;
+    engine.setCaptionDuck(on);
+    score.setSparse(on || narrator.isSpeaking);
+    if (on) captionTimer = setTimeout(() => setCaption(false), Math.max(1500, holdMs) + 600);
+  };
 
   engine.applySettings(settings.value.audio);
   sfx.setContentIntensity(settings.value.accessibility.contentIntensity);
+  score.setContentIntensity(settings.value.accessibility.contentIntensity);
   engine.setHidden(typeof document !== 'undefined' && document.visibilityState === 'hidden');
 
   const offs: (() => void)[] = [];
@@ -70,6 +89,7 @@ export function installAudio(game: Game): () => void {
       return;
     }
     sfx.handleCue(cue, intensity);
+    if (cue.startsWith(BED_PREFIX)) score.noteBed(cue.slice(BED_PREFIX.length));
   }));
   offs.push(bus.on('audio:mood', ({ mood, era }) => score.setMood(mood, era)));
 
@@ -79,22 +99,45 @@ export function installAudio(game: Game): () => void {
       if (!settings.value.audio.voice) narrator.cancel();
     } else if (key === 'accessibility') {
       sfx.setContentIntensity(settings.value.accessibility.contentIntensity);
+      score.setContentIntensity(settings.value.accessibility.contentIntensity);
     }
   }));
 
   offs.push(bus.on('flow:pause-changed', ({ paused }) => {
     engine.setPaused(paused);
-    if (paused) narrator.cancel();
+    if (paused) {
+      narrator.cancel();
+      setCaption(false);
+    }
+  }));
+  // Missions: remember the story's year for the score, and never let a mission's engines or
+  // crowds outlive it. Leaving a mission for the debrief settles the music.
+  offs.push(bus.on('mission:started', ({ missionId }) => {
+    score.startMission(missionId);
+    sfx.stopWorldLoops(0.8);
+  }));
+  offs.push(bus.on('flow:changed', ({ from, to }) => {
+    if (from === 'mission' && to !== 'mission') sfx.stopWorldLoops(1.2);
+    if (to === 'debrief') score.settleTo('reflective');
   }));
   const onVisibility = (): void => {
     const hidden = document.visibilityState === 'hidden';
     engine.setHidden(hidden);
-    if (hidden) narrator.cancel();
+    if (hidden) {
+      narrator.cancel();
+      setCaption(false);
+    }
   };
   document.addEventListener('visibilitychange', onVisibility);
 
-  offs.push(bus.on('subtitle:show', (p) => narrator.onSubtitle(p)));
-  offs.push(bus.on('subtitle:clear', () => narrator.cancel()));
+  offs.push(bus.on('subtitle:show', (p) => {
+    setCaption(true, p.durationMs);
+    narrator.onSubtitle(p);
+  }));
+  offs.push(bus.on('subtitle:clear', () => {
+    setCaption(false);
+    narrator.cancel();
+  }));
 
   const system: AudioSystem = { engine, sfx, score, narrator };
   if (import.meta.env.VITE_TEST_HOOKS === '1') globalThis.__netivimAudio = system;
@@ -104,6 +147,7 @@ export function installAudio(game: Game): () => void {
     removeGestureListeners();
     document.removeEventListener('visibilitychange', onVisibility);
     narrator.cancel();
+    if (captionTimer !== null) clearTimeout(captionTimer);
     score.dispose();
     sfx.stopAll();
     engine.dispose();

@@ -1,3 +1,5 @@
+import type { MoodParams } from './theory';
+
 /** Content Intensity (BRIEF mandatory system 11) applied to the harsher cues. */
 export type ContentIntensity = 'gentle' | 'standard';
 
@@ -30,4 +32,19 @@ export function shapeCue(cue: string, requestedIntensity: number, mode: ContentI
     return { play: true, gain: 0.4, lowpassHz: 90, maxSeconds: null };
   }
   return UNCHANGED;
+}
+
+/**
+ * Gentle also softens the score: no low heartbeat pulse, quieter and slower tense music, a
+ * little less drive everywhere. Standard returns the parameters untouched.
+ */
+export function shapeMood(params: MoodParams, mode: ContentIntensity): MoodParams {
+  if (mode !== 'gentle') return params;
+  return {
+    ...params,
+    pulse: false,
+    bpm: Math.min(params.bpm, 64),
+    leadVel: params.leadVel * 0.85,
+    bassVel: params.bassVel * 0.8,
+  };
 }
