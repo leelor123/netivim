@@ -67,6 +67,8 @@ type E = 'unloaded' | 'walled' | 'filled' | 'raised' | 'fenced' | 'lit' | 'revie
 /** Handles the QA bot and tests use on the built level. */
 export interface TowerLevel extends Level {
   readonly sim: TowerSim;
+  /** Planning-table cursor and selection (read by tests). */
+  readonly planner: Planner;
   /** Plays the planning table with the stored solution (bot). */
   botPlan(): void;
 }
@@ -571,6 +573,7 @@ function build(ctx: LevelContext<E>): TowerLevel {
     scene,
     player,
     sim,
+    planner,
     update(dt) {
       player.update(dt);
       const stage = sim.stage;
