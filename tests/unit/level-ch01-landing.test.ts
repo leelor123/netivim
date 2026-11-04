@@ -153,7 +153,35 @@ describe('patrol paths', () => {
 });
 
 describe('rescue logic', () => {
-  const spec = { groups: SURVIVOR_GROUPS, landingX: -76, landingZ: -54, lostChild: { x: -75, z: -34 } };
+  const spec = { groups: SURVIVOR_GROUPS, landingX: -76, landingZ: -54, lostChild: { x: -75, z: -34 }, shelter: { x: -5.5, z: 1.5 } };
+
+  it('carries the children and elders first; the adults wait on the ship for the second trip', () => {
+    const m = new RescueModel(spec);
+    m.reset(-86, -56, 0);
+    expect(m.survivors.filter((s) => s.state === 'boat').every((s) => s.kind !== 'adult')).toBe(true);
+    expect(m.survivors.filter((s) => s.state === 'ship').length).toBe(4);
+    m.landNext();
+    m.landNext();
+    expect(m.tripLanded(0)).toBe(true);
+    expect(m.tripLanded(1)).toBe(false);
+    m.beginEscort();
+    expect(m.survivors.filter((s) => s.state === 'following').length).toBe(6);
+    // Volunteers take the first load to the shelter, where it stays safe for good.
+    m.handOff();
+    for (let t = 0; t < 60 / FIXED_DT; t++) m.update(FIXED_DT, -20, -10, 0);
+    expect(m.survivors.filter((s) => s.trip === 0 && s.state === 'safe').length).toBe(6);
+    // Second trip: first load sheltered, adults aboard, the boat carries only them.
+    m.reset(-86, -56, 1);
+    expect(m.survivors.filter((s) => s.state === 'boat').every((s) => s.kind === 'adult')).toBe(true);
+    expect(m.survivors.filter((s) => s.state === 'safe').length).toBe(6);
+    expect(m.landed).toBe(2);
+    expect(m.tripLanded(0)).toBe(true);
+    expect(m.snapshot().survivors.length).toBe(m.total);
+    const snap = m.snapshot();
+    const n = new RescueModel(spec);
+    expect(n.restore(snap)).toBe(true);
+    expect(n.restore({ landed: 0, survivors: snap.survivors.map((v) => ({ ...v, state: 'nonsense' as never })) })).toBe(false);
+  });
 
   it('lands children first, then elders, then adults, and only three waves', () => {
     const m = new RescueModel(spec);
@@ -235,7 +263,10 @@ describe('rescue logic', () => {
 });
 
 describe('level definition', () => {
-  it('has five checkpoints with bot scripts, an extra checkpoint, and an objective for every state', () => {
+  it('has nine checkpoints (two boat loads), a briefing context text, an extra checkpoint, bot scripts and an objective for every state', () => {
+    expect(CHECKPOINTS).toEqual(['sea', 'patrols', 'lights', 'drop', 'return', 'crossing', 'lights2', 'landing', 'shore']);
+    expect(landing.briefingContextKey).toBeTruthy();
+    expect(Object.hasOwn(HEBREW, landing.briefingContextKey ?? '')).toBe(true);
     expect(landing.id).toBe('night-landing');
     expect(landing.mission.checkpoints).toEqual([...CHECKPOINTS]);
     expect(landing.extraCheckpoints).toEqual(['hide']);
@@ -271,7 +302,7 @@ describe('level play (headless)', { timeout: 60_000 }, () => {
       const r = runBot(landing, { difficulty, maxSeconds: 900 });
       expect(r.failures, difficulty + ': ' + r.log.join(' | ')).toEqual([]);
       expect(r.completed).toBe(true);
-      expect(r.log.filter((l) => l.startsWith('checkpoint'))).toEqual(['checkpoint: patrols', 'checkpoint: lights', 'checkpoint: landing', 'checkpoint: shore']);
+      expect(r.log.filter((l) => l.startsWith('checkpoint'))).toEqual(CHECKPOINTS.slice(1).map((c) => 'checkpoint: ' + c));
     }
   });
 
@@ -329,7 +360,7 @@ describe('level play (headless)', { timeout: 60_000 }, () => {
   }
 
   it('an exact manual save restores the place on the water and on the beach', () => {
-    for (const cp of ['patrols', 'shore'] as const) {
+    for (const cp of ['patrols', 'drop', 'return', 'crossing', 'landing', 'shore', 'hide'] as const) {
       const a = makeHost({ missionId: landing.missionId, state: cp, checkpoint: cp, data: null });
       a.host.start();
       for (let i = 0; i < 60; i++) {
