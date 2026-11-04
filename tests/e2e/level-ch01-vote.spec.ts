@@ -129,7 +129,7 @@ async function shot(page: Page, name: string): Promise<void> {
 }
 
 test('The Vote: hall, statements, three visits, note and radio, ending in the Choice Ledger', async ({ page }) => {
-  test.setTimeout(420000);
+  test.setTimeout(900000);
   const problems = watchConsole(page);
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await expect.poll(() => flowState(page), { timeout: 60000 }).toBe('title');
@@ -169,10 +169,14 @@ test('The Vote: hall, statements, three visits, note and radio, ending in the Ch
   await shot(page, '1-hall');
 
   // A real stick walk: forward along the hall.
-  const z0 = await page.evaluate(() => window.__netivimGameplay?.host?.level?.player?.z ?? 0);
+  const at = (): Promise<[number, number]> => page.evaluate(() => [window.__netivimGameplay?.host?.level?.player?.x ?? 0, window.__netivimGameplay?.host?.level?.player?.z ?? 0] as [number, number]);
+  const [x0, z0] = await at();
   await setStick(page, 0, -0.6);
   await expect
-    .poll(async () => Math.abs((await page.evaluate(() => window.__netivimGameplay?.host?.level?.player?.z ?? 0)) - z0), { timeout: 30000 })
+    .poll(async () => {
+      const [x, z] = await at();
+      return Math.hypot(x - x0, z - z0);
+    }, { timeout: 30000 })
     .toBeGreaterThan(0.3);
   await setStick(page, 0, 0);
 

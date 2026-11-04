@@ -86,7 +86,7 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
   let finale = -1;
   let neighborChoice = '';
   let tallyWindow = 0;
-  let zone: 'night' | 'interior' = 'night';
+  let zone: 'town-night' | 'interior' = 'town-night';
   const greeted: Record<PlaceId, boolean> = { yishuv: false, palestinians: false, britain: false };
   const markers = new Map<string, Marker>();
   const items: Interactable[] = [];
@@ -460,7 +460,7 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
         }
       }
       const inside = insideRoom(player.x, player.z);
-      const z = inside ? 'interior' : 'night';
+      const z = inside ? 'interior' : 'town-night';
       if (z !== zone) {
         zone = z;
         ctx.bus.emit('audio:cue', { cue: 'ambience.' + z });
@@ -504,7 +504,7 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
         const sp = CHECKPOINT_SPAWN[st];
         player.spawn(sp.x, sp.z, sp.heading);
       }
-      ctx.bus.emit('audio:cue', { cue: 'ambience.night' });
+      ctx.bus.emit('audio:cue', { cue: 'ambience.town-night' });
       ctx.bus.emit('audio:cue', { cue: 'crowd.murmur', intensity: 0 });
       mood(st === 'vote' ? 'tense' : st === 'visits' ? 'reflective' : 'calm');
       refresh();
