@@ -1,5 +1,6 @@
 import type { Game } from '../game';
 import { h } from './dom';
+import { ToastGate, toastPlacement } from './toastGate';
 
 const TOAST_MS = 2600;
 
@@ -8,6 +9,8 @@ export interface Hud {
   /** Shows a short message in the status region (replaces the previous one). */
   toast(text: string, tone?: 'ok' | 'warn'): void;
   setVisible(visible: boolean, inMission: boolean): void;
+  /** While a menu is open, notices from other systems wait and toasts move to the top. */
+  setMenuOpen(open: boolean): void;
   dispose(): void;
 }
 
@@ -31,6 +34,7 @@ export function createHud(game: Game, onSave: () => void, onPause: () => void): 
   const toastEl = h('div', { class: 'nv-toast', attrs: { role: 'status', 'aria-live': 'polite' } });
   const el = h('div', { class: 'nv-hud' }, bar, toastEl);
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
+  const gate = new ToastGate(({ text, tone }) => hud.toast(text, tone));
 
   const offs = [
     game.bus.on('save:dirty-changed', ({ dirty }) => {
@@ -38,10 +42,10 @@ export function createHud(game: Game, onSave: () => void, onPause: () => void): 
     }),
     game.bus.on('save:written', ({ reason }) => {
       if (reason.startsWith('exit:')) return;
-      hud.toast(t(reason === 'manual' ? 'ui.toast.saved' : 'ui.toast.autosaved'));
+      gate.request(t(reason === 'manual' ? 'ui.toast.saved' : 'ui.toast.autosaved'));
     }),
     // Notices from other systems (e.g. graphics quality changes).
-    game.bus.on('ui:toast', ({ textKey, params }) => hud.toast(t(textKey, params))),
+    game.bus.on('ui:toast', ({ textKey, params }) => gate.request(t(textKey, params), 'ok', true)),
     game.bus.on('save:failed', ({ reason }) => {
       // Mirror and hydrate problems are recovered silently; the primary write failing is not.
       if (reason.startsWith('mirror:') || reason === 'hydrate') return;
@@ -55,11 +59,16 @@ export function createHud(game: Game, onSave: () => void, onPause: () => void): 
       clearTimeout(toastTimer);
       toastEl.textContent = text;
       toastEl.dataset.tone = tone;
+      toastEl.dataset.place = toastPlacement(gate.isMenuOpen);
       toastEl.classList.add('is-shown');
       toastTimer = setTimeout(() => {
         toastEl.classList.remove('is-shown');
         toastEl.textContent = '';
       }, TOAST_MS);
+    },
+    setMenuOpen(open) {
+      toastEl.dataset.place = toastPlacement(open);
+      gate.setMenuOpen(open);
     },
     setVisible(visible, inMission) {
       bar.hidden = !visible;

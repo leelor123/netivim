@@ -70,6 +70,9 @@ export class Director {
     this.stack = new ScreenStack(game);
     this.offs.push(
       game.bus.on('flow:changed', ({ from, to }) => this.onFlow(from, to)),
+      game.bus.on('ui:open-codex', () => {
+        if (game.flow.state === 'hub') void this.openCodex();
+      }),
       game.bus.on('flow:pause-changed', ({ paused }) => {
         // The exact state goes into the game state before any manual save can be taken (8.C).
         if (paused && this.host && this.run && game.flow.state === 'mission') {

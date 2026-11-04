@@ -54,6 +54,11 @@ const tmpColor2: RGB = [0, 0, 0];
 const roadHit: RoadHit = { distance: 0, height: 0, along: 0 };
 const sample: ColorSample = { x: 0, z: 0, height: 0, slope: 0, jitter: 0 };
 
+/** Road color multipliers against the surrounding ground (linear space). */
+const ROAD_CONTRAST_UP = 1.2;
+const ROAD_CONTRAST_DOWN = 0.78;
+const luma = (c: RGB): number => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+
 /**
  * Chunked heightfield with flat-shaded low-poly faces, vertex colors from biome functions, roads
  * carved along splines, optional water, and per-chunk LOD with dithered cross-fades.
@@ -216,9 +221,13 @@ export class Terrain {
     }
     if (road > 0.02 && this.roadColors.length > 0) {
       const rc = this.roadColors[0] ?? out;
-      tmpColor2[0] = rc[0] * (0.92 + jitter * 0.16);
-      tmpColor2[1] = rc[1] * (0.92 + jitter * 0.16);
-      tmpColor2[2] = rc[2] * (0.92 + jitter * 0.16);
+      // Push the road away from the ground it crosses (lighter roads lighter, darker darker) so it
+      // reads at a glance in every era and in moonlight.
+      const push = luma(rc) >= luma(out) ? ROAD_CONTRAST_UP : ROAD_CONTRAST_DOWN;
+      const k = (0.92 + jitter * 0.16) * push;
+      tmpColor2[0] = Math.min(1, rc[0] * k);
+      tmpColor2[1] = Math.min(1, rc[1] * k);
+      tmpColor2[2] = Math.min(1, rc[2] * k);
       mixInto(out, out, tmpColor2, Math.min(1, road * 1.2));
     }
     return gradeInto(out, this.grade.tint, this.grade.saturation);

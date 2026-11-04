@@ -5,6 +5,7 @@ import type { AnalogInput, HostedScreen, ScreenAction } from '../timeline/screen
 import { clampPosition, nearestIndex, scrubWithStick, stepIndex, yearAtPosition } from '../timeline/scrub';
 import './livingMap.css';
 import { layerHasGeometry, lineLayersAt } from './layers';
+import { LabelCollider } from './labelLayout';
 import { LensState, type Lens } from './lenses';
 import { LivingMapScene } from './mapScene';
 import { MARKERS, markersVisibleAt } from './markers';
@@ -50,6 +51,7 @@ export class LivingMapScreen implements HostedScreen {
   private scene: LivingMapScene | null = null;
   private root: HTMLElement | null = null;
   private labels: HTMLElement[] = [];
+  private collider: LabelCollider | null = null;
   private panel: HTMLElement | null = null;
   private cleanups: Array<() => void> = [];
   private shownIndex = -1;
@@ -108,6 +110,15 @@ export class LivingMapScreen implements HostedScreen {
       return label;
     });
     labelBox.append(...this.labels);
+    const kindWeight = { city: 3, site: 2, settlement: 1 } as const;
+    const collider = new LabelCollider(
+      MARKERS.length,
+      MARKERS.map((m) => kindWeight[m.kind]),
+    );
+    MARKERS.forEach((m, i) => {
+      collider.width[i] = t(m.nameKey).length * 8 + 16;
+    });
+    this.collider = collider;
     const panel = h('aside', 'lm-panel', '', { 'aria-live': 'polite' });
     el.append(gesture, labelBox, panel);
     root.append(el);
@@ -137,6 +148,7 @@ export class LivingMapScreen implements HostedScreen {
     this.root = null;
     this.panel = null;
     this.labels = [];
+    this.collider = null;
     this.shownIndex = -1;
     this.layerKey = '';
   }
@@ -223,12 +235,21 @@ export class LivingMapScreen implements HostedScreen {
   private placeLabels(): void {
     const scene = this.scene;
     if (!scene) return;
+    const collider = this.collider;
+    if (!collider) return;
     const { width, height } = this.viewport();
     for (let i = 0; i < this.labels.length; i++) {
-      const label = this.labels[i] as HTMLElement;
       const show = scene.labelScreenPosition(i, width, height, this.labelPos);
+      collider.visible[i] = show ? 1 : 0;
+      collider.x[i] = this.labelPos.x;
+      collider.y[i] = this.labelPos.y;
+    }
+    collider.resolve();
+    for (let i = 0; i < this.labels.length; i++) {
+      const label = this.labels[i] as HTMLElement;
+      const show = collider.visible[i] === 1;
       if (label.hidden === show) label.hidden = !show;
-      if (show) label.style.transform = 'translate(' + Math.round(this.labelPos.x) + 'px,' + Math.round(this.labelPos.y) + 'px) translate(-50%,-100%)';
+      if (show) label.style.transform = 'translate(' + Math.round(collider.x[i] as number) + 'px,' + Math.round(collider.y[i] as number) + 'px) translate(-50%,-100%)';
     }
   }
 

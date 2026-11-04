@@ -81,6 +81,7 @@ export function installUI(game: Game): () => void {
   const syncChrome = (): void => {
     hud.setVisible(canPauseIn(game.flow.state) && !game.flow.paused && !foreign, game.flow.isVolatile);
     root.classList.toggle('has-screen', screens.depth > 0);
+    hud.setMenuOpen(screens.depth > 0);
     root.classList.toggle('is-yielded', foreign);
     focus.suspended = foreign;
     html.dataset.uiTop = screens.top?.id ?? '';

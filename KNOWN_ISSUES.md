@@ -2,14 +2,8 @@
 
 All must be closed before the M2 release (DoD: this file empty).
 
-1. Living Map: place labels overlap in the dense central cluster at the default camera (needs label collision avoidance). Owner: timeline.
 4. Living Map relief control points (GEO-001..004) are approximate and Ch2 timeline events still cite unreviewed C2- research IDs; verify before Ch2 ships. Owner: fact-checker.
 5. Living Map line layers (1947 partition, 1949 armistice) are empty pending precisely sourced coordinates. Owner: research.
-6. World figures cast shadows in the static pose; road contrast could be higher. Owner: world (polish).
 7. Local E2E is unreliable while several agents run browsers at once (CPU-starved WebGL slows the fixed-step clock); CI is the gate. Owner: lead (consider a test-only fast-forward hook).
-8. Adaptive quality lowered the preset right at launch in a slow (software GL) browser and its toast overlaps the title menu; add a grace period after launch and scene switches, and keep toasts clear of menus. Owner: graphics/UI.
-10. Timeline chapter names wrap or truncate at phone width (e.g. Ch8). Owner: timeline.
-11. The hub menu appears before the Archive hall scene has loaded, so the title scene shows behind it for a moment; show a loading state or switch the scene first. Owner: gameplay/world.
-13. Codex is opened via the map button only; add a Codex item to the pause menu. Player figure reads dark against the archive room on lower presets. Owner: UI / world polish.
-14. Player figure and boat hull are very dark in moonlight (rim light). Owner: polish (running). Mission length is tracked as an M3 design task (DESIGN.md decision log), not a defect.
-15. Ch2 (1948) Living Map captions: the Rabin paraphrase (Lod/Ramle) and Morris's 50,000 figure are cited via secondary pages (C2-112, Shavit), not the books; Negba and Kfar Etzion captions have no Palestinian-lens counterpart. Upgrade before Ch2 is built. Owner: Ch2 historian.
+15. Ch2 (1948) Living Map captions: the Rabin paraphrase (Lod/Ramle) and Morris 50,000 figure are cited via secondary pages (C2-112, Shavit), not the books; Negba and Kfar Etzion captions have no Palestinian-lens counterpart. Upgrade before Ch2 is built. Owner: Ch2 historian.
+16. Living Map label collision is too aggressive (about 3 of 10 labels visible at the default Medium view; widths are estimated at 8 px per character): measure real text widths and try small offsets before hiding. Owner: timeline.

@@ -31,10 +31,17 @@ export function pauseScreen(ctx: UiContext): PauseScreen {
     );
   };
 
+  const openCodex = (): void => {
+    ctx.resume();
+    game.bus.emit('ui:open-codex', {});
+  };
+  // The codex lives with the chapter flow, which shows it from the hub only.
+  const codexButton = game.flow.state === 'hub' ? button(t('ui.pause.codex'), openCodex, { key: 'codex' }) : null;
   const list = h(
     'div',
     { class: 'nv-stack' },
     resumeButton,
+    ...(codexButton ? [codexButton] : []),
     button(t('ui.pause.save'), () => ctx.screens.push(slotsScreen(ctx)), { key: 'save' }),
     button(t('ui.pause.settings'), () => ctx.screens.push(settingsScreen(ctx)), { key: 'settings' }),
     button(t('ui.pause.exit'), exit, { key: 'exit', variant: 'quiet' }),

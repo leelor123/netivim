@@ -133,7 +133,7 @@ export function placeAt(world: LevelWorld, geometry: THREE.BufferGeometry, x: nu
   const [baked] = bakePlacements(geometry, [{ x, y, z, ry, scale }]);
   geometry.dispose();
   if (!baked) throw new Error('bake failed');
-  const mesh = new THREE.Mesh(world.bag.geometry(baked), world.mats.solid);
+  const mesh = new THREE.Mesh(world.bag.geometry(baked), world.mats.lift);
   mesh.castShadow = world.opts.quality.shadows;
   mesh.receiveShadow = true;
   mesh.matrixAutoUpdate = false;
@@ -148,7 +148,7 @@ export class BoatVisual {
   private readonly hull: THREE.Mesh;
 
   constructor(world: LevelWorld, geometry: THREE.BufferGeometry, scale: number, lampColor: string | null, lampHeight = 3.1) {
-    this.hull = new THREE.Mesh(world.bag.geometry(geometry), world.mats.solid);
+    this.hull = new THREE.Mesh(world.bag.geometry(geometry), world.mats.lift);
     this.hull.castShadow = world.opts.quality.shadows;
     this.hull.scale.setScalar(scale);
     this.group.add(this.hull);
@@ -182,7 +182,7 @@ export class SurvivorViews {
     model: RescueModel,
     volunteerSpots: readonly { readonly x: number; readonly z: number; readonly heading: number }[],
   ) {
-    const mat = world.bag.track(new FigureMaterial());
+    const mat = world.bag.track(new FigureMaterial(world.opts.era));
     world.onVisual((_dt, elapsed) => mat.update(elapsed));
     const counts: Record<SurvivorKind, number> = { child: 0, elder: 0, adult: 0 };
     for (const s of model.survivors) {
@@ -235,7 +235,7 @@ export class WatcherViews {
     private readonly world: LevelWorld,
     count: number,
   ) {
-    const mat = world.bag.track(new FigureMaterial());
+    const mat = world.bag.track(new FigureMaterial(world.opts.era));
     world.onVisual((_dt, elapsed) => mat.update(elapsed));
     const geo = world.bag.geometry(figureGeometry({ era: 'mandate1940', variant: 3, seed: 'landing-watcher' }));
     this.crowd = new Crowd(geo, mat, count);
