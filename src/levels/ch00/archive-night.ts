@@ -71,6 +71,9 @@ export interface ArchiveLevel extends Level {
     readonly progress: Readonly<Progress>;
     readonly modal: Modal;
     readonly sorter: LabelSorter;
+    /** Diagnostics: the case whose sheet is open, and whether the open() skip is still pending. */
+    readonly activeCase: CaseId | null;
+    readonly justOpened: boolean;
   };
 }
 
@@ -539,6 +542,12 @@ function build(ctx: LevelContext<E>): ArchiveLevel {
       },
       get sorter() {
         return sorter;
+      },
+      get activeCase() {
+        return activeCase;
+      },
+      get justOpened() {
+        return justOpened;
       },
     },
     update(dt) {

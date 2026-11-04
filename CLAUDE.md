@@ -82,4 +82,9 @@ Before ending: update `PROGRESS.md` (done / in progress / exact next step), comm
 - An ECC "GateGuard" hook asks for facts before first-touch file writes and destructive commands.
 - Local E2E is slow and timing-sensitive while several agents run software-GL browsers; use
   PW_PORT=<free port> to avoid clashes. CI (one clean machine) is the gate.
+- CI-only (slow 2-vCPU, software GL) E2E failures: reproduce with `E2E_CPU_THROTTLE=6` (CDP CPU
+  throttle, `tests/e2e/helpers/throttle.ts`; wired into the archive, jaffa and ui specs, add
+  `await applyCpuThrottle(page)` to another spec's beforeEach). On slow frames a stick-driven
+  walker coasts past its target: check WHICH interactable opened (e.g. `qa.activeCase`), not just
+  that a sheet is visible. The archive spec prints `[archive diagnostics]` on a failed case.
 - Screenshots: npm run screenshots (Ultra, adaptive off; very slow on software GL).

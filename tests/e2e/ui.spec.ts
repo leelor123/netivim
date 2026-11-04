@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { applyCpuThrottle } from './helpers/throttle';
 
 /** Same driver-noise filter as core.spec.ts: only the software GL performance notes. */
 const DRIVER_NOISE = /GL Driver Message \(OpenGL, Performance,/;
@@ -16,6 +17,7 @@ const BTN = { a: 0, b: 1, y: 3, lb: 4, rb: 5, start: 9, up: 12, down: 13, left: 
 const ACTION_OF: Record<number, string> = { 0: 'confirm', 1: 'back', 3: 'alt', 4: 'tabPrev', 5: 'tabNext', 9: 'pause', 12: 'up', 13: 'down', 14: 'left', 15: 'right' };
 
 test.beforeEach(async ({ page }) => {
+  await applyCpuThrottle(page);
   await page.addInitScript(() => {
     const w = window as unknown as { __pads: unknown[] };
     w.__pads = [];

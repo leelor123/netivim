@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { applyCpuThrottle } from './helpers/throttle';
 import * as L from '../../src/levels/ch00/jaffa/layout';
 
 /**
@@ -30,6 +31,7 @@ interface PadState {
 }
 
 test.beforeEach(async ({ page }) => {
+  await applyCpuThrottle(page);
   await page.addInitScript(() => {
     const pad = {
       id: 'Xbox Wireless Controller (Vendor: 045e)',
