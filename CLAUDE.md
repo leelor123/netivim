@@ -32,6 +32,7 @@ Before ending: update `PROGRESS.md` (done / in progress / exact next step), comm
 - `npm run check`: lint + typecheck + unit tests + build (green before every commit)
 - `npm test`: Vitest unit tests (`tests/unit/**/*.test.ts`)
 - `npm run e2e`: test build (VITE_TEST_HOOKS via .env.test) + Playwright (`tests/e2e`); window.__netivim hook
+- Full controller playthrough (~47 min, not in CI): `CONTROLLER_QA=1 npx playwright test controller-full`
 - `npm run android:sync`: build web + copy into `android/`
 - Local APK builds need the Android SDK (not installed on the user PC); CI builds the APK.
 

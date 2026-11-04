@@ -9,8 +9,7 @@ import type { BotStep } from '../../src/gameplay/types';
  * card and instant retry, the whole mission through to the debrief, the render budget on the beach,
  * and zero console errors or warnings.
  *
- * The chapter module (ch01) is registered by the chapter builder; until it is merged this test
- * skips itself instead of failing.
+ * Chapter 1 is registered, so a missing content note is a real failure (no self-skip).
  */
 
 const DRIVER_NOISE = /GL Driver Message \(OpenGL, Performance,/;
@@ -178,11 +177,7 @@ test('Night Landing: controller-only QA pilot, soft fail with retry, then the wh
   await expect(page.locator('[data-screen="gp-hub"]')).toBeVisible({ timeout: 60000 });
   await page.evaluate(() => window.__netivimGameplay?.beginChapter('ch01', false));
   const note = page.locator('[data-screen="gp-content-note"]');
-  const noteShown = await note
-    .waitFor({ state: 'visible', timeout: 8000 })
-    .then(() => true)
-    .catch(() => false);
-  test.skip(!noteShown, 'chapter ch01 is not registered yet (the chapter builder adds it)');
+  await expect(note).toBeVisible({ timeout: 30000 });
   problems.length = 0;
 
   await pressConfirm(page);
@@ -247,12 +242,7 @@ test('Night Landing: the beach scene stays inside the Ultra render budget', asyn
   });
   await expect(page.locator('[data-screen="gp-hub"]')).toBeVisible({ timeout: 60000 });
   await page.evaluate(() => window.__netivimGameplay?.beginChapter('ch01', false));
-  const noteShown = await page
-    .locator('[data-screen="gp-content-note"]')
-    .waitFor({ state: 'visible', timeout: 8000 })
-    .then(() => true)
-    .catch(() => false);
-  test.skip(!noteShown, 'chapter ch01 is not registered yet (the chapter builder adds it)');
+  await expect(page.locator('[data-screen="gp-content-note"]')).toBeVisible({ timeout: 30000 });
   problems.length = 0;
   await pressConfirm(page);
   await expect.poll(() => flowState(page), { timeout: 60000 }).toBe('briefing');

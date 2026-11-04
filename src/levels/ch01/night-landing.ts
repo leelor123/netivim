@@ -895,8 +895,10 @@ function build(ctx: LevelContext<E>): Level {
         delivered = saved.delivered;
         if (isRescueSnapshot(saved.rescue) && rescue.restore(saved.rescue)) {
           if (s === 'shore') childItem.enabled = rescue.lostChild !== null;
-          // Drop stage: the group is already following when the save was made.
-          escorting = s === 'drop' && (rescue.followers > 0 || rescue.tripLanded(0));
+          // Drop stage: escorting only when the group already follows. A save taken after the
+          // elders landed but before the escort began (someone still 'ashore') leaves it false,
+          // so the step logic starts the escort once the last wave reaches the landing spot.
+          escorting = s === 'drop' && rescue.followers > 0;
           if (escorting) markers.trucks?.setVisible(true);
         }
         if (carried > 0) player.motor.params = LOADED_MOTOR;

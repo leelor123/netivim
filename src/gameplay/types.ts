@@ -90,8 +90,11 @@ export interface LevelContext<E extends string = string> {
   readonly mission: MissionControl<E>;
   readonly objectives: ObjectiveTracker;
   readonly interactions: InteractionSystem;
-  /** Presents a decision (dialog in play, bot choice in tests); the choice is logged to the ledger. */
-  decide(decisionId: string, onChosen: (optionId: string) => void): void;
+  /**
+   * Presents a decision (dialog in play, bot choice in tests); the choice is logged to the ledger.
+   * Returns false when nothing opened (the mission is not running, e.g. another decision is open).
+   */
+  decide(decisionId: string, onChosen: (optionId: string) => void): boolean;
   /** Opens the logistics planner (simulation waits); onConfirm runs once the plan meets its goal. */
   plan(model: LogisticsModel, onConfirm: () => void): void;
   /** Plays subtitle lines in sequence (testimony lanterns, radio calls). */

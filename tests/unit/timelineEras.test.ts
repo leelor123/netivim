@@ -91,7 +91,7 @@ describe('eras integrity', () => {
   });
 
   it('has Hebrew locale entries for every key it references', () => {
-    const keys: string[] = ['timeline.title', 'timeline.hint', 'timeline.track', 'timeline.sources'];
+    const keys: string[] = ['timeline.title', 'timeline.hint.gamepad', 'timeline.hint.keyboard', 'timeline.hint.touch', 'timeline.hint.order', 'timeline.track', 'timeline.sources'];
     for (let m = 1; m <= 12; m++) keys.push('timeline.month.' + m);
     for (const l of ['documented', 'reconstructed', 'composite']) keys.push('timeline.label.' + l);
     for (const s of ['locked', 'unlocked', 'completed', 'soon', 'lockedMessage']) keys.push('timeline.status.' + s);

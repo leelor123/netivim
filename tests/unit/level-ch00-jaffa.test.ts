@@ -7,6 +7,7 @@ import { EventBus } from '../../src/core/events';
 import type { GameEvents } from '../../src/core/gameEvents';
 import { analyzeMission, type MissionSnapshot } from '../../src/core/mission';
 import { contains } from '../../src/gameplay/core/collision';
+import type { Interactable } from '../../src/gameplay/core/interaction';
 import { LogisticsModel } from '../../src/gameplay/modules/logistics';
 import { loadLevel } from '../../src/gameplay/registry';
 import { BotInput, runBot } from '../../src/gameplay/runtime/bot';
@@ -225,6 +226,99 @@ describe('jaffa-letters: riding the cart on the open road', () => {
     expect(r.completed, r.log.join(' | ')).toBe(true);
     expect(shown).toContain('levels.ch00.jaffa.line.ride.offer');
     expect(shown).toContain('levels.ch00.jaffa.line.ride.a1.1');
+  });
+});
+
+describe('jaffa-letters: the ride never takes a press meant for a place', () => {
+  const mk = (d: AnyLevelDefinition, checkpoint: string): { host: MissionHost; input: BotInput } => {
+    const input = new BotInput();
+    const host = new MissionHost({
+      def: d,
+      bus: new EventBus<GameEvents>(),
+      input,
+      difficulty: () => 'normal',
+      headless: true,
+      quality: { ...DEFAULT_WORLD_QUALITY, shadows: false },
+      reducedMotion: () => false,
+      t: (key) => key,
+      glyph: (a) => a,
+      recordChoice: () => undefined,
+      hooks: { onFailed: () => undefined, onDecision: () => undefined, onComplete: () => undefined, onPlan: () => undefined },
+      snapshot: { missionId: d.missionId, state: checkpoint, checkpoint, data: null },
+    });
+    host.start();
+    return { host, input };
+  };
+  const spawn = (host: MissionHost, p: L.Pt): void => (host.level?.player as unknown as PlayerController).spawn(p.x, p.z, 0);
+  const steps = (host: MissionHost, input: BotInput, seconds: number): void => {
+    for (let t = 0; t < seconds; t += FIXED_DT) {
+      input.beginStep();
+      host.update(FIXED_DT);
+    }
+  };
+
+  it('arriving at the road well straight from the open road waters there, not a dead ride press', async () => {
+    const d = await def();
+    const { host, input } = mk(d, 'road_colony');
+    spawn(host, { x: -20, z: 56 });
+    steps(host, input, 0.6);
+    expect(host.interactions.get('ride')?.enabled).toBe(true);
+    // Reach the well within one ride-offer refresh (0.25 s) and press at once.
+    spawn(host, { x: L.ROAD_WELL_SIGN.x - 1, z: L.ROAD_WELL_SIGN.z });
+    steps(host, input, FIXED_DT);
+    input.tap('interact');
+    input.beginStep();
+    host.update(FIXED_DT);
+    expect(host.interactions.focused?.id).toBe('road-well');
+    expect(host.objectives.progressSnapshot()['colony']).toBe(1);
+    host.dispose();
+  });
+
+  it("a retry at the loading yard still gives Habib's briefing (it was only on a timer before)", async () => {
+    const d = await def();
+    const bus = new EventBus<GameEvents>();
+    const shown: string[] = [];
+    bus.on('subtitle:show', (e) => shown.push(e.textKey));
+    let forced = false;
+    let retried = -1;
+    runBot(d, {
+      difficulty: 'normal',
+      fromCheckpoint: 'market',
+      bus,
+      retryOnFail: true,
+      maxSeconds: 120,
+      onStep: (host) => {
+        // Fail at once when 'loaded' begins: Habib's line is still waiting on its timer.
+        if (!forced && host.state === 'loaded' && host.phase === 'running') {
+          forced = true;
+          host.fail(Object.keys(d.failures)[0] as string);
+          retried = shown.length;
+        }
+      },
+    });
+    expect(forced).toBe(true);
+    expect(shown.slice(retried)).toContain('levels.ch00.jaffa.line.habib.briefed');
+  });
+
+  it('on every checkpoint, an enabled place in reach always has focus over the ride', async () => {
+    const d = await def();
+    const bad: string[] = [];
+    for (const cp of d.mission.checkpoints) {
+      const { host, input } = mk(d, cp);
+      steps(host, input, 0.1);
+      const all = (host.interactions as unknown as { list: Interactable[] }).list.filter((it) => it.id !== 'ride');
+      for (const it of all) {
+        spawn(host, { x: -20, z: 56 });
+        steps(host, input, 0.3);
+        spawn(host, { x: it.x - Math.min(1, it.radius / 2), z: it.z });
+        steps(host, input, 2 * FIXED_DT);
+        if (it.enabled && host.interactions.focused?.id === 'ride') bad.push(cp + ': ' + it.id + ' (stale)');
+        steps(host, input, 0.3);
+        if (it.enabled && host.interactions.focused?.id === 'ride') bad.push(cp + ': ' + it.id);
+      }
+      host.dispose();
+    }
+    expect(bad).toEqual([]);
   });
 });
 

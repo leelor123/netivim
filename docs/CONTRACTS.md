@@ -125,6 +125,13 @@ uses only that signature.
 - Captions: one component (src/ui/subtitles.ts). subtitle:show { ..., label? } carries the content
   label of the line (testimony, composite character); the caption shows speaker + label chip + text and
   pages long text. Nothing else may draw a box in the captions region.
+- Caption paging never drops text (src/ui/captions.ts pageDurations / planCaption). A timed line's
+  pages share its durationMs by length, each at least MIN_PAGE_MS (1 s), summing to exactly
+  durationMs. If pages x 1 s does not fit, every page gets 1 s and the caption emits
+  subtitle:extend { textKey, durationMs: total } synchronously from its subtitle:show handler; the
+  mission host then holds its say queue for that total before the next line. A persistent line
+  (durationMs <= 0) shows each non-last page for a reading time (70 ms/char, at least 1 s) and keeps
+  the last page until cleared. Cutscene timelines are fixed and ignore subtitle:extend.
 - ui:interact-available { available } is emitted by the mission HUD; the touch interact button is
   dimmed when false.
 - Look drag: InputManager.addLookDelta(dxPx, dyPx) accumulates CSS px; each step converts the sum to

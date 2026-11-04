@@ -292,7 +292,8 @@ describe('captions (subtitle + testimony / speaker label merged)', () => {
   it('splits the duration by length with a readable minimum', () => {
     const d = pageDurations(['aaaa', 'aaaaaaaaaaaa'], 8000);
     expect(d[1]).toBeGreaterThan(d[0] as number);
-    expect(Math.min(...d)).toBeGreaterThanOrEqual(1800);
+    expect(Math.min(...d)).toBeGreaterThanOrEqual(1000);
+    expect((d[0] ?? 0) + (d[1] ?? 0)).toBe(8000);
     expect(pageDurations(['a'], 0)).toEqual([0]);
   });
 
