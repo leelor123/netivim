@@ -64,7 +64,9 @@ Root causes found (evidence: phone-ratio captures via scripts/hudshot.mjs):
   pills, tutorial banner mid-screen, four big touch buttons (map and pause duplicate the HUD), and the
   subtitle box overlaps the testimony/label panel at the bottom (bug). Briefing at phone size pushes
   the Start button below the fold.
-Next: one layout/touch agent fixes these; then a bug-hunt agent on phone viewport; then release v0.2.2.
+Running (worktrees): phone UX agent (touch/mouse look, single screen-layout owner, one caption box,
+fewer touch buttons, sticky sheet footers) and a bug hunter (all 5 missions, non-UI fixes; reports
+UI bugs). Then: merge both, fix reported UI bugs, full CI, release v0.2.2 with a Hebrew update.
 
 ## Next: M3 (Act 1 = Prologue + Ch1-4) exact next steps
 1. Get the user's on-device feedback on v0.2.1 (Ultra fps, controllers in the WebView, subtitles, focus).
