@@ -31,11 +31,12 @@ export interface EraGrade {
 
 export const ERA_GRADES: Readonly<Record<EraId, EraGrade>> = {
   // The framing device (the archive at night / title): warm, slightly filmic.
-  archive: { lift: [0.01, 0.004, 0.0], gamma: [1.0, 1.0, 0.98], gain: [1.03, 1.0, 0.95], saturation: 1.1, contrast: 1.1, vignette: 0.32 },
-  // 1890s photographs: sepia, soft contrast.
-  ottoman: { lift: [0.03, 0.018, 0.0], gamma: [1.02, 1.0, 0.94], gain: [1.04, 0.98, 0.86], saturation: 0.72, contrast: 0.96, vignette: 0.4 },
-  // 1930s-1947: warm dust, slightly desaturated.
-  mandate: { lift: [0.02, 0.012, 0.0], gamma: [1.0, 1.0, 0.96], gain: [1.04, 1.0, 0.9], saturation: 0.85, contrast: 1.02, vignette: 0.34 },
+  archive: { lift: [0.008, 0.004, 0.006], gamma: [1.0, 1.0, 0.98], gain: [1.04, 1.0, 0.96], saturation: 1.08, contrast: 1.12, vignette: 0.3 },
+  // 1890s: warm sepia cast. The kit palette is already washed (EraLook.saturation), so the grade
+  // keeps saturation near 1 and adds contrast instead of greying the frame twice.
+  ottoman: { lift: [0.022, 0.013, 0.0], gamma: [1.0, 1.0, 0.96], gain: [1.06, 1.0, 0.89], saturation: 0.98, contrast: 1.1, vignette: 0.3 },
+  // 1930s-1947: warm dust and crisp midday contrast (the kit palette carries the dusty tone).
+  mandate: { lift: [0.014, 0.009, 0.0], gamma: [1.0, 1.0, 0.97], gain: [1.05, 1.0, 0.92], saturation: 1.02, contrast: 1.09, vignette: 0.28 },
   // 1948: dry summer light, ochre highlights.
   independence: { lift: [0.015, 0.01, 0.0], gamma: [1.0, 0.99, 0.96], gain: [1.05, 1.0, 0.9], saturation: 0.92, contrast: 1.06, vignette: 0.3 },
   // 1949-1956 austerity: cool, grey, transit-camp winters.
