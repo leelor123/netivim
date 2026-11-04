@@ -65,6 +65,7 @@ Root causes found (evidence: phone-ratio captures via scripts/hudshot.mjs):
   subtitle box overlaps the testimony/label panel at the bottom (bug). Briefing at phone size pushes
   the Start button below the fold.
 Next: one layout/touch agent fixes these; then a bug-hunt agent on phone viewport; then release v0.2.2.
+Bug hunt done on branch worktree-agent-a7cf1b7a4a5b0effa: see docs/BUG_HUNT_M2.md (7 fixes, no open UI items).
 
 ## Next: M3 (Act 1 = Prologue + Ch1-4) exact next steps
 1. Get the user's on-device feedback on v0.2.1 (Ultra fps, controllers in the WebView, subtitles, focus).
