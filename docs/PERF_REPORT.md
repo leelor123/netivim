@@ -116,8 +116,8 @@ texel-derived bias; the debug overlay refresh allocates nothing.
 |---|---|---|
 | R1, R2 | done: `forceSinglePass` on ConeFan and the tower beam | night-landing program churn 26 KB/frame -> 0 |
 | R3, R4 | done: instanced rows (tower) and shelves (hub) use a clone of the kit material | churn hub 8.5 KB -> 0, tower 8.9 KB -> 0 |
-| R5 | done: night-landing static sea / beach props merged per material (`StaticBatch`) | Battery 147 -> **115** calls (budget 120), Low 149 -> 117 (150) |
-| R6 | done: collision / camera hot paths (see below) | per-frame totals: hub 29 -> 19.5 KB, archive-night 25 -> 12.8, jaffa 61 -> 40, tower 40 -> 26.6, night-landing 63 -> 29, vote 26.5 -> 21.8 |
+| R5 | done: night-landing static sea / beach props merged per material (`StaticBatch`) | Battery 147 -> **115** calls (budget 120), Low 149 -> 117 (150), Medium 162 -> 127, High 180 -> 143, Ultra 268 -> 232 |
+| R6 | done: collision / camera hot paths (see below) | per-frame totals (final run, merged with main): hub 29 -> 19.2 KB, archive-night 25 -> 17.4, jaffa 61 -> 38.9, tower 40 -> 25.9, night-landing 63 -> 29.0, vote 26.5 -> 18.8 (run-to-run spread about +-4 KB) |
 | R7 | open | jaffa level step ~2.6 KB/frame, landing `SurvivorViews.sync` ~1.5 KB/frame (double arguments to `Crowd.set` per survivor) |
 | R8 | done: a level whose scene is still on screen when the mission ends is disposed on the first frame after the switch; `levelDef` dropped at hub / title; the post chain and the warm-up drop the previous scene on switch | not re-measured with the soak suite |
 
