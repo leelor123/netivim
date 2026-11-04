@@ -4,7 +4,7 @@ import { getCinematics } from '../cinematics';
 import type { FlowState } from '../core/flow';
 import type { UnlockKind } from '../core/gameEvents';
 import type { Game } from '../game';
-import { TimelineScreen } from '../features/timeline/timelineScreen';
+import { TimelineScreen, timelineInput } from '../features/timeline/timelineScreen';
 import { glyphFor } from '../ui/glyphs';
 import { worldQualityFromSettings } from '../world/quality';
 import { ChapterRun } from './core/chapterRun';
@@ -212,6 +212,7 @@ export class Director {
     const timeline = new TimelineScreen({
       t: this.game.i18n.t,
       rtl: this.game.i18n.dir === 'rtl',
+      input: timelineInput(this.game),
       getCompletedChapters: () => this.game.getState().completedChapters,
       onSelect: (slot) => this.selectSlot(slot),
       onBack: () => this.stack.pop(),

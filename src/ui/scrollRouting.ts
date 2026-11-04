@@ -8,7 +8,7 @@ export const SCROLL_SPEED = 900;
 export const SCROLL_DEAD = 0.15;
 
 /** Selector for containers a hosted screen may scroll with the controller. */
-export const SCROLLER_SELECTOR = '.gp-sheet__body, .gp-provenance, .lm-panel, .tl-detail, [data-scroller]';
+export const SCROLLER_SELECTOR = '.gp-sheet__body, .gp-provenance__body, .lm-panel, .tl-detail, [data-scroller]';
 
 export interface ScrollLike {
   scrollTop: number;
@@ -75,7 +75,7 @@ function scrollCandidates(candidates: readonly HTMLElement[], axis: number, dt: 
 }
 
 /** Level-owned modal sheets (archive night, tower lenses) that live outside any ScreenStack. */
-export const MODAL_SCROLLER_SELECTOR = '.an-stage:not([hidden]) .gp-sheet__body, .an-viewer:not([hidden]) .gp-provenance, .ch01t-lenses:not([hidden]) .gp-sheet__body';
+export const MODAL_SCROLLER_SELECTOR = '.an-stage:not([hidden]) .gp-sheet__body, .an-viewer:not([hidden]) .gp-provenance__body, .ch01t-lenses:not([hidden]) .gp-sheet__body';
 
 /** Same routing for level modals, used while no hosted gameplay screen is on top. */
 export function routeModalScroll(scroll: number, lookY: number, dt: number): boolean {
