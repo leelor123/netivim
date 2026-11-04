@@ -171,6 +171,8 @@ function build(ctx: LevelContext<E>): Level {
   let habibWaitS = 0;
   let carRide: CarRide | null = null;
   let rideCheckT = 0;
+  /** The last open-stretch check found a stretch to ride. */
+  let rideOpen = false;
   const rideHinted = new Set<string>();
   let stuckShown = false;
   let nudgeCooldown = 0;
@@ -219,8 +221,13 @@ function build(ctx: LevelContext<E>): Level {
   };
 
   // ---- interactables ---------------------------------------------------------------------------------
-  const add = (id: string, kind: Interactable['kind'], at: L.Pt, radius: number, promptKey: string, onInteract: () => void): Interactable =>
-    ctx.interactions.add({ id, kind, x: at.x, z: at.z, radius, promptKey, enabled: false, onInteract });
+  /** Every interactable of the level (the ride seat included), for the ride's focus check. */
+  const placed: Interactable[] = [];
+  const add = (id: string, kind: Interactable['kind'], at: L.Pt, radius: number, promptKey: string, onInteract: () => void): Interactable => {
+    const it = ctx.interactions.add({ id, kind, x: at.x, z: at.z, radius, promptKey, enabled: false, onInteract });
+    placed.push(it);
+    return it;
+  };
 
   const lantern = (id: string, testimony: string, at: L.Pt): Interactable =>
     add('lantern-' + id, 'lantern', at, 2.4, 'gameplay.prompt.listen', () => {
@@ -492,6 +499,8 @@ function build(ctx: LevelContext<E>): Level {
     eliyahu.promptKey = f.jerusalemDelivered ? k('prompt.sit') : k('prompt.deliver');
     decoyJerusalem.enabled = arrived && !f.sat;
     lanternJerusalem.enabled = arrived && !heard.has('jerusalem');
+    // A place enabled just now (a zone moved the mission on) takes the next press, not the ride.
+    gateRide();
   }
 
   function syncObjectives(): void {
@@ -609,6 +618,21 @@ function build(ctx: LevelContext<E>): Level {
     return { id, pts: pts.filter((p) => dist2(p, end) < left - 3) };
   }
 
+  /** The ride seat is offered only on an open stretch and never over a real place in reach. */
+  function gateRide(): void {
+    rideSeat.enabled = rideOpen && !carRide && !riding && !placeInReach(player.x, player.z);
+  }
+
+  /** True when an enabled interactable other than the ride seat has the player in its radius. */
+  function placeInReach(px: number, pz: number): boolean {
+    for (let i = 0; i < placed.length; i++) {
+      const it = placed[i] as Interactable;
+      if (it === rideSeat || !it.enabled) continue;
+      if ((it.x - px) ** 2 + (it.z - pz) ** 2 <= it.radius * it.radius) return true;
+    }
+    return false;
+  }
+
   function startCarRide(): void {
     const o = openStretch();
     if (!o || carRide || riding) return;
@@ -676,6 +700,7 @@ function build(ctx: LevelContext<E>): Level {
     timers.length = 0;
     carRide = null;
     rideCheckT = 0;
+    rideOpen = false;
     rideHinted.clear();
     f = freshFlags();
     riding = false;
@@ -785,7 +810,10 @@ function build(ctx: LevelContext<E>): Level {
     refresh();
     if (!isSaved(data)) {
       if (checkpoint === 'market') say([line(k('line.habib.market'), speakerKey('habib'))], 'composite');
-      if (checkpoint === 'port_start' || checkpoint === 'loaded' || checkpoint === 'road_colony' || checkpoint === 'village_arrival') say(checkpointLines(checkpoint));
+      // Habib's briefing at the yard normally follows the last market talk on a timer, which a
+      // retry clears: say it again on a fresh entry so the player still hears what to do.
+      if (checkpoint === 'loaded') say([line(k('line.habib.briefed'), speakerKey('habib')), ...checkpointLines(checkpoint)], 'composite');
+      else if (checkpoint === 'port_start' || checkpoint === 'road_colony' || checkpoint === 'village_arrival') say(checkpointLines(checkpoint));
       if (checkpoint === 'station') say([line(k('line.station.arrive'), NARRATOR)]);
       if (checkpoint === 'jerusalem_delivered') say([line(k('line.jerusalem.arrive'), NARRATOR)]);
     }
@@ -855,17 +883,21 @@ function build(ctx: LevelContext<E>): Level {
     carRideStep(dt);
     player.update(dt);
     if (!riding && !carRide) cart.update(dt, player.x, player.z);
-    // The offer to ride: checked a few times a second, and the prompt follows the player.
+    // The offer to ride: the open stretch is checked a few times a second, and the prompt follows
+    // the player. The seat sits at the player, so it would win focus over anything; it steps aside
+    // every step while a real place is in reach, so a press near a key point never becomes a dead
+    // ride press (the cached offer can be up to 0.25 s old).
     rideCheckT -= dt;
     if (rideCheckT <= 0) {
       rideCheckT = 0.25;
       const o = carRide || riding ? null : openStretch();
-      rideSeat.enabled = o !== null;
+      rideOpen = o !== null;
       if (o && !rideHinted.has(o.id)) {
         rideHinted.add(o.id);
         nudge([line(k('line.ride.offer'), NARRATOR)]);
       }
     }
+    gateRide();
     rideSeat.x = player.x;
     rideSeat.z = player.z;
     const s = state();
