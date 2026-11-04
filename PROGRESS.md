@@ -71,13 +71,20 @@ region: Tower planning table, finale skip, vote zoom; 'panel' region for level s
 short taps in InputManager; static test tests/unit/touchPaths.test.ts).
 Next: merge, full CI, release v0.2.2 with a Hebrew update.
 
-## M3 wave 1 running (2026-11-04, user asked for maximum parallel agents)
-Research (main folder, own files): Ch2 fresh fact-check (research/factcheck-ch02.md, SOURCES.md append),
-Ch3 historian (research/ch03-*), Ch4 historian (research/ch04-*), map lines geo research
-(research/map-lines*). Worktrees: deepen archive-night, jaffa-letters, tower-stockade, night-landing,
-the-vote (one agent each, own level files); accessibility round 2 (Low items + UI text size).
-Release v0.2.2: CI then tag (background). Next after wave 1: Ch2 content writer + 5 level builders,
-Ch3/Ch4 fresh fact-checks then content + level builders (all in parallel).
+## SCOPE RULE (user, 2026-11-04): Chapter 1 must be perfect first
+Do NOT start Chapter 2 or later (research, content, levels, 1949 map lines) until the user says the
+Prologue and Chapter 1 are perfect and we align together. Ch2/Ch3/Ch4 research agents were stopped.
+
+## Chapter 1 polish wave (10 parallel agents, worktrees)
+- Deepen missions: archive-night, jaffa-letters, tower-stockade, night-landing, the-vote (one each).
+- Accessibility round 2 (Low items + UI text size).
+- Performance (Ultra 60 fps, allocations, shader precompile, 30-min soak; docs/PERF_REPORT.md).
+- Visual polish (kit, lighting, era grading for hub + 5 missions).
+- Audio polish (score, ambience, mixing per mission).
+- Controller-only full playthrough QA (tests/e2e/controller-full.spec.ts, docs/CONTROLLER_QA.md).
+Release v0.2.2 (phone UX + bug fixes): waiting for CI, then tag (background).
+After the wave: merge all, fresh code review + content/Hebrew review of new beats, fix, release, ask
+the user to play and confirm Chapter 1 before anything else.
 
 ## Next: M3 (Act 1 = Prologue + Ch1-4) exact next steps
 1. Get the user's on-device feedback on v0.2.1 (Ultra fps, controllers in the WebView, subtitles, focus).
