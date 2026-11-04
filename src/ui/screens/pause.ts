@@ -48,9 +48,6 @@ export function pauseScreen(ctx: UiContext): PauseScreen {
   );
   p.body.append(list);
   p.el.classList.add('nv-stage--pause');
-  p.el.setAttribute('role', 'dialog');
-  p.el.setAttribute('aria-modal', 'true');
-  p.el.setAttribute('aria-label', t('ui.pause.title'));
   return {
     id: 'pause',
     el: p.el,

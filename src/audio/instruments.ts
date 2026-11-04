@@ -129,3 +129,38 @@ export function playPulse(ctx: BaseAudioContext, dest: AudioNode, t: number, vel
   o.frequency.exponentialRampToValueAtTime(40, t + 0.4);
   o.connect(g);
 }
+
+/** Plucked, bright, short note (qanun-like) used for the arpeggio shimmer. */
+export function playPluck(ctx: BaseAudioContext, dest: AudioNode, freq: number, t: number, vel: number): void {
+  const end = t + 1.1;
+  const g = env(ctx, dest, t, 0.003, vel * 0.3, end);
+  const lp = lowpass(ctx, 3600, 0.4);
+  lp.frequency.setValueAtTime(3600, t);
+  lp.frequency.exponentialRampToValueAtTime(900, t + 0.5);
+  lp.connect(g);
+  osc(ctx, 'triangle', freq, 0, t, end).connect(lp);
+  osc(ctx, 'sine', freq * 2, 3, t, end).connect(lp);
+}
+
+export type DrumHit = 'dum' | 'tak';
+
+/** Soft frame-drum hit built from oscillators only (no noise bank needed): a low dum or a dry tak. */
+export function playDrum(ctx: BaseAudioContext, dest: AudioNode, t: number, hit: DrumHit, vel: number): void {
+  if (hit === 'dum') {
+    const end = t + 0.32;
+    const g = env(ctx, dest, t, 0.004, vel * 0.5, end);
+    const o = osc(ctx, 'sine', 118, 0, t, end);
+    o.frequency.exponentialRampToValueAtTime(58, t + 0.2);
+    o.connect(g);
+    return;
+  }
+  const end = t + 0.09;
+  const g = env(ctx, dest, t, 0.002, vel * 0.22, end);
+  const hp = ctx.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 1100;
+  hp.connect(g);
+  const o = osc(ctx, 'triangle', 2300, 0, t, end);
+  o.frequency.exponentialRampToValueAtTime(1500, t + 0.06);
+  o.connect(hp);
+}

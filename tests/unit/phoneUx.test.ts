@@ -5,7 +5,7 @@ import { dragToLook, LOOK_RAD_PER_PX, LOOK_SENSITIVITY_MAX } from '../../src/cor
 import { InputManager } from '../../src/core/input/inputManager';
 import { applyLookDrag, DEFAULT_ORBIT, type OrbitState } from '../../src/gameplay/core/orbit';
 import { captionCapacity, captionHead, pageDurations, paginateCaption } from '../../src/ui/captions';
-import { computeRegions, intersects, regionVars, REGIONS, type Region } from '../../src/ui/layout';
+import { computeRegions, intersects, regionTextScale, regionVars, REGIONS, type Region } from '../../src/ui/layout';
 import { TOUCH_BUTTONS, touchButtonState } from '../../src/ui/touch/joystick';
 
 function manager(): InputManager {
@@ -192,6 +192,37 @@ describe('screen layout regions', () => {
       }
     }
   }
+
+  for (const vp of viewports) {
+    for (const textScale of [1.2, 1.4]) {
+      for (const stickSide of ['left', 'right'] as const) {
+        it('text scale ' + String(textScale) + ': no overlap, captions keep room at ' + String(vp.w) + 'x' + String(vp.h) + ' ' + stickSide, () => {
+          const base = computeRegions({ ...vp, stickSide });
+          const r = computeRegions({ ...vp, stickSide, textScale });
+          for (let i = 0; i < REGIONS.length; i++) {
+            const a = r[REGIONS[i] as Region];
+            expect(a.w).toBeGreaterThanOrEqual(0);
+            expect(a.h).toBeGreaterThanOrEqual(0);
+            expect(a.x + a.w).toBeLessThanOrEqual(vp.w + 1e-6);
+            expect(a.y + a.h).toBeLessThanOrEqual(vp.h + 1e-6);
+            for (let j = i + 1; j < REGIONS.length; j++) expect(intersects(a, r[REGIONS[j] as Region]), REGIONS[i] + ' vs ' + REGIONS[j]).toBe(false);
+          }
+          expect(r.captions.h).toBeGreaterThanOrEqual(Math.min(84, base.captions.h) - 1e-6);
+          const ts = regionTextScale({ ...vp, stickSide, textScale });
+          expect(ts).toBeGreaterThanOrEqual(1);
+          expect(ts).toBeLessThanOrEqual(textScale);
+          expect(r.notice.h).toBe(Math.ceil(36 * ts));
+        });
+      }
+    }
+  }
+
+  it('grows text rows on a roomy screen and steps down on a short one', () => {
+    expect(regionTextScale({ w: 1920, h: 1080, textScale: 1.4 })).toBe(1.4);
+    expect(computeRegions({ w: 1920, h: 1080, textScale: 1.4 }).notice.h).toBeGreaterThan(computeRegions({ w: 1920, h: 1080 }).notice.h);
+    expect(regionTextScale({ w: 800, h: 360, textScale: 1.4 })).toBeLessThan(1.4);
+    expect(regionTextScale({ w: 800, h: 360 })).toBe(1);
+  });
 
   it('gives the phone frame usable centre columns and corners', () => {
     const r = computeRegions({ w: 1170, h: 540 });

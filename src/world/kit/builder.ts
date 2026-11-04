@@ -40,6 +40,162 @@ export function pyramidGeometry(w: number, h: number, d: number): THREE.BufferGe
   return g;
 }
 
+/** One cross-section of a lofted hull: half-beam, keel and sheer (gunwale) heights at z. */
+export interface HullStation {
+  readonly z: number;
+  readonly halfWidth: number;
+  readonly keel: number;
+  readonly sheer: number;
+}
+
+/**
+ * Point on a hull cross-section. t runs 0 (keel line) to 1 (sheer) along a round-bilge quarter
+ * ellipse; side is -1 (port) or +1 (starboard).
+ */
+function hullPoint(st: HullStation, t: number, side: number, out: THREE.Vector3): THREE.Vector3 {
+  const u = (t * Math.PI) / 2;
+  return out.set(side * st.halfWidth * Math.sin(u), st.keel + (st.sheer - st.keel) * (1 - Math.cos(u)), st.z);
+}
+
+/**
+ * Flips any triangle whose face normal points toward `inside(centroid)`, so a closed convex-ish
+ * shell built without care for winding ends up facing outward. Works on non-indexed positions.
+ */
+export function orientOutward(positions: number[], inside: (c: THREE.Vector3, out: THREE.Vector3) => THREE.Vector3): void {
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  const c = new THREE.Vector3();
+  const n = new THREE.Vector3();
+  const ctr = new THREE.Vector3();
+  const ref = new THREE.Vector3();
+  for (let i = 0; i + 8 < positions.length; i += 9) {
+    a.fromArray(positions, i);
+    b.fromArray(positions, i + 3);
+    c.fromArray(positions, i + 6);
+    ctr.copy(a).add(b).add(c).multiplyScalar(1 / 3);
+    n.subVectors(c, b).cross(ref.subVectors(a, b));
+    inside(ctr, ref);
+    if (n.dot(ref.subVectors(ctr, ref)) < 0) {
+      for (let k = 0; k < 3; k++) {
+        const t = positions[i + 3 + k] ?? 0;
+        positions[i + 3 + k] = positions[i + 6 + k] ?? 0;
+        positions[i + 6 + k] = t;
+      }
+    }
+  }
+}
+
+/**
+ * Lofted boat hull band between cross-section parameters `from` and `to` (0 keel, 1 sheer), with
+ * `steps` facets per side. Several bands (bottom paint, boot stripe, topsides) share the same
+ * stations so they meet without gaps. Ends are closed with caps when the band spans the keel.
+ */
+export function hullGeometry(stations: readonly HullStation[], from = 0, to = 1, steps = 4): THREE.BufferGeometry {
+  if (stations.length < 2) throw new Error('hullGeometry needs at least two stations');
+  const pos: number[] = [];
+  const p = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+  const tri = (a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3): void => {
+    pos.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
+  };
+  for (let i = 0; i + 1 < stations.length; i++) {
+    const s0 = stations[i];
+    const s1 = stations[i + 1];
+    if (!s0 || !s1) continue;
+    for (const side of [-1, 1]) {
+      for (let k = 0; k < steps; k++) {
+        const t0 = from + ((to - from) * k) / steps;
+        const t1 = from + ((to - from) * (k + 1)) / steps;
+        const [a, b, c, d] = p as [THREE.Vector3, THREE.Vector3, THREE.Vector3, THREE.Vector3];
+        hullPoint(s0, t0, side, a);
+        hullPoint(s1, t0, side, b);
+        hullPoint(s1, t1, side, c);
+        hullPoint(s0, t1, side, d);
+        tri(a, b, c);
+        tri(a, c, d);
+      }
+    }
+  }
+  // End caps (transom and stem) when the band includes the keel line.
+  if (from === 0) {
+    for (const st of [stations[0], stations[stations.length - 1]]) {
+      if (!st) continue;
+      const [a, b, c] = p as [THREE.Vector3, THREE.Vector3, THREE.Vector3];
+      for (const side of [-1, 1]) {
+        for (let k = 0; k < steps; k++) {
+          hullPoint(st, (to * k) / steps, side, a);
+          hullPoint(st, (to * (k + 1)) / steps, side, b);
+          c.set(0, hullPoint(st, to, side, c).y, st.z);
+          tri(a, b, c);
+        }
+      }
+    }
+  }
+  const zMid = ((stations[0]?.z ?? 0) + (stations[stations.length - 1]?.z ?? 0)) / 2;
+  orientOutward(pos, (ctr, out) => {
+    // Inside reference: the hull centerline at mid height of the nearest station span.
+    const st = nearestStation(stations, ctr.z);
+    const isCap = Math.abs(ctr.z - (stations[0]?.z ?? 0)) < 1e-6 || Math.abs(ctr.z - (stations[stations.length - 1]?.z ?? 0)) < 1e-6;
+    const midY = st.keel + (st.sheer - st.keel) * 0.65;
+    return isCap ? out.set(0, ctr.y, zMid) : out.set(0, midY, ctr.z);
+  });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  return g;
+}
+
+/** The deck plate across the sheer line, lowered by `drop`, as strips between stations. */
+export function deckGeometry(stations: readonly HullStation[], drop = 0, inset = 0): THREE.BufferGeometry {
+  const pos: number[] = [];
+  for (let i = 0; i + 1 < stations.length; i++) {
+    const s0 = stations[i];
+    const s1 = stations[i + 1];
+    if (!s0 || !s1) continue;
+    const w0 = Math.max(0.01, s0.halfWidth - inset);
+    const w1 = Math.max(0.01, s1.halfWidth - inset);
+    const y0 = s0.sheer - drop;
+    const y1 = s1.sheer - drop;
+    pos.push(-w0, y0, s0.z, w1, y1, s1.z, -w1, y1, s1.z);
+    pos.push(-w0, y0, s0.z, w0, y0, s0.z, w1, y1, s1.z);
+  }
+  orientOutward(pos, (ctr, out) => out.set(ctr.x, ctr.y - 1, ctr.z));
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  return g;
+}
+
+function nearestStation(stations: readonly HullStation[], z: number): HullStation {
+  let best = stations[0];
+  let d = Infinity;
+  for (const s of stations) {
+    const dz = Math.abs(s.z - z);
+    if (dz < d) {
+      d = dz;
+      best = s;
+    }
+  }
+  if (!best) throw new Error('no stations');
+  return best;
+}
+
+/** Interpolated station at z (linear between neighbours), for placing parts along a hull. */
+export function stationAt(stations: readonly HullStation[], z: number): HullStation {
+  for (let i = 0; i + 1 < stations.length; i++) {
+    const a = stations[i];
+    const b = stations[i + 1];
+    if (!a || !b) continue;
+    if (z >= a.z && z <= b.z) {
+      const t = (z - a.z) / Math.max(1e-6, b.z - a.z);
+      return { z, halfWidth: a.halfWidth + (b.halfWidth - a.halfWidth) * t, keel: a.keel + (b.keel - a.keel) * t, sheer: a.sheer + (b.sheer - a.sheer) * t };
+    }
+  }
+  return nearestStation(stations, z);
+}
+
+const beamDir = new THREE.Vector3();
+const beamQ = new THREE.Quaternion();
+const beamE = new THREE.Euler();
+const Z_AXIS = new THREE.Vector3(0, 0, 1);
+
 /**
  * Accumulates primitive parts (each with transform and flat color) and merges them into one
  * non-indexed geometry with position, normal (flat) and color: one draw call with a shared
@@ -121,6 +277,16 @@ export class GeoBuilder {
 
   pyramid(w: number, h: number, d: number, color: ColorIn, x: number, y: number, z: number, ry = 0): this {
     return this.add(pyramidGeometry(w, h, d), color, x, y, z, 0, ry, 0);
+  }
+
+  /** Box of cross-section w x h spanning from (x0,y0,z0) to (x1,y1,z1): rails, braces, ropes. */
+  beam(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, w: number, h: number, color: ColorIn): this {
+    beamDir.set(x1 - x0, y1 - y0, z1 - z0);
+    const len = beamDir.length();
+    if (len < 1e-5) return this;
+    beamQ.setFromUnitVectors(Z_AXIS, beamDir.multiplyScalar(1 / len));
+    beamE.setFromQuaternion(beamQ);
+    return this.add(new THREE.BoxGeometry(w, h, len), color, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, beamE.x, beamE.y, beamE.z);
   }
 
   get partCount(): number {

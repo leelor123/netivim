@@ -1,8 +1,8 @@
-import type { Settings, SettingsSection, GraphicsOptions } from '../../core/settings';
+import { TOUCH_OPACITY_MIN, type Settings, type SettingsSection, type GraphicsOptions } from '../../core/settings';
 import { ACTIONS, type Action } from '../../core/input/types';
 import { DEFAULT_BINDINGS, remapGamepad } from '../../core/input/bindings';
 import { dialog, panel, type UiContext } from '../context';
-import { focusable, h } from '../dom';
+import { focusable, h, nextId } from '../dom';
 import { resolveGraphics } from '../../render/presets';
 import { buttonLabel } from '../glyphs';
 import { captureNextGamepadButton } from '../remap';
@@ -20,7 +20,8 @@ export function settingsScreen(ctx: UiContext, initialTab: SettingsTab = 'graphi
   const { t, game, rtl } = ctx;
   const p = panel(ctx, t('ui.settings.title'), { back: true, wide: true });
   const tablist = h('div', { class: 'nv-tabs', attrs: { role: 'tablist', 'aria-label': t('ui.settings.tabs') } });
-  const tabpanel = h('div', { class: 'nv-tabpanel', attrs: { role: 'tabpanel' } });
+  const panelId = nextId('settings-panel');
+  const tabpanel = h('div', { class: 'nv-tabpanel', attrs: { role: 'tabpanel', id: panelId } });
   p.header.append(tablist);
   p.body.append(tabpanel);
 
@@ -159,6 +160,16 @@ export function settingsScreen(ctx: UiContext, initialTab: SettingsTab = 'graphi
     accessibility: () => [
       choiceRow({
         ...common,
+        label: t('ui.a11y.uiTextSize'),
+        key: 'a11y-uiTextSize',
+        note: t('ui.a11y.uiTextSizeNote'),
+        options: ['normal', 'large', 'xlarge'] as const,
+        text: (v) => t('ui.a11y.uiText.' + v),
+        get: () => s().accessibility.uiTextSize,
+        set: (v) => update('accessibility', { uiTextSize: v }),
+      }),
+      choiceRow({
+        ...common,
         label: t('ui.a11y.subtitleSize'),
         key: 'a11y-subtitleSize',
         options: ['small', 'medium', 'large', 'xlarge'] as const,
@@ -195,7 +206,7 @@ export function settingsScreen(ctx: UiContext, initialTab: SettingsTab = 'graphi
         toggleRow({ label: t('ui.controls.vibration'), key: 'controls-vibration', ...onOff, get: () => s().controls.vibration, set: (v) => update('controls', { vibration: v }) }),
         sliderRow({ label: t('ui.controls.touchSize'), key: 'controls-touchSize', min: 0.75, max: 1.5, step: 0.05, rtl, format: pct, get: () => s().controls.touchSize, set: (v) => update('controls', { touchSize: v }) }),
         sliderRow({ label: t('ui.controls.lookSensitivity'), key: 'controls-lookSensitivity', min: LOOK_SENSITIVITY_MIN, max: LOOK_SENSITIVITY_MAX, step: 0.1, rtl, format: pct, get: () => s().controls.lookSensitivity, set: (v) => update('controls', { lookSensitivity: v }) }),
-        sliderRow({ label: t('ui.controls.touchOpacity'), key: 'controls-touchOpacity', min: 0.3, max: 1, step: 0.05, rtl, format: pct, get: () => s().controls.touchOpacity, set: (v) => update('controls', { touchOpacity: v }) }),
+        sliderRow({ label: t('ui.controls.touchOpacity'), key: 'controls-touchOpacity', min: TOUCH_OPACITY_MIN, max: 1, step: 0.05, rtl, format: pct, get: () => s().controls.touchOpacity, set: (v) => update('controls', { touchOpacity: v }) }),
         choiceRow({
           ...common,
           label: t('ui.controls.touchLayout'),
@@ -282,7 +293,7 @@ export function settingsScreen(ctx: UiContext, initialTab: SettingsTab = 'graphi
   let current: SettingsTab = initialTab;
   const tabs = new Map<SettingsTab, HTMLButtonElement>();
   for (const id of SETTINGS_TABS) {
-    const tab = focusable(h('button', { class: 'nv-tab', text: t('ui.settings.tab.' + id), attrs: { type: 'button', role: 'tab' } }));
+    const tab = focusable(h('button', { class: 'nv-tab', text: t('ui.settings.tab.' + id), attrs: { type: 'button', role: 'tab', 'aria-controls': panelId } }));
     tab.dataset.key = 'tab-' + id;
     tab.addEventListener('click', () => select(id));
     tabs.set(id, tab);

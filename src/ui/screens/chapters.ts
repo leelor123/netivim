@@ -1,3 +1,4 @@
+import { createNewSave } from '../../core/save/schema';
 import { panel, type UiContext } from '../context';
 import { focusable, h } from '../dom';
 import type { UiScreen } from '../uiScreen';
@@ -23,6 +24,18 @@ export function chaptersScreen(ctx: UiContext, chapters: readonly ChapterEntry[]
   const { t } = ctx;
   const p = panel(ctx, t('ui.chapters.title'), { back: true, wide: true });
   const list = h('ol', { class: 'nv-chapters' });
+  // Persistent live region: feedback for a locked card (kept in the DOM so it is announced).
+  const status = h('p', { class: 'nv-note nv-note--status', attrs: { role: 'status' } });
+  const open = (c: ChapterEntry): void => {
+    if (!c.unlocked) {
+      status.textContent = t('ui.chapters.lockedToast');
+      return;
+    }
+    if (c.id !== 'prologue') return;
+    const latest = ctx.game.save.loadNewest();
+    ctx.game.setState(latest ? latest.data : createNewSave(Date.now()));
+    ctx.game.flow.send('openHub');
+  };
   let first: HTMLElement | null = null;
   for (const c of chapters) {
     const card = focusable(h('button', { class: 'nv-chapter' + (c.unlocked ? '' : ' is-locked'), attrs: { type: 'button' } }));
@@ -35,9 +48,10 @@ export function chaptersScreen(ctx: UiContext, chapters: readonly ChapterEntry[]
       card.setAttribute('aria-disabled', 'true');
       card.append(h('span', { class: 'nv-chapter__state', text: t('ui.chapters.locked') }));
     }
+    card.addEventListener('click', () => open(c));
     first ??= card;
     list.append(h('li', {}, card));
   }
-  p.body.append(list);
+  p.body.append(status, list);
   return { id: 'chapters', el: p.el, scroller: p.body, initialFocus: () => first };
 }

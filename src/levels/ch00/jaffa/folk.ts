@@ -7,7 +7,11 @@ import {
   ELIYAHU,
   HABIB,
   JAMILA,
+  MARKET_PORTER,
+  MARKET_RUNNER,
+  MARKET_WATER,
   OVEN_WOMAN,
+  ROAD_WAYFARER,
   STATIONMASTER,
   VENDOR,
 } from './layout';
@@ -45,10 +49,15 @@ export const FOLK: readonly FolkSpec[] = [
   // Jaffa
   { id: 'habib', x: HABIB.x, z: HABIB.z, variant: 0, role: 'stand', heading: Math.PI, solid: true },
   { id: 'vendor', x: VENDOR.x, z: VENDOR.z, variant: 0, role: 'stand', heading: Math.PI, solid: true },
+  { id: 'market-porter', x: MARKET_PORTER.x, z: MARKET_PORTER.z, variant: 2, role: 'stand', heading: face(MARKET_PORTER, { x: -62, z: 8 }), solid: true },
+  { id: 'market-water', x: MARKET_WATER.x, z: MARKET_WATER.z, variant: 1, role: 'stand', heading: face(MARKET_WATER, { x: -58, z: 14 }), solid: true },
+  { id: 'market-runner', x: MARKET_RUNNER.x, z: MARKET_RUNNER.z, variant: 3, role: 'stand', heading: face(MARKET_RUNNER, { x: -60, z: -4 }), scale: 0.78, solid: true },
   { id: 'porter-1', x: -70, z: 2, variant: 2, role: 'pace', toX: -60, toZ: 14, speed: 1.1 },
   { id: 'porter-2', x: -80, z: -2, variant: 0, role: 'pace', toX: -72, toZ: -10, speed: 0.9 },
   { id: 'shopper-1', x: -52, z: 28, variant: 3, role: 'pace', toX: -38, toZ: 30, speed: 0.8 },
   { id: 'shopper-2', x: -40, z: 18, variant: 1, role: 'pace', toX: -50, toZ: 15, speed: 0.7 },
+  // The road to Rishon LeZion
+  { id: 'wayfarer', x: ROAD_WAYFARER.x, z: ROAD_WAYFARER.z, variant: 0, role: 'stand', heading: face(ROAD_WAYFARER, { x: -14.5, z: 85.5 }), solid: true },
   // Rishon LeZion
   { id: 'debora', x: DEBORA.x, z: DEBORA.z, variant: 3, role: 'stand', heading: face(DEBORA, { x: 76, z: 148 }), solid: true },
   { id: 'farmer-1', x: 94, z: 160, variant: 2, role: 'stand', heading: face({ x: 94, z: 160 }, { x: 92, z: 157 }) },

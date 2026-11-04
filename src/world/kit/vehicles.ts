@@ -1,6 +1,7 @@
 import * as THREE from 'three';
+import { rgb, type RGB } from '../color';
 import { Rng } from '../rng';
-import type { GeoBuilder } from './builder';
+import { deckGeometry, hullGeometry, stationAt, type GeoBuilder, type HullStation } from './builder';
 import { kitBuilder, type KitOptions } from './buildings';
 
 const TIRE = '#262422';
@@ -29,6 +30,10 @@ export function truck1940s(o: KitOptions & { covered?: boolean } = {}): THREE.Bu
   b.box(0.06, 0.45, 0.8, DARK, 0.96, 1.8, 1.0);
   b.box(0.06, 0.45, 0.8, DARK, -0.96, 1.8, 1.0);
   for (const x of [-0.6, 0.6]) b.cyl(0.12, 0.12, 0.08, 6, '#d9d4c0', x, 1.25, 3.04, Math.PI / 2);
+  // Grille slats, bumper and running boards.
+  for (let i = 0; i < 5; i++) b.box(0.05, 0.55, 0.04, '#3a3936', -0.3 + i * 0.15, 1.2, 3.02);
+  b.box(2.0, 0.14, 0.16, '#2f2e2b', 0, 0.62, 3.12);
+  for (const x of [-1.02, 1.02]) b.box(0.3, 0.06, 1.0, '#2f2e2b', x, 0.72, 1.0);
   // Cargo bed.
   b.block(2.1, 0.6, 3.6, '#6e5236', 0, 0.8, -1.3);
   if (o.covered ?? r.chance(0.6)) {
@@ -123,42 +128,162 @@ export function donkeyCart(o: KitOptions & { load?: boolean } = {}): THREE.Buffe
   return b.build();
 }
 
-/** 1940s immigrant ship (Aliyah Bet style): long low hull, bridge, funnel and two masts. */
-export function immigrantShip(o: KitOptions = {}): THREE.BufferGeometry {
-  const b = kitBuilder(o, 0.06);
-  const hull = '#3c4248';
-  const len = 46;
-  const beam = 8;
-  b.block(beam, 4.5, len, hull, 0, -2.0, 0);
-  b.add(new THREE.CylinderGeometry(1, 1, 4.5, 3), hull, 0, 0.25, len / 2, 0, 0, 0, beam / Math.sqrt(3), 1, 6 / 1.5);
-  b.block(beam - 0.2, 0.3, len - 0.4, '#8a7a62', 0, 2.5, 0);
-  b.block(beam + 0.05, 0.6, len, '#b7b3a8', 0, 1.9, 0);
-  b.block(beam - 1.5, 3.0, 9, '#d9d4c6', 0, 2.8, -6);
-  b.block(beam - 2.5, 2.2, 6, '#d9d4c6', 0, 5.8, -6.5);
-  for (let i = 0; i < 6; i++) b.box(0.06, 0.6, 0.6, '#2a2d30', (beam - 1.5) / 2 + 0.01, 4.0, -9.5 + i * 1.4);
-  b.cyl(0.9, 1.0, 4, 8, '#3f3a34', 0, 9.8, -8);
-  b.cyl(0.92, 0.92, 0.6, 8, '#a6382f', 0, 11.5, -8);
-  for (const z of [12, -18]) {
-    b.cyl(0.18, 0.25, 14, 6, '#5a4a38', 0, 9.5, z);
-    b.box(5, 0.15, 0.15, '#5a4a38', 0, 13.5, z);
+/** Half-beam of the hull surface at height y on a station (inverse of the round-bilge section). */
+function sideX(st: HullStation, y: number): number {
+  const k = Math.min(1, Math.max(0, (y - st.keel) / Math.max(1e-6, st.sheer - st.keel)));
+  return st.halfWidth * Math.sin(Math.acos(1 - k));
+}
+
+/** Gunwale cap rails along both sheers, one beam per station span. */
+function gunwale(b: GeoBuilder, stations: readonly HullStation[], w: number, h: number, color: string, lift = 0): void {
+  for (let i = 0; i + 1 < stations.length; i++) {
+    const s0 = stations[i];
+    const s1 = stations[i + 1];
+    if (!s0 || !s1) continue;
+    for (const side of [-1, 1]) {
+      b.beam(side * s0.halfWidth, s0.sheer + lift, s0.z, side * s1.halfWidth, s1.sheer + lift, s1.z, w, h, color);
+    }
   }
-  // Lifeboats and deck cargo.
-  for (const z of [-2, 4]) for (const x of [-3.4, 3.4]) b.blob(0.8, '#d0c9b8', x, 3.3, z, 0.8, 0.5, 2.4);
-  b.block(3, 1.2, 6, '#7a6b55', 0, 2.8, 8);
+}
+
+const SHIP_HULL: readonly HullStation[] = [
+  { z: -23, halfWidth: 3.3, keel: 0.4, sheer: 2.95 },
+  { z: -20.5, halfWidth: 3.85, keel: -1.5, sheer: 2.82 },
+  { z: -12, halfWidth: 4.0, keel: -2.0, sheer: 2.75 },
+  { z: 8, halfWidth: 4.0, keel: -2.0, sheer: 2.75 },
+  { z: 16, halfWidth: 3.55, keel: -1.9, sheer: 2.88 },
+  { z: 22, halfWidth: 2.3, keel: -1.4, sheer: 3.15 },
+  { z: 26, halfWidth: 0.14, keel: -0.3, sheer: 3.55 },
+];
+
+/** 1940s immigrant ship (Aliyah Bet style): lofted hull with sheer, bridge, funnel and two masts. */
+export function immigrantShip(o: KitOptions = {}): THREE.BufferGeometry {
+  const b = kitBuilder(o, 0.05);
+  const hull = '#3c4248';
+  const st = SHIP_HULL;
+  b.add(hullGeometry(st, 0, 0.36, 3), '#5e2c26');
+  b.add(hullGeometry(st, 0.36, 0.42, 1), '#b9b3a3');
+  b.add(hullGeometry(st, 0.42, 0.9, 4), hull);
+  b.add(hullGeometry(st, 0.9, 1, 1), '#b7b3a8');
+  b.add(deckGeometry(st), '#8a7a62');
+  gunwale(b, st, 0.22, 0.14, '#d9d4c6', 0.07);
+  // Rail: stanchions and a top rail around the main deck.
+  for (let z = -21; z <= 22; z += 2.6) {
+    const s = stationAt(st, z);
+    for (const side of [-1, 1]) b.block(0.07, 1.0, 0.07, '#d9d4c6', side * (s.halfWidth - 0.08), s.sheer, z);
+  }
+  gunwale(b, st.slice(1, 6), 0.06, 0.06, '#d9d4c6', 1.0);
+  // Portholes along the topsides.
+  for (let z = -18; z <= 17; z += 2.2) {
+    const s = stationAt(st, z);
+    const x = sideX(s, 1.55) + 0.02;
+    for (const side of [-1, 1]) b.cyl(0.2, 0.2, 0.06, 8, '#1d2024', side * x, 1.55, z, 0, 0, Math.PI / 2);
+  }
+  // Superstructure: deckhouse, bridge with wings and windows, funnel with a band.
+  b.block(6.5, 3.0, 9, '#d9d4c6', 0, 2.75, -6);
+  b.block(6.8, 0.15, 9.3, '#bdb7a8', 0, 5.75, -6);
+  b.block(5.5, 2.2, 6, '#d9d4c6', 0, 5.9, -6.5);
+  b.block(8.6, 0.12, 1.6, '#bdb7a8', 0, 8.1, -4.2);
+  b.block(6.0, 0.15, 6.4, '#bdb7a8', 0, 8.1, -6.5);
+  for (let i = 0; i < 6; i++) {
+    b.box(0.06, 0.6, 0.6, '#2a2d30', 3.26, 4.0, -9.5 + i * 1.4);
+    b.box(0.06, 0.6, 0.6, '#2a2d30', -3.26, 4.0, -9.5 + i * 1.4);
+  }
+  for (let i = 0; i < 5; i++) b.box(0.8, 0.7, 0.06, '#24292e', -2.0 + i, 7.15, -3.48);
+  b.cyl(0.9, 1.0, 4, 10, '#3f3a34', 0, 9.8, -8);
+  b.cyl(0.92, 0.92, 0.6, 10, '#a6382f', 0, 11.5, -8);
+  b.cyl(0.95, 0.95, 0.12, 10, '#1d1b19', 0, 11.86, -8);
+  for (const z of [12, -18]) {
+    const s = stationAt(st, z);
+    b.cyl(0.18, 0.25, 14, 6, '#5a4a38', 0, s.sheer + 6.7, z);
+    b.box(5, 0.15, 0.15, '#5a4a38', 0, s.sheer + 10.7, z);
+    // Stays down to the rails.
+    for (const side of [-1, 1]) b.beam(0, s.sheer + 13.4, z, side * (s.halfWidth - 0.2), s.sheer + 0.1, z - 1.5, 0.04, 0.04, '#2c2a27');
+  }
+  // Lifeboats in davits, hatch covers and deck cargo.
+  for (const z of [-2, 4]) {
+    for (const x of [-3.2, 3.2]) {
+      b.blob(0.8, '#d0c9b8', x, 3.6, z, 0.8, 0.5, 2.4, 1);
+      b.beam(x * 1.05, 2.8, z - 1.4, x * 1.02, 4.2, z - 1.4, 0.08, 0.08, '#3a3936');
+      b.beam(x * 1.05, 2.8, z + 1.4, x * 1.02, 4.2, z + 1.4, 0.08, 0.08, '#3a3936');
+    }
+  }
+  b.block(3, 0.6, 4, '#6b5d4a', 0, 2.75, 15);
+  b.block(3, 1.2, 6, '#7a6b55', 0, 2.75, 8);
+  for (let i = 0; i < 3; i++) b.box(3.05, 0.06, 0.08, '#4e4436', 0, 3.6, 5.6 + i * 2.4);
   return b.build();
 }
 
-/** Small wooden fishing boat with a cabin and short mast. */
+const BOAT_HULL: readonly HullStation[] = [
+  { z: -3.0, halfWidth: 0.92, keel: -0.18, sheer: 0.74 },
+  { z: -2.1, halfWidth: 1.13, keel: -0.36, sheer: 0.68 },
+  { z: -0.2, halfWidth: 1.2, keel: -0.42, sheer: 0.63 },
+  { z: 1.8, halfWidth: 1.06, keel: -0.38, sheer: 0.7 },
+  { z: 3.25, halfWidth: 0.6, keel: -0.22, sheer: 0.86 },
+  { z: 4.2, halfWidth: 0.05, keel: 0.05, sheer: 1.02 },
+];
+
+/** Small wooden fishing boat (Jaffa / coastal lifeboat): lofted planked hull, wheelhouse, mast and gear. */
 export function fishingBoat(o: KitOptions = {}): THREE.BufferGeometry {
   const r = new Rng(o.seed ?? 'boat');
-  const b = kitBuilder(o, 0.08);
+  const b = kitBuilder(o, 0.06);
   const paint = r.pick(['#3f6f9a', '#e2dccb', '#2f7f6f', '#b5523b']);
-  b.block(2.4, 1.0, 6.0, paint, 0, -0.4, 0);
-  b.add(new THREE.CylinderGeometry(1, 1, 1.0, 3), paint, 0, 0.1, 3.0, 0, 0, 0, 2.4 / Math.sqrt(3), 1, 1.8 / 1.5);
-  b.block(2.45, 0.15, 6.1, '#e8e2d2', 0, 0.55, 0);
-  b.block(1.6, 1.3, 1.6, '#e8e2d2', 0, 0.6, -1.2);
-  b.box(1.2, 0.4, 0.05, '#2a2d30', 0, 1.5, -0.39);
-  b.cyl(0.07, 0.08, 4.5, 5, '#5a4a38', 0, 2.8, 1.0);
-  b.blob(0.45, '#7a6b55', 0.5, 0.75, 1.8, 1.2, 0.5, 1.0);
+  const trim = paint === '#e2dccb' ? '#3f6f9a' : '#e8e2d2';
+  const wood = '#7a5a3c';
+  const st = BOAT_HULL;
+  b.add(hullGeometry(st, 0, 0.42, 3), '#8a3b2a');
+  b.add(hullGeometry(st, 0.42, 0.5, 1), trim);
+  b.add(hullGeometry(st, 0.5, 1, 3), paint);
+  b.add(deckGeometry(st), '#a88a62');
+  gunwale(b, st, 0.1, 0.1, trim, 0.05);
+  // Strakes: a raised plank line along each side reads as a planked hull.
+  for (let i = 0; i + 1 < st.length; i++) {
+    const s0 = st[i];
+    const s1 = st[i + 1];
+    if (!s0 || !s1) continue;
+    for (const side of [-1, 1]) {
+      const y0 = s0.keel + (s0.sheer - s0.keel) * 0.72;
+      const y1 = s1.keel + (s1.sheer - s1.keel) * 0.72;
+      b.beam(side * (sideX(s0, y0) + 0.01), y0, s0.z, side * (sideX(s1, y1) + 0.01), y1, s1.z, 0.03, 0.04, shadeHex(paint, 0.78));
+    }
+  }
+  // Painted eye on each bow (a Levantine boat tradition).
+  const eyeSt = stationAt(st, 3.0);
+  const ey = eyeSt.keel + (eyeSt.sheer - eyeSt.keel) * 0.82;
+  for (const side of [-1, 1]) {
+    const x = side * (sideX(eyeSt, ey) + 0.015);
+    b.cyl(0.12, 0.12, 0.02, 8, '#efe9dc', x, ey, 3.0, 0, 0.3 * side, Math.PI / 2);
+    b.cyl(0.06, 0.06, 0.03, 6, '#1d1a18', x + side * 0.006, ey, 3.02, 0, 0.3 * side, Math.PI / 2);
+  }
+  // Wheelhouse with a roof overhang, windows and a rear door.
+  const cz = -1.2;
+  const cy = stationAt(st, cz).sheer - 0.02;
+  b.block(1.5, 1.25, 1.5, trim, 0, cy, cz);
+  b.block(1.75, 0.08, 1.85, shadeHex(paint, 0.8), 0, cy + 1.25, cz + 0.05);
+  b.box(1.15, 0.38, 0.04, '#2a2d30', 0, cy + 0.9, cz + 0.76);
+  for (const side of [-1, 1]) b.box(0.04, 0.34, 0.9, '#2a2d30', side * 0.76, cy + 0.9, cz);
+  b.box(0.6, 0.95, 0.04, wood, 0.3, cy + 0.48, cz - 0.76);
+  b.cyl(0.05, 0.05, 0.5, 5, '#3a3a3a', -0.45, cy + 1.5, cz - 0.4);
+  // Mast, boom with a furled sail and stays to stem and stern.
+  const mz = 1.0;
+  const my = stationAt(st, mz).sheer;
+  b.cyl(0.07, 0.085, 4.5, 6, '#5a4a38', 0, my + 2.2, mz);
+  b.beam(0, my + 1.1, mz, 0, my + 1.25, mz + 2.6, 0.07, 0.07, '#5a4a38');
+  b.beam(0, my + 1.3, mz + 0.1, 0, my + 1.4, mz + 2.4, 0.22, 0.2, '#d8cdb2');
+  b.beam(0, my + 4.4, mz, 0, 1.02, 4.15, 0.025, 0.025, '#2c2a27');
+  b.beam(0, my + 4.4, mz, 0, cy + 1.3, cz + 0.2, 0.025, 0.025, '#2c2a27');
+  // Thwart, fish boxes, coiled rope, net, rudder and tiller.
+  b.block(2.0, 0.08, 0.3, wood, 0, stationAt(st, 2.4).sheer - 0.12, 2.4);
+  b.block(0.55, 0.3, 0.4, '#9a7b52', -0.45, stationAt(st, 0.3).sheer - 0.02, 0.3);
+  b.block(0.55, 0.3, 0.4, '#8a6c48', -0.4, stationAt(st, 0.3).sheer + 0.28, 0.35);
+  b.cyl(0.24, 0.26, 0.1, 9, '#b9a77f', 0.55, stationAt(st, 0.2).sheer + 0.03, 0.2);
+  b.blob(0.45, '#7a6b55', 0.45, 0.85, 1.8, 1.2, 0.45, 1.0, 1);
+  b.box(0.06, 0.8, 0.5, wood, 0, 0.2, -3.2);
+  b.beam(0, 0.85, -3.15, 0, 1.0, -2.3, 0.05, 0.05, wood);
   return b.build();
+}
+
+function shadeHex(hex: string, k: number): RGB {
+  const c = rgb(hex);
+  return [c[0] * k, c[1] * k, c[2] * k];
 }
