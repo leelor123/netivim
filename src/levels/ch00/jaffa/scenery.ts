@@ -21,6 +21,7 @@ import {
   PLATFORM,
   POSTED_ROADS,
   RAIL_ROAD_INDEX,
+  ROAD_WELL,
   VENDOR,
   WELL,
   type FieldRect,
@@ -375,6 +376,8 @@ export function buildScenery(world: LevelWorld, o: SceneryOptions): Scenery {
   colony('rl-4', 80, 130, 0);
   colony('rl-5', 114, 166, -PI2);
   prop('colony', wellHead, WELL.x, WELL.z, 0, 1.5);
+  // The roadside well where the courier waters the donkey.
+  prop('country', wellHead, ROAD_WELL.x, ROAD_WELL.z, 0.6, 1.5);
   if (vis) {
     batches.colony.add(barrel({ era: ERA, kind: 'wood', seed: 'w1' }), WELL.x - 2.2, WELL.z + 1.6, 0);
     batches.colony.add(barrel({ era: ERA, kind: 'wood', seed: 'w2' }), WELL.x - 2.9, WELL.z + 0.9, 0.5);

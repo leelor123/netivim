@@ -126,6 +126,10 @@ test('plays Letters from Jaffa from the port to Jerusalem with the controller, z
     if (i === 0) await expect(page.locator('.gp-hud__glyph')).toHaveText('X');
     await press(page, X);
   }
+  await expect.poll(() => missionState(page), { timeout: 60000 }).toBe('market');
+
+  // The quay market: three short talks (porter, water seller, runner).
+  for (const talk of L.MARKET_TALKS) await use(page, talk);
   await expect.poll(() => missionState(page), { timeout: 60000 }).toBe('loaded');
 
   // The logistics planner: a cart on the main road plus a second vehicle on the dunes route.
@@ -145,9 +149,16 @@ test('plays Letters from Jaffa from the port to Jerusalem with the controller, z
   await teleport(page, L.GATE_ROAD, 0.2);
   await expect.poll(() => missionState(page), { timeout: 60000 }).toBe('road_colony');
 
-  // Rishon LeZion: hand over the well parts and the letter.
+  // The roadside well, then Rishon LeZion: hand over the well parts and the letter, then the cold tea.
+  await use(page, L.ROAD_WELL_SIGN);
   await teleport(page, { x: L.DEBORA.x - 1.2, z: L.DEBORA.z });
   await page.waitForTimeout(300);
+  const colonySteps = page.locator('.gp-hud__steps');
+  for (let i = 0; i < 12 && !/2/.test((await colonySteps.textContent()) ?? ''); i++) {
+    await press(page, X);
+    await page.waitForTimeout(1000);
+  }
+  await expect(colonySteps).toHaveText(/2/, { timeout: 60000 });
   await press(page, X);
   await expect.poll(() => missionState(page), { timeout: 60000 }).toBe('colony_delivered');
 
