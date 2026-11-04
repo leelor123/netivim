@@ -3,6 +3,17 @@ import { h } from './dom';
 import { ToastGate, toastPlacement } from './toastGate';
 
 const TOAST_MS = 2600;
+/** A warning stays at least this long, then until the next input (so it cannot vanish unread). */
+const WARN_MIN_MS = 2600;
+
+const padPressed = (): boolean => {
+  try {
+    for (const p of navigator.getGamepads?.() ?? []) if (p?.buttons.some((b) => b.pressed)) return true;
+  } catch {
+    /* no gamepad API */
+  }
+  return false;
+};
 
 export interface Hud {
   readonly el: HTMLElement;
@@ -60,6 +71,13 @@ export function createHud(game: Game, onSave: () => void, onPause: () => void): 
   const toastEl = h('div', { class: 'nv-toast', attrs: { role: 'status', 'aria-live': 'polite' } }, toastText);
   const el = h('div', { class: 'nv-hud' }, bar);
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
+  let warnPoll: ReturnType<typeof setInterval> | undefined;
+  let stopWarn: (() => void) | undefined;
+  const hide = (): void => {
+    stopWarn?.();
+    toastEl.classList.remove('is-shown');
+    toastText.textContent = '';
+  };
   const gate = new ToastGate(({ text, tone }) => hud.toast(text, tone));
 
   const offs = [
@@ -84,14 +102,31 @@ export function createHud(game: Game, onSave: () => void, onPause: () => void): 
     toastEl,
     toast(text, tone = 'ok') {
       clearTimeout(toastTimer);
+      stopWarn?.();
       toastText.textContent = text;
       toastEl.dataset.tone = tone;
       toastEl.dataset.place = toastPlacement(gate.isMenuOpen);
       toastEl.classList.add('is-shown');
-      toastTimer = setTimeout(() => {
-        toastEl.classList.remove('is-shown');
-        toastText.textContent = '';
-      }, TOAST_MS);
+      if (tone !== 'warn') {
+        toastTimer = setTimeout(hide, TOAST_MS);
+        return;
+      }
+      // Warnings (e.g. save failed) wait for the next key, tap or pad press after a minimum time.
+      const shownAt = performance.now();
+      const dismiss = (): void => {
+        if (performance.now() - shownAt >= WARN_MIN_MS) hide();
+      };
+      window.addEventListener('keydown', dismiss, true);
+      window.addEventListener('pointerdown', dismiss, true);
+      warnPoll = setInterval(() => {
+        if (padPressed()) dismiss();
+      }, 150);
+      stopWarn = () => {
+        window.removeEventListener('keydown', dismiss, true);
+        window.removeEventListener('pointerdown', dismiss, true);
+        clearInterval(warnPoll);
+        stopWarn = undefined;
+      };
     },
     setMenuOpen(open) {
       toastEl.dataset.place = toastPlacement(open);
@@ -103,6 +138,7 @@ export function createHud(game: Game, onSave: () => void, onPause: () => void): 
     },
     dispose() {
       clearTimeout(toastTimer);
+      stopWarn?.();
       for (const off of offs) off();
       toastEl.remove();
       el.remove();

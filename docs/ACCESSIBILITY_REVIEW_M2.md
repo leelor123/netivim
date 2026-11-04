@@ -139,7 +139,7 @@ All High and Medium findings are fixed. Unit tests: `tests/unit/a11yLogic.test.t
 | M4 | Map zoom +/- buttons (48px, named). Places list no longer behind a toggle. |
 | M5 | Cutscene root is no longer `aria-hidden`; only the fade, bars and ring are. Title card is `role=status`; skip has an accessible name and a tap-tap (double confirm) alternative to the hold (`cinematics/skipConfirm.ts`). |
 | M6 | Subtitle lifetime runs on game steps (`ui/subtitleTimer.ts`), so it pauses with the game. A persistent visually hidden live region carries the text; the visible caption is `aria-hidden`. |
-| M7 | Floor of 14px for secondary text in `ui.css`, `gameplay.css`, `timeline.css`, `livingMap.css`, `tower.css`, map labels 14px. No UI text-size setting (not added). |
+| M7 | Floor of 14px for secondary text in `ui.css`, `gameplay.css`, `timeline.css`, `livingMap.css`, `tower.css`, map labels 14px. A UI text-size setting was added in round 2 (see below). |
 | M8 | Sorter items get `aria-current` and real focus after each rebuild; the key handler stops native double activation. The DOM is still rebuilt per step. |
 | M9 | `inputManager` ignores keys aimed at text fields (Escape and vertical arrows still pass). `ScreenStack` swallows native Enter/Space activation of a focused button so one press acts once. |
 | M10 | Holding Back for 1s cancels the remap capture (a quick press still binds it); hint shown in the dialog. Remap rows use the controller-family labels. Binding a button that already has another action shows a notice (no swap prompt). |
@@ -147,4 +147,20 @@ All High and Medium findings are fixed. Unit tests: `tests/unit/a11yLogic.test.t
 
 Low items fixed in passing: 6 (quiz stars `role=img`), 10 (control borders). KNOWN_ISSUES 16 (map label collision) is closed: labels use measured text width (canvas, cached, re-measured when fonts load) and try small offsets (up to 56px) before hiding.
 
-Not done: Low 1-5, 7-9, 11-12; device check of the H4 stacking; a UI text-size setting; a swap prompt for shared remap buttons.
+## Round 2 (accessibility agent)
+
+Fixed in `src/ui` and `core/settings.ts`:
+
+| Id | What changed |
+|---|---|
+| UI text size | New `accessibility.uiTextSize` (normal / large / extra large = 1, 1.2, 1.4), default normal; `sanitizeSettings` falls back for old saves, no migration. `installUI` writes `--nv-ts` on `:root`; every `font-size` in `ui.css` is `calc(Npx * var(--nv-ts, 1))`. Captions keep their own size setting. The layout regions take a `textScale`: text rows (notice, hint, toast, prompt), the objective and the panel grow with it, but stop growing when the captions region would fall under its minimum height (`regionTextScale`, written as `--rg-ts`, used by the toast). Tests: `settings.test.ts`, `phoneUx.test.ts` (no overlap at every viewport, scale 1.2 and 1.4), E2E `phone-ux`. |
+| Low 1 | Warning toasts (save failed) stay at least 2.6s and then until the next key, tap or pad press (`hud.ts`). |
+| Low 2 | Chapters cards react: the prologue opens the hub (newest save, or a new one); locked cards set a `role=status` line "ייפתח בהמשך". |
+| Low 3 | Settings tabs have `aria-controls` pointing at the tabpanel. |
+| Low 4 (nv part) | `panel()` is the single `role=dialog` + `aria-modal` owner; the pause stage no longer adds a second one. The `gp-sheet` dialogs are outside `src/ui`. |
+| Low 11 (ui part) | Title kicker, version and covered-date text lightened with a stronger shadow; touch opacity minimum raised from 30% to 50% (`TOUCH_OPACITY_MIN`, setting and slider). |
+| Low 12 (ui part) | The back arrow in `ui.css` flips under `:dir(ltr)`. |
+
+Handed over (outside the files this agent owns): Low 4 gp-sheet dialogs, Low 5 quiz live region, Low 7 mission meter, Low 8 timeline live region, Low 9 Codex/Timeline bumper direction, Low 11 HUD label panel alpha and cutscene skip backing, Low 12 touch buttons `tabindex=-1`, `user-scalable=no` and physical safe-area insets. Text in `gameplay.css`, `timeline.css`, `livingMap.css` and `tower.css` does not scale yet: those files should use `calc(Npx * var(--nv-ts, 1))` for `font-size`.
+
+Not done: device check of the H4 stacking; a swap prompt for shared remap buttons.

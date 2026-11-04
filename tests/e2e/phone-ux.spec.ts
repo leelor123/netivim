@@ -120,3 +120,31 @@ test('phone: briefing actions stay on screen, mission HUD boxes never overlap, d
 
   expect(problems).toEqual([]);
 });
+
+test('phone: extra large UI text keeps the briefing actions on screen and the mission boxes apart', async ({ page }) => {
+  test.setTimeout(240000);
+  const problems = watchConsole(page);
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await expect.poll(() => page.evaluate(() => window.__netivim?.flow.state), { timeout: 60000 }).toBe('title');
+  await page.evaluate(() => window.__netivim?.settings.update('accessibility', { uiTextSize: 'xlarge' }));
+  expect(await page.evaluate(() => document.documentElement.style.getPropertyValue('--nv-ts'))).toBe('1.4');
+  await startPrologue(page);
+  const start = page.getByRole('button', { name: 'התחלת המשימה' });
+  await expect(start).toBeVisible();
+  const sb = await start.boundingBox();
+  if (!sb) throw new Error('no start box');
+  expect(sb.y + sb.height).toBeLessThanOrEqual(540);
+  await start.tap();
+  await expect.poll(() => page.evaluate(() => window.__netivim?.flow.state), { timeout: 60000 }).toBe('mission');
+  await page.evaluate(() => window.__netivim?.bus.emit('ui:toast', { textKey: 'ui.toast.saved' }));
+  const boxes = await visibleBoxes(page);
+  for (let i = 0; i < boxes.length; i++) {
+    const a = boxes[i] as Box;
+    for (let j = i + 1; j < boxes.length; j++) {
+      const b = boxes[j] as Box;
+      const overlap = a.x < b.x + b.w - 0.5 && b.x < a.x + a.w - 0.5 && a.y < b.y + b.h - 0.5 && b.y < a.y + a.h - 0.5;
+      expect(overlap, a.sel + ' overlaps ' + b.sel).toBe(false);
+    }
+  }
+  expect(problems).toEqual([]);
+});
