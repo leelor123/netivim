@@ -16,6 +16,8 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // Local plugins must be registered before the bridge is built in super.onCreate.
+        registerPlugin(NativeTtsPlugin.class);
         super.onCreate(savedInstanceState);
         // Keep the screen awake while the game is in the foreground.
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);

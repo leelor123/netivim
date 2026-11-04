@@ -111,6 +111,16 @@ audio:cue, audio:mood (Audio), cutscene:started / cutscene:ended (Cinematics), h
 (Controls). src/ui/glyphs.ts glyphFor(action, device, family) is a stub owned by Controls; the UI
 uses only that signature.
 
+## 13. Narration speech backend
+The Narrator (src/audio/narration.ts) speaks through a SpeechBackend { kind, hasVoice,
+checkVoice, speak, cancel }. src/platform/speech.ts sharedSpeechBackend() picks the native
+Android plugin NetivimTts (android/.../NativeTtsPlugin.java, android.speech.tts, offline Hebrew
+voices only) when Capacitor.isNativePlatform() and the plugin is registered, otherwise
+speechSynthesis. Plugin: isAvailable() -> { available }, speak({ text, rate, volume, id }),
+stop(); events start / done / error with { id }. Events of a stopped or replaced line are
+ignored (id map in the backend, current-line token in the Narrator). The failsafe is armed on
+start; ducking, the narration level and audio.voice apply to every backend.
+
 ## 13. Rendering contract additions (M2)
 - GameScene optional fields read by the RenderPipeline: sun, sunDirection, shadowDistance, era, applyGraphics(options), onContextRestored().
 - antialias "msaa" means MSAA 4x plus SMAA.

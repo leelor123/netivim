@@ -8,6 +8,16 @@
     <!-- No INTERNET permission: the game is fully offline and never contacts any server. -->
 
     <!--
+      Android 11+ package visibility: lets NativeTtsPlugin see the installed text-to-speech
+      engine (e.g. Samsung / Google TTS) for Hebrew narration. This is not a permission.
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
+    <!--
       allowBackup=true is deliberate: saves live in the WebView storage / Preferences and are
       versioned, size-limited and migrated on load (docs/BRIEF.md section 9), so restoring them
       onto a new phone is safe and is what players expect. The data holds no personal data and
