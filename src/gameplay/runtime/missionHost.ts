@@ -179,8 +179,12 @@ export class MissionHost {
     return level;
   }
 
+  /** Simulated seconds this host has stepped (diagnostics and tests). */
+  simTime = 0;
+
   /** One fixed simulation step. */
   update(dt: number): void {
+    this.simTime += dt;
     this.tickSay(dt);
     if (this.phase !== 'running' || !this.level) return;
     const p = this.level.player;

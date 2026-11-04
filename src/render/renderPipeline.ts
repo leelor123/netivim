@@ -6,6 +6,7 @@ import { FrameLimiter } from './frameLimiter';
 import { ShadowFitter } from './shadows';
 import { DEFAULT_ERA, ERA_GRADES, type EraId } from './eras';
 import { installFogChunk } from './fogChunk';
+import { ShaderWarmup, type WarmupProgram } from './shaderWarmup';
 import type { DofParams, PostChain } from './post/chain';
 
 type PostModule = typeof import('./post/chain');
@@ -36,11 +37,14 @@ const DEFAULT_SHADOW_DISTANCE = 80;
 const SHAFT_STRENGTH = 0.6;
 const SUN_FAR = 500;
 /**
- * Longest a new scene waits for its shaders before it is drawn anyway (ms). On drivers with
- * KHR_parallel_shader_compile (Chrome / Android WebView) programs link off the main thread and are
- * usually ready within a few frames; meanwhile the canvas keeps showing the previous frame.
+ * Longest a new scene waits for its shaders before it is drawn anyway (ms of visible time; see
+ * ShaderWarmup). On drivers with KHR_parallel_shader_compile (Chrome / Android WebView) programs
+ * link off the main thread and are usually ready within a few frames; meanwhile the canvas keeps
+ * showing the previous frame, the loading veil stays up and missions do not step.
  */
 export const WARMUP_TIMEOUT_MS = 2000;
+/** Main-thread time the shader warm-up may use per frame (ms). */
+export const WARMUP_BUDGET_MS = 8;
 /** How often the active scene is rescanned for new instanced shadow casters (ms). */
 const CASTER_SCAN_MS = 1000;
 
@@ -115,9 +119,9 @@ export class RenderPipeline {
   private shadowSun: THREE.DirectionalLight | null = null;
   private shadowSize = -1;
 
+  /** The scene the warm-up last started for (identity only; dropped when no scene is active). */
   private warmScene: THREE.Scene | null = null;
-  private warmPending = false;
-  private warmDeadline = 0;
+  private readonly warmup: ShaderWarmup;
   /** Scene warm-ups so far (tests and the perf report). */
   warmups = 0;
 
@@ -159,6 +163,17 @@ export class RenderPipeline {
     this.resolved_ = initial;
     this.config_ = toPipelineConfig(initial.options, this.device);
     this.apply(initial);
+    const renderer = this.renderer;
+    this.warmup = new ShaderWarmup(
+      {
+        compile: (object, camera, scene) => {
+          renderer.compile(object, camera, scene);
+        },
+        programOf: (material) => (renderer.properties.get(material) as { currentProgram?: WarmupProgram }).currentProgram,
+        parallel: renderer.extensions.has('KHR_parallel_shader_compile'),
+      },
+      { budgetMs: WARMUP_BUDGET_MS, capMs: WARMUP_TIMEOUT_MS },
+    );
     registry.set(this.renderer, this);
   }
 
@@ -172,8 +187,42 @@ export class RenderPipeline {
 
   /** True once everything the current options need is loaded (the post chunk is lazy). */
   get ready(): boolean {
-    if (this.warmPending) return false;
+    if (!this.warmup.done) return false;
     return !needsComposer(this.config_, this.dofActive) || (this.chain !== null && this.builtKey === this.wantedKey);
+  }
+
+  /**
+   * True once `scene` has been warmed (or the warm-up hit its cap) and is being drawn. The
+   * loading veils wait for this. False for a scene the pipeline has not seen yet.
+   */
+  sceneReady(scene: THREE.Scene): boolean {
+    return this.warmScene === scene && this.warmup.done;
+  }
+
+  /**
+   * True while the warm-up of `scene` holds the simulation back (MissionHost does not step, so
+   * patrols and mission clocks never run behind a frozen frame). Ends with the warm-up, or on
+   * wall-clock time for code that steps the game without rendering frames.
+   */
+  holdsSimulation(scene: THREE.Scene): boolean {
+    return this.warmScene === scene && this.warmup.blocking;
+  }
+
+  /**
+   * Starts the warm-up of a newly active scene; called at the top of every frame (before the
+   * simulation steps) and by render(). No scene: every warm-up reference is dropped, so a
+   * disposed scene is never retained here.
+   */
+  prepare(active: GameScene | null, now: number): void {
+    if (this.lost) return;
+    if (!active) {
+      if (this.warmScene) {
+        this.warmScene = null;
+        this.warmup.cancel();
+      }
+      return;
+    }
+    if (active.scene !== this.warmScene) this.startWarmup(active, now);
   }
 
   get contextLost(): boolean {
@@ -270,11 +319,11 @@ export class RenderPipeline {
     if (this.lost) return;
     const info = this.renderer.info;
     info.reset();
-    if (active && active.scene !== this.warmScene) this.startWarmup(active, now);
-    if (active && this.warmPending && now < this.warmDeadline) {
-      // Shaders of the new scene are still linking: draw nothing, the canvas keeps the last frame.
+    this.prepare(active, now);
+    if (active && !this.warmup.done && !this.warmup.step(now)) {
+      // Shaders of the new scene are still compiling: draw nothing, the canvas keeps the last frame.
       active = null;
-    } else this.warmPending = false;
+    }
     if (active) {
       if (now - this.lastCasterScan >= CASTER_SCAN_MS) {
         this.lastCasterScan = now;
@@ -321,8 +370,9 @@ export class RenderPipeline {
    */
   handleContextRestored(active: GameScene | null): void {
     this.lost = false;
+    // The next frame warms the active scene again, incrementally (programs died with the context).
     this.warmScene = null;
-    this.warmPending = false;
+    this.warmup.cancel();
     // The old GL objects died with the old context: drop them without dispose() (deleting them
     // on the new context is an INVALID_OPERATION). Fresh ones are created on the next frame.
     this.chain = null;
@@ -346,38 +396,26 @@ export class RenderPipeline {
   }
 
   /**
-   * Precompiles every material of a newly active scene (including hidden objects: markers, LOD
-   * cross-fade variants) with renderer.compileAsync, so the first frames of a level never stall on
-   * a synchronous shader link. Shadow state is applied first: it is part of the program key.
+   * Queues every material of a newly active scene (including hidden objects: markers, LOD
+   * cross-fade variants) for the incremental warm-up (ShaderWarmup: at most WARMUP_BUDGET_MS of
+   * main-thread work per frame, never a whole-scene synchronous compile). Shadow state is applied
+   * first: it is part of the program key.
    */
   private startWarmup(active: GameScene, now: number): void {
     this.warmScene = active.scene;
     this.warmups++;
     this.applyShadows(active);
-    const scene = active.scene;
-    scene.traverse(this.assignCasterDepth);
+    active.scene.traverse(this.assignCasterDepth);
     this.lastCasterScan = now;
-    let materials: Promise<unknown>;
-    try {
-      if (!this.renderer.extensions.has('KHR_parallel_shader_compile')) {
-        // No parallel compile: link everything now (including hidden variants) and draw at once.
-        this.renderer.compile(scene, active.camera);
-        return;
-      }
-      materials = this.renderer.compileAsync(scene, active.camera);
-    } catch (error) {
-      console.error('[netivim] shader warm-up failed', error);
-      return;
+    // The post chain points at the new scene right away (it is retargeted on its next use
+    // anyway): a chain the new scene does not use must not keep the previous scene alive.
+    if (this.chain && this.chainScene !== active.scene) {
+      this.chain.retarget(active.scene, active.camera);
+      this.chainScene = active.scene;
+      this.chainCamera = active.camera;
+      this.gradedEra = null;
     }
-    this.warmPending = true;
-    this.warmDeadline = now + WARMUP_TIMEOUT_MS;
-    materials
-      .then(() => {
-        if (this.warmScene === scene) this.warmPending = false;
-      })
-      .catch(() => {
-        if (this.warmScene === scene) this.warmPending = false;
-      });
+    this.warmup.start(active.scene, active.camera);
   }
 
   private updateSizeStats(): void {
