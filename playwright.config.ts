@@ -5,6 +5,8 @@ const PORT = Number(process.env.PW_PORT ?? 4174);
 
 export default defineConfig({
   testDir: 'tests/e2e',
+  // The full controller playthrough takes ~47 min on software GL; run it on demand (CONTROLLER_QA=1).
+  testIgnore: process.env.CONTROLLER_QA ? [] : ['**/controller-full.spec.ts'],
   fullyParallel: true,
   // WebGL runs on the CPU in headless mode; parallel browsers starve each other and flake.
   workers: 1,
