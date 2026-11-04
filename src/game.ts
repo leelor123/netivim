@@ -177,6 +177,9 @@ export function startGame(canvas: HTMLCanvasElement, i18n: I18n, onPauseChanged:
     timer.update(time);
     const delta = timer.getDelta();
     const paused = flow.paused;
+    // A newly active scene starts its shader warm-up before this frame's steps, so a mission
+    // never steps while its first frame is still pending (see RenderPipeline.holdsSimulation).
+    pipeline.prepare(scenes.active, time);
     // While paused the simulation stops, but input is still read so menus keep working.
     // Resuming belongs to the pause screen (UI), never to the core.
     if (paused) input.update();

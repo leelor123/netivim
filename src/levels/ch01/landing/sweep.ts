@@ -1,4 +1,4 @@
-import { segmentBlocked, type Collider } from '../../../gameplay/core/collision';
+import { segmentBlockedAny, type Collider } from '../../../gameplay/core/collision';
 import { Telegraph } from '../../../gameplay/core/telegraph';
 
 /**
@@ -88,7 +88,7 @@ export class SweepLight {
       const cos = (dx * Math.sin(this.heading) + dz * Math.cos(this.heading)) / dist;
       if (cos < Math.cos(d.halfAngle)) return false;
     }
-    for (let i = 0; i < occluders.length; i++) if (segmentBlocked(d.x, d.z, px, pz, occluders[i] as Collider)) return false;
+    if (segmentBlockedAny(d.x, d.z, px, pz, occluders)) return false;
     return true;
   }
 

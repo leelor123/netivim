@@ -110,6 +110,49 @@ texel-derived bias; the debug overlay refresh allocates nothing.
 | R7 | `src/levels/ch00/jaffa-letters.ts` (level `update`), `src/levels/ch01/tower-stockade.ts` (`refreshTargets` / visual hook), `src/levels/ch01/landing/visuals.ts` (`sync`) | anonymous functions inside the level step show up as allocation sites (jaffa ~4 KB/frame, tower ~1.7 KB/frame, night-landing ~3 KB/frame) | check for closures, array literals or spread created per step there and hoist them |
 | R8 | `src/gameplay/director.ts` (cleanupMission) | the last level stays reachable for a while after returning to the hub (heap 21 MB vs 41 MB after jaffa, nondeterministic, freed by the next scene switch; not a leak: the floor is flat) | when the hub replaces the level scene, call `host.dispose()` and drop `levelDef`; check toasts / screen closures for references to the host |
 
+## Follow-up pass: status of R1-R8 and the shader warm-up
+
+| # | Status | Before -> after (same suites, same environment) |
+|---|---|---|
+| R1, R2 | done: `forceSinglePass` on ConeFan and the tower beam | night-landing program churn 26 KB/frame -> 0 |
+| R3, R4 | done: instanced rows (tower) and shelves (hub) use a clone of the kit material | churn hub 8.5 KB -> 0, tower 8.9 KB -> 0 |
+| R5 | done: night-landing static sea / beach props merged per material (`StaticBatch`) | Battery 147 -> **115** calls (budget 120), Low 149 -> 117 (150), Medium 162 -> 127, High 180 -> 143, Ultra 268 -> 232 |
+| R6 | done: collision / camera hot paths (see below) | per-frame totals (final run, merged with main): hub 29 -> 19.2 KB, archive-night 25 -> 17.4, jaffa 61 -> 38.9, tower 40 -> 25.9, night-landing 63 -> 29.0, vote 26.5 -> 18.8 (run-to-run spread about +-4 KB) |
+| R7 | open | jaffa level step ~2.6 KB/frame, landing `SurvivorViews.sync` ~1.5 KB/frame (double arguments to `Crowd.set` per survivor) |
+| R8 | done: a level whose scene is still on screen when the mission ends is disposed on the first frame after the switch; `levelDef` dropped at hub / title; the post chain and the warm-up drop the previous scene on switch | not re-measured with the soak suite |
+
+`KNOWN_OVER` (scenes) and `KNOWN_CHURN` (alloc) are gone: every scene / preset budget and the
+zero-churn rule are enforced.
+
+R6 findings. The headless profile runs much of the game in V8's mid tier (Maglev); there a double
+passed to a call that is not inlined, or a float merged across branches, becomes a HeapNumber.
+`pushOut` / `rayEntry` were called once per collider per step with five double arguments. Now the
+per-collider work reads a Float64Array scratch, far colliders are rejected inline (same answer,
+bit-identical: `tests/unit/collisionHotPath.test.ts` against reference copies of the old code),
+and colliders have one shape per kind. Measured with `performance.memory` and no profiler
+attached: `CharacterMotor.update` 2465 -> 137 B/step (archive-night), 2465 -> 1189 (jaffa,
+76 colliders, many near), 2465 -> 162 (vote). What remains per frame is mostly three.js itself
+(`painterSortStable`, uniform upload `setValueV3f` / `setValueM4`, `setProgram`), the level-kit
+update (terrain LOD) and R7; it is far above the 2 KB target and is not enforced by the suite.
+These are mid-tier numbers: on the phone, hot functions reach TurboFan sooner and box less.
+
+Shader warm-up (src/render/shaderWarmup.ts). The previous warm-up ran `renderer.compile(scene)`
+for the whole scene in one call without KHR_parallel_shader_compile, and `compileAsync` (also a
+whole-scene compile() first) with it. On a slow GPU that is one main-thread block of seconds,
+which starves the WebView's input dispatch (ANR suspect). Now:
+- One object per material variant is compiled at a time, at most 8 ms of main-thread work per
+  frame. Without the extension each program's link is forced right after its compile (one
+  program per stall), with it the links are polled with the non-blocking status query.
+- No work while `document.hidden`; hidden time and frame gaps over 250 ms do not count toward
+  the 2 s cap. Resume and visibilitychange never compile; a restored context warms again,
+  incrementally.
+- The hub veil and a mission veil (same look, no new text) stay up until the scene is warmed and
+  drawn; `MissionHost.update` does not run while the warm-up holds the scene
+  (`RenderPipeline.holdsSimulation`, wall-clock fallback at twice the cap for frame-less tools).
+- What can still block: a single program link without the extension (tens to a few hundred ms on
+  software GL, one per frame), and, if the 2 s cap is hit, three.js compiling whatever is left
+  on the first draw (the old behaviour, now only for the remainder).
+
 ## Budgets to record in CLAUDE.md (replacing the provisional line)
 
 Measured worst case over the hub and all Phase 1 missions, with headroom for later chapters:
@@ -139,4 +182,4 @@ changes (same failure on a build of HEAD), so it is pre-existing and level-side.
 - Real frame times on the S26 Ultra (no device; software GL frame times are not comparable). The
   one-line device check: install the APK, enable the debug overlay, play night-landing at Ultra.
 - Shader warm-up with KHR_parallel_shader_compile runs only on GPU builds (Android WebView); the
-  headless suite exercises the synchronous fallback.
+  headless suite exercises the incremental path without it (forced link per program).

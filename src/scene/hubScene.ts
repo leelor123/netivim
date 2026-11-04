@@ -283,7 +283,10 @@ export function createHubScene(opts: HubOptions = {}): HubScene {
   const sc = new THREE.Vector3(1, 1, 1);
   const up = new THREE.Vector3(0, 1, 0);
   const color = new THREE.Color();
-  const docs = new THREE.InstancedMesh(boxGeo, mats.solid, boxSlots.length);
+  // The instanced shelves get their own copy of the kit material: one material shared by
+  // instanced and plain meshes flips its program variant mid-pass (getProgram churn per frame).
+  const shelfMat = bag.material(mats.solid.clone());
+  const docs = new THREE.InstancedMesh(boxGeo, shelfMat, boxSlots.length);
   boxSlots.forEach((s, i) => {
     p.set(s.x, s.y, s.z);
     q.setFromAxisAngle(up, (s.facing > 0 ? 0 : Math.PI) + sr.range(-0.06, 0.06));
@@ -291,7 +294,7 @@ export function createHubScene(opts: HubOptions = {}): HubScene {
     docs.setColorAt(i, color.set(sr.pick(boxColors)));
   });
   const bookCount = bookSlots.length * 4;
-  const books = new THREE.InstancedMesh(bookGeo, mats.solid, bookCount);
+  const books = new THREE.InstancedMesh(bookGeo, shelfMat, bookCount);
   bookSlots.forEach((s, i) => {
     for (let k = 0; k < 4; k++) {
       const lean = k === 3 && sr.chance(0.4) ? 0.25 : 0;

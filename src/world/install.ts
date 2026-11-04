@@ -3,6 +3,7 @@ import type { Game } from '../game';
 import type { HubOptions, HubScene } from '../scene/hubScene';
 import type { SampleSceneOptions, WorldScene } from './sampleScene';
 import { PRESET_QUALITY, worldQualityFromSettings, type WorldQuality } from './quality';
+import { whenSceneDrawn } from '../render/sceneVeil';
 
 /** Lazy world entry points (each loads its own chunk on first use). */
 export interface WorldApi {
@@ -34,6 +35,7 @@ export function installWorld(game: Game): () => void {
   // Veil over the hub menu until the hub scene is the active one, so the previous scene
   // (the title scene, a finished level) never shows behind the menu.
   let veil: HTMLElement | null = null;
+  let stopWaiting: (() => void) | null = null;
   const showVeil = (): void => {
     if (veil) return;
     veil = document.createElement('div');
@@ -43,6 +45,8 @@ export function installWorld(game: Game): () => void {
     document.body.append(veil);
   };
   const hideVeil = (): void => {
+    stopWaiting?.();
+    stopWaiting = null;
     veil?.remove();
     veil = null;
   };
@@ -60,7 +64,9 @@ export function installWorld(game: Game): () => void {
         if (mine !== token || game.flow.state !== 'hub') hub.dispose();
         else {
           game.scenes.switchTo(hub);
-          hideVeil();
+          // The veil stays until the hall's shaders are warmed and its first frame is drawn.
+          stopWaiting?.();
+          stopWaiting = whenSceneDrawn(game, hub.scene, hideVeil);
         }
       })
       .catch((error: unknown) => {

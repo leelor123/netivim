@@ -1,4 +1,4 @@
-import { segmentBlocked, type Collider } from '../core/collision';
+import { segmentBlockedAny, type Collider } from '../core/collision';
 import { Telegraph } from '../core/telegraph';
 
 /**
@@ -94,7 +94,7 @@ export class Patrol {
       const cos = (dx * fx + dz * fz) / d;
       if (cos < Math.cos(this.def.viewHalfAngle)) return false;
     }
-    for (const o of occluders) if (segmentBlocked(this.x, this.z, px, pz, o)) return false;
+    if (segmentBlockedAny(this.x, this.z, px, pz, occluders)) return false;
     return true;
   }
 

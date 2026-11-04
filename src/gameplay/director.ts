@@ -7,6 +7,10 @@ import type { Game } from '../game';
 import { TimelineScreen, timelineInput } from '../features/timeline/timelineScreen';
 import { glyphFor } from '../ui/glyphs';
 import { worldQualityFromSettings } from '../world/quality';
+import { getRenderPipeline, type RenderPipeline } from '../render/renderPipeline';
+import { whenSceneDrawn } from '../render/sceneVeil';
+import type * as THREE from 'three';
+import type { GameScene } from '../render/sceneManager';
 import { ChapterRun } from './core/chapterRun';
 import { ledgerRows, recordChoice } from './core/ledger';
 import { applyUnlock, atMissionStart, buildRecap, completeChapter, completeMission, nextMissionIndex, withMissionSnapshot } from './core/progress';
@@ -50,12 +54,25 @@ const UNLOCK_TOAST: Readonly<Record<UnlockKind, string>> = {
  * missions -> cutscene -> debrief -> quiz -> hub, plus codex, archive and "Previously on".
  * Owns the safe-moment autosaves (BRIEF 8.D) and the mission-start save (8.B).
  */
+/**
+ * While the level's shaders warm up nothing is drawn: the mission (clock, patrols, dawn, input)
+ * waits for the first real frame instead of running behind a frozen one. No pipeline (headless
+ * tools): always steps.
+ */
+export function missionMayStep(host: Pick<MissionHost, 'level'>, pipeline: Pick<RenderPipeline, 'holdsSimulation'> | undefined): boolean {
+  const scene = host.level?.scene.scene;
+  return !scene || !pipeline || !pipeline.holdsSimulation(scene);
+}
+
 export class Director {
   readonly stack: ScreenStack;
   host: MissionHost | null = null;
   run: ChapterRun | null = null;
   private levelDef: AnyLevelDefinition | null = null;
   private hud: MissionHud | null = null;
+  private missionVeil: { readonly el: HTMLElement; readonly stop: () => void } | null = null;
+  /** Frame hooks waiting to dispose hosts whose level scene is still on screen. */
+  private readonly retiring: (() => void)[] = [];
   private cameFromTitle = true;
   private chapterEnd = false;
   /** True while the flow is in a chapter run this director started (it never hijacks others). */
@@ -88,7 +105,9 @@ export class Director {
       }),
       game.bus.on('mission:checkpoint', () => game.save.markDirty()),
       game.onStep((dt) => {
-        if (this.host && game.flow.state === 'mission') this.host.update(dt);
+        const host = this.host;
+        if (!host || game.flow.state !== 'mission') return;
+        if (missionMayStep(host, getRenderPipeline(game.renderer))) host.update(dt);
       }),
     );
   }
@@ -97,6 +116,7 @@ export class Director {
     this.token++;
     for (const off of this.offs) off();
     this.cleanupMission();
+    for (const off of this.retiring.splice(0)) off();
     this.stack.dispose();
   }
 
@@ -115,6 +135,7 @@ export class Director {
         this.stack.clear();
         this.cleanupMission();
         this.run = null;
+        this.levelDef = null;
         this.cameFromTitle = true;
         break;
       case 'hub': {
@@ -126,6 +147,8 @@ export class Director {
           else this.resetResumeToMissionStart();
         }
         this.cleanupMission();
+        // The next briefing loads its level definition again; the hub keeps nothing of the last one.
+        this.levelDef = null;
         this.game.save.autosave(from === 'quiz' ? 'chapter-complete' : 'hub');
         const showRecap = this.cameFromTitle && this.game.getState().resume.chapterId !== null;
         this.cameFromTitle = false;
@@ -396,6 +419,29 @@ export class Director {
     const level = host.start();
     game.scenes.switchTo(level.scene);
     hud.attach(host);
+    this.showMissionVeil(level.scene.scene);
+  }
+
+  /**
+   * Covers the frozen previous frame while the level's shaders warm up (the mission does not step
+   * meanwhile; see the onStep gate). Same look as the hub's loading veil, no text of its own.
+   */
+  private showMissionVeil(scene: THREE.Scene): void {
+    this.hideMissionVeil();
+    const el = document.createElement('div');
+    el.className = 'nv-hub-veil';
+    el.setAttribute('aria-busy', 'true');
+    document.body.append(el);
+    const stop = whenSceneDrawn(this.game, scene, () => this.hideMissionVeil());
+    this.missionVeil = { el, stop };
+  }
+
+  private hideMissionVeil(): void {
+    const v = this.missionVeil;
+    if (!v) return;
+    this.missionVeil = null;
+    v.stop();
+    v.el.remove();
   }
 
   private onMissionComplete(): void {
@@ -437,11 +483,30 @@ export class Director {
    */
   private cleanupMission(): void {
     this.disposeHud();
+    this.hideMissionVeil();
     const host = this.host;
     if (!host) return;
     this.host = null;
-    if (host.level && this.game.scenes.active === host.level.scene) host.interactions.clear();
-    else host.dispose();
+    const scene = host.level?.scene;
+    if (scene && this.game.scenes.active === scene) {
+      // Still on screen (behind the debrief, quiz or hub loading veil): free the level fully once
+      // the SceneManager has switched away from it (Level.dispose is idempotent), so nothing of
+      // the level outlives the switch through the host.
+      host.interactions.clear();
+      this.retireHost(host, scene);
+    } else host.dispose();
+  }
+
+  /** Disposes `host` on the first frame its level scene is no longer the active scene. */
+  private retireHost(host: MissionHost, scene: GameScene): void {
+    const off = this.game.onFrame(() => {
+      if (this.game.scenes.active === scene) return;
+      off();
+      const i = this.retiring.indexOf(off);
+      if (i >= 0) this.retiring.splice(i, 1);
+      host.dispose();
+    });
+    this.retiring.push(off);
   }
 
   // ---- debrief / quiz -----------------------------------------------------------------------

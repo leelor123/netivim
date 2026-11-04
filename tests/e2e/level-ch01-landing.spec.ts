@@ -227,6 +227,10 @@ test('Night Landing: controller-only QA pilot, soft fail with retry, then the wh
 
 test('Night Landing: the beach scene stays inside the Ultra render budget', async ({ page }) => {
   test.setTimeout(300000);
+  // Draw calls and triangles do not depend on the canvas size. A small canvas keeps software-GL
+  // Ultra frames (post chain, GTAO, bokeh: about 1.7 s each at the default viewport) short
+  // enough that the hub's async chapter loading is not starved when other browsers share the CPU.
+  await page.setViewportSize({ width: 480, height: 240 });
   const problems = watchConsole(page);
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await expect.poll(() => flowState(page), { timeout: 60000 }).toBe('title');
