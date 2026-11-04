@@ -8,16 +8,53 @@ export interface SpeechLike {
   getVoices(): SpeechSynthesisVoice[];
 }
 
-export interface NarratorDeps {
-  /** Null when the platform has no SpeechSynthesis. */
-  synth: SpeechLike | null;
-  createUtterance: ((text: string) => SpeechSynthesisUtterance) | null;
+/** One line for a speech backend. Volume 0..1; rate 1 = normal. */
+export interface SpeakRequest {
+  readonly text: string;
+  readonly rate: number;
+  readonly volume: number;
+}
+
+/** Lifecycle of one spoken line. onEnd covers done, error and stop. */
+export interface SpeechHandlers {
+  onStart(): void;
+  onEnd(): void;
+}
+
+/**
+ * Where speech comes from: the browser's speechSynthesis ('web'), the Android TTS engine through
+ * the NetivimTts plugin ('native', src/platform/nativeTts.ts), or nothing ('none').
+ */
+export interface SpeechBackend {
+  readonly kind: 'web' | 'native' | 'none';
+  /** Best current knowledge; may be false until an async check has finished. */
+  hasVoice(): boolean;
+  /** Asks the platform again (the player may have installed a voice) and resolves the answer. */
+  checkVoice(): Promise<boolean>;
+  /** Starts speaking `req`, replacing anything queued. May throw; the Narrator catches. */
+  speak(req: SpeakRequest, handlers: SpeechHandlers): void;
+  /** Stops at once. Late events of the stopped line may still arrive. */
+  cancel(): void;
+}
+
+interface NarratorCommon {
   i18n: I18n;
   /** Live settings: voice on/off and the narration / master levels. */
   getLevels(): { voice: boolean; narration: number; master: number };
   /** Called when speech starts or ends (used to duck the music). */
   onSpeaking?(speaking: boolean): void;
 }
+
+/** Either a ready backend, or the raw SpeechSynthesis pieces (wrapped in a web backend). */
+export type NarratorDeps = NarratorCommon &
+  (
+    | { backend: SpeechBackend }
+    | {
+        /** Null when the platform has no SpeechSynthesis. */
+        synth: SpeechLike | null;
+        createUtterance: ((text: string) => SpeechSynthesisUtterance) | null;
+      }
+  );
 
 function normalizeLang(lang: string): string {
   return lang.replace('_', '-').toLowerCase();
@@ -44,64 +81,106 @@ export function pickHebrewVoice(voices: readonly SpeechSynthesisVoice[]): Speech
   return best;
 }
 
+/** Speech through the browser's SpeechSynthesis. With no synth it is a silent 'none' backend. */
+export function webSpeechBackend(
+  synth: SpeechLike | null,
+  createUtterance: ((text: string) => SpeechSynthesisUtterance) | null,
+): SpeechBackend {
+  const hasVoice = (): boolean => {
+    try {
+      return synth ? pickHebrewVoice(synth.getVoices()) !== null : false;
+    } catch {
+      return false;
+    }
+  };
+  return {
+    kind: synth && createUtterance ? 'web' : 'none',
+    hasVoice,
+    checkVoice: () => Promise.resolve(hasVoice()),
+    speak(req, handlers) {
+      if (!synth || !createUtterance) return;
+      const voice = pickHebrewVoice(synth.getVoices());
+      if (!voice) return;
+      const u = createUtterance(req.text);
+      u.lang = 'he-IL';
+      u.voice = voice;
+      u.volume = req.volume;
+      u.rate = req.rate;
+      u.onstart = () => handlers.onStart();
+      u.onend = () => handlers.onEnd();
+      u.onerror = () => handlers.onEnd();
+      synth.speak(u);
+    },
+    cancel() {
+      synth?.cancel();
+    },
+  };
+}
+
 /**
- * Speaks subtitle lines in Hebrew when a Hebrew voice exists. With no voice (or no
- * SpeechSynthesis at all) it stays silent; subtitles are shown by the UI regardless.
+ * Speaks subtitle lines in Hebrew when a Hebrew voice exists. With no voice (or no speech
+ * backend at all) it stays silent; subtitles are shown by the UI regardless.
  */
 export class Narrator {
   private speaking = false;
   private failsafe: ReturnType<typeof setTimeout> | null = null;
-  /** The utterance whose events may change state; null when nothing is queued or speaking. */
-  private current: SpeechSynthesisUtterance | null = null;
+  /** Token of the line whose events may change state; null when nothing is queued or speaking. */
+  private current: object | null = null;
+  private readonly backend: SpeechBackend;
 
-  constructor(private readonly deps: NarratorDeps) {}
+  constructor(private readonly deps: NarratorDeps) {
+    this.backend = 'backend' in deps ? deps.backend : webSpeechBackend(deps.synth, deps.createUtterance);
+  }
 
   get isSpeaking(): boolean {
     return this.speaking;
   }
 
+  /** Which platform speaks ('none' when there is no speech at all). */
+  get backendKind(): SpeechBackend['kind'] {
+    return this.backend.kind;
+  }
+
   /** Whether a Hebrew voice is currently available. */
   get hasVoice(): boolean {
     try {
-      return this.deps.synth ? pickHebrewVoice(this.deps.synth.getVoices()) !== null : false;
+      return this.backend.hasVoice();
     } catch {
       return false;
     }
   }
 
   onSubtitle(p: { textKey: string; voice: boolean }): void {
-    const { synth, createUtterance, i18n } = this.deps;
-    if (!p.voice || !synth || !createUtterance) return;
+    const { i18n } = this.deps;
+    if (!p.voice) return;
     const levels = this.deps.getLevels();
     if (!levels.voice) return;
     const volume = clamp(levels.narration * levels.master, 0, 1);
     if (volume <= 0 || !i18n.has(p.textKey)) return;
     try {
-      const voice = pickHebrewVoice(synth.getVoices());
-      if (!voice) return;
+      if (!this.backend.hasVoice()) return;
       const text = i18n.t(p.textKey);
       this.cancel();
-      const u = createUtterance(text);
-      u.lang = 'he-IL';
-      u.voice = voice;
-      u.volume = volume;
-      u.rate = 0.95;
-      // synth.cancel() delivers the previous utterance's onend/onerror asynchronously, often
-      // after this one started: every handler acts only while its utterance is the current one.
-      u.onstart = () => {
-        if (this.current !== u) return;
-        // Armed on start (not on speak) so a slow engine start does not eat into the estimate.
-        // Some WebViews never fire onend; this releases the ducking after a generous estimate.
-        this.clearFailsafe();
-        this.failsafe = setTimeout(() => {
-          if (this.current === u) this.setSpeaking(false);
-        }, Math.max(3000, text.length * 110 + 2000));
-        this.setSpeaking(true);
-      };
-      u.onend = () => this.finish(u);
-      u.onerror = () => this.finish(u);
-      this.current = u;
-      synth.speak(u);
+      // Stopping delivers the previous line's end / error asynchronously, often after this one
+      // started: every handler acts only while its line is the current one.
+      const token = {};
+      this.current = token;
+      this.backend.speak(
+        { text, rate: 0.95, volume },
+        {
+          onStart: () => {
+            if (this.current !== token) return;
+            // Armed on start (not on speak) so a slow engine start does not eat into the estimate.
+            // Some engines never report the end; this releases the ducking after a generous estimate.
+            this.clearFailsafe();
+            this.failsafe = setTimeout(() => {
+              if (this.current === token) this.setSpeaking(false);
+            }, Math.max(3000, text.length * 110 + 2000));
+            this.setSpeaking(true);
+          },
+          onEnd: () => this.finish(token),
+        },
+      );
     } catch {
       this.current = null;
       this.setSpeaking(false);
@@ -110,19 +189,19 @@ export class Narrator {
 
   /** Stops speech immediately (subtitle:clear, pause, app hidden, voice switched off). */
   cancel(): void {
-    // Cleared first: the cancelled utterance's late events must find it is no longer current.
+    // Cleared first: the cancelled line's late events must find it is no longer current.
     this.current = null;
     try {
-      this.deps.synth?.cancel();
+      this.backend.cancel();
     } catch {
       // Cancelling must never throw into the game.
     }
     this.setSpeaking(false);
   }
 
-  /** onend / onerror of `u`; ignored unless `u` is still the current utterance. */
-  private finish(u: SpeechSynthesisUtterance): void {
-    if (this.current !== u) return;
+  /** End of the line `token`; ignored unless it is still the current line. */
+  private finish(token: object): void {
+    if (this.current !== token) return;
     this.current = null;
     this.setSpeaking(false);
   }

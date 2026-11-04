@@ -9,11 +9,22 @@ import { captureNextGamepadButton } from '../remap';
 import type { UiScreen } from '../uiScreen';
 import { LOOK_SENSITIVITY_MAX, LOOK_SENSITIVITY_MIN } from '../../core/input/lookDrag';
 import { button, choiceRow, customRow, heading, sliderRow, toggleRow } from '../widgets';
+import { sharedSpeechBackend } from '../../platform/speech';
+import { localHintFlag, VoiceHint } from '../voiceHint';
 
 export const SETTINGS_TABS = ['graphics', 'audio', 'accessibility', 'gameplay', 'controls'] as const;
 export type SettingsTab = (typeof SETTINGS_TABS)[number];
 
 const RESOLUTION_STEPS = [0, 0.5, 0.6, 0.7, 0.8, 0.9, 1] as const;
+
+const voiceHint = new VoiceHint(sharedSpeechBackend, localHintFlag());
+
+/** Hidden note that turns into the "install a Hebrew voice" hint when it applies. */
+function voiceHintRow(text: string): HTMLElement {
+  const el = h('p', { class: 'nv-note', attrs: { role: 'status', 'data-hint': 'voice-missing' } });
+  voiceHint.attach(el, text);
+  return el;
+}
 
 /** Settings with five tabs. Every change goes through game.settings.update (saved at once). */
 export function settingsScreen(ctx: UiContext, initialTab: SettingsTab = 'graphics'): UiScreen {
@@ -155,6 +166,7 @@ export function settingsScreen(ctx: UiContext, initialTab: SettingsTab = 'graphi
         vol('narration'),
         toggleRow({ label: t('ui.audio.voice'), key: 'audio-voice', ...onOff, get: () => s().audio.voice, set: (v) => update('audio', { voice: v }) }),
         h('p', { class: 'nv-note', text: t('ui.audio.voiceNote') }),
+        voiceHintRow(t('ui.audio.voiceMissing')),
       ];
     },
     accessibility: () => [

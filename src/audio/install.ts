@@ -1,7 +1,8 @@
 import type { Game } from '../game';
 import { TITLE_CUE } from './cues';
 import { AudioEngine, type EngineOptions } from './engine';
-import { Narrator, browserSpeech } from './narration';
+import { Narrator } from './narration';
+import { sharedSpeechBackend } from '../platform/speech';
 import { EraScore } from './score';
 import { SfxPlayer } from './sfx';
 import { BED_PREFIX } from './cues';
@@ -27,10 +28,9 @@ export function installAudio(game: Game, engineOptions: EngineOptions = {}): () 
   const engine = new AudioEngine(engineOptions);
   const sfx = new SfxPlayer(engine);
   const score = new EraScore(engine);
-  const speech = browserSpeech();
   const narrator = new Narrator({
-    synth: speech.synth,
-    createUtterance: speech.createUtterance,
+    // Native Android TTS in the app (the WebView has no speechSynthesis), speechSynthesis elsewhere.
+    backend: sharedSpeechBackend(),
     i18n: game.i18n,
     getLevels: () => ({ voice: settings.value.audio.voice, narration: settings.value.audio.narration, master: settings.value.audio.master }),
     onSpeaking: (speaking) => {
