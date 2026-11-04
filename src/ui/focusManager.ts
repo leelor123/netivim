@@ -48,7 +48,11 @@ export interface FocusManagerDeps {
  * from key events (so quick taps are never missed); pads and touch buttons from the InputManager.
  */
 export class FocusManager {
-  current: HTMLElement | null = null;
+  private ringEl: HTMLElement | null = null;
+  /** The focused element (the one ring). Read-only: only setRing moves it. */
+  get current(): HTMLElement | null {
+    return this.ringEl;
+  }
   /** While true (e.g. remap capture) input is tracked but not acted on. */
   suspended = false;
   /** Time of the last action handled from a key event. */
@@ -145,25 +149,38 @@ export class FocusManager {
   /** Focuses an element (or the top screen's preferred element when null is not wanted). */
   focus(el: HTMLElement | null): boolean {
     if (!el || el === this.current) return false;
-    this.current?.classList.remove('is-focus');
-    this.current = el;
-    el.classList.add('is-focus');
-    if (document.activeElement !== el) el.focus({ preventScroll: true });
-    el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: this.deps.reducedMotion() ? 'auto' : 'smooth' });
+    this.show(el);
     return true;
+  }
+
+  /** Moves the ring to `el`, takes DOM focus and scrolls it into view (also when it already is current). */
+  private show(el: HTMLElement): void {
+    this.setRing(el);
+    if (el.ownerDocument.activeElement !== el) el.focus({ preventScroll: true });
+    el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: this.deps.reducedMotion() ? 'auto' : 'smooth' });
+  }
+
+  /**
+   * The ONLY writer of the focus ring. Invariant: at most one element in the document carries
+   * .is-focus, and it is `current`. Every other ring is cleared here, so a screen that re-renders,
+   * keeps old buttons, or re-focuses by key can never leave a stale ring behind.
+   */
+  private setRing(el: HTMLElement | null): void {
+    const doc = (el ?? this.current)?.ownerDocument;
+    if (doc) for (const other of Array.from(doc.querySelectorAll<HTMLElement>('.is-focus'))) if (other !== el) other.classList.remove('is-focus');
+    this.ringEl = el;
+    el?.classList.add('is-focus');
   }
 
   /** Called when the top screen changes: restore or pick the initial focus. */
   refresh(): void {
     const top = this.deps.screens.top;
     if (!top) {
-      this.current?.classList.remove('is-focus');
-      this.current = null;
+      this.setRing(null);
       return;
     }
     if (this.current && top.el.contains(this.current) && this.current.isConnected) return;
-    this.current?.classList.remove('is-focus');
-    this.current = null;
+    this.setRing(null);
     const remembered = top.lastFocus;
     const pick = remembered?.isConnected && this.isUsable(remembered) ? remembered : (top.initialFocus?.() ?? null);
     if (pick && this.isUsable(pick)) this.focus(pick);
@@ -175,10 +192,7 @@ export class FocusManager {
     const top = this.deps.screens.top;
     if (!top || !key) return;
     const el = top.el.querySelector<HTMLElement>('[data-key="' + CSS.escape(key) + '"]');
-    if (el) {
-      this.current = null;
-      this.focus(el);
-    }
+    if (el) this.show(el);
   }
 
   /** Attaches keyboard, pointer and focus listeners. Returns a detach function. */
@@ -203,20 +217,14 @@ export class FocusManager {
     };
     const onFocusIn = (e: FocusEvent): void => {
       const t = e.target;
-      if (t instanceof HTMLElement && t.hasAttribute('data-focusable') && t !== this.current) {
-        this.current?.classList.remove('is-focus');
-        this.current = t;
-        t.classList.add('is-focus');
-      }
+      if (t instanceof HTMLElement && t.hasAttribute('data-focusable') && t !== this.current) this.setRing(t);
     };
     const onPointerOver = (e: PointerEvent): void => {
       if (e.pointerType !== 'mouse' || !(e.target instanceof Element)) return;
       const el = e.target.closest<HTMLElement>(SELECTOR);
       const top = this.deps.screens.top;
       if (el && top?.el.contains(el) && this.isUsable(el) && el !== this.current) {
-        this.current?.classList.remove('is-focus');
-        this.current = el;
-        el.classList.add('is-focus');
+        this.setRing(el);
         el.focus({ preventScroll: true });
       }
     };
