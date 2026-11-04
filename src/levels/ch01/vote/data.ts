@@ -175,6 +175,18 @@ export const COURT: RoomSpec = { id: 'court', cx: 32, cz: 4, w: 14, d: 11, door:
 export const ROOMS: readonly RoomSpec[] = [HALL, HOME, OFFICE, COURT];
 
 export const SPAWN = { x: 0, z: -41.2, heading: Math.PI };
+/**
+ * Where the player stands, and which way, when a checkpoint starts. The follow camera sits 6.5 m
+ * behind the player, so in the 14 m deep hall the player faces along the 20 m width (west), which
+ * keeps the camera clear of the walls and frames the planning table and the cards.
+ */
+export const CHECKPOINT_SPAWN: Readonly<Record<VoteState, { x: number; z: number; heading: number }>> = {
+  map: { x: 2.5, z: -43, heading: -Math.PI / 2 },
+  statements: { x: 2.5, z: -41.5, heading: -Math.PI / 2 },
+  visits: { x: 0, z: -12.5, heading: 0 },
+  note: { x: -4, z: -1.5, heading: 0 },
+  vote: { x: 0, z: -3.5, heading: 0 },
+};
 export const TABLE = { x: -5.5, z: -44.5, hw: 2.2, hd: 1.3, stand: { x: -5.5, z: -41.9 } };
 export const CARD_TABLE = { x: 5.2, z: -46.4, hw: 3.5, hd: 0.7 };
 export const CARD_SPOTS: readonly { readonly x: number; readonly z: number }[] = [2.7, 4.3, 5.9, 7.5].map((x) => ({ x, z: -44.9 }));
