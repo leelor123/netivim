@@ -94,6 +94,9 @@ export class MissionHost {
   private checkpointProgress: Record<string, number> = {};
   private sayQueue: Line[] = [];
   private sayTimer = 0;
+  /** The line last shown by the say queue and the seconds it holds the queue (may be extended). */
+  private sayCurrent: { textKey: string; sec: number } | null = null;
+  private readonly offExtend: () => void;
   /** Content label of the lines being said (shown as a chip in the caption). */
   private sayLabel: ContentLabel | null = null;
   private lastFailure: FailureReport | null = null;
@@ -104,6 +107,7 @@ export class MissionHost {
   constructor(private readonly o: MissionHostOptions) {
     this.objectives = new ObjectiveTracker(o.def.objectives, (objectiveKey) => o.bus.emit('mission:objective', { missionId: o.def.missionId, objectiveKey }));
     this.runtime = new MissionRuntime(this.missionDef(), o.bus);
+    this.offExtend = o.bus.on('subtitle:extend', ({ textKey, durationMs }) => this.onSubtitleExtend(textKey, durationMs));
     this.ctx = {
       bus: o.bus,
       input: o.input,
@@ -224,6 +228,7 @@ export class MissionHost {
     this.objectives.resetProgress(this.checkpointProgress);
     this.objectives.syncState(this.runtime.state);
     this.sayQueue = [];
+    this.sayCurrent = null;
     this.level.enterCheckpoint(this.runtime.checkpoint, null);
     this.phase = 'running';
     this.lastFailure = null;
@@ -264,6 +269,7 @@ export class MissionHost {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.offExtend();
     this.interactions.clear();
     if (this.touchBar) this.o.bus.emit('ui:touch-actions', { items: null });
     this.level?.dispose();
@@ -304,6 +310,7 @@ export class MissionHost {
     this.sayQueue = [...lines];
     this.sayLabel = label;
     this.sayTimer = 0;
+    this.sayCurrent = null;
     this.o.hooks.onSay?.(lines, label);
   }
 
@@ -313,6 +320,22 @@ export class MissionHost {
     if (this.sayTimer > 0) return;
     const line = this.sayQueue.shift() as Line;
     this.sayTimer = line.durationMs / 1000;
+    this.sayCurrent = { textKey: line.textKey, sec: line.durationMs / 1000 };
+    // The caption may answer synchronously with subtitle:extend (see onSubtitleExtend).
     this.o.bus.emit('subtitle:show', { textKey: line.textKey, speakerKey: line.speakerKey, durationMs: line.durationMs, voice: true, label: this.sayLabel });
+  }
+
+  /**
+   * The caption needs the current line on screen for `durationMs` in total (its pages would not
+   * fit the line's own duration), so the next queued line waits that much longer. Requests for a
+   * line that is no longer current are ignored.
+   */
+  private onSubtitleExtend(textKey: string, durationMs: number): void {
+    const cur = this.sayCurrent;
+    if (!cur || cur.textKey !== textKey) return;
+    const sec = durationMs / 1000;
+    if (sec <= cur.sec) return;
+    this.sayTimer += sec - cur.sec;
+    cur.sec = sec;
   }
 }

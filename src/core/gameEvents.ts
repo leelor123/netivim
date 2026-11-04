@@ -35,6 +35,13 @@ export interface GameEvents {
   /** `label`: content label of the line (testimony, composite character); shown as a chip in the caption. */
   'subtitle:show': { textKey: string; speakerKey: string | null; durationMs: number; voice: boolean; label?: 'documented' | 'reconstructed' | 'composite' | null };
   'subtitle:clear': Record<string, never>;
+  /**
+   * Emitted by the caption (synchronously, while handling subtitle:show) when the line's pages need
+   * longer than its durationMs at the minimum page time. `durationMs` is the total time the line
+   * must stay current, from its show. The mission host holds its say queue that long; fixed
+   * timelines (cutscenes) may ignore it.
+   */
+  'subtitle:extend': { textKey: string; durationMs: number };
   /** Play a named sound cue (sfx/ambience/music change), owned by the audio system. */
   'audio:cue': { cue: string; intensity?: number };
   /** Music mood for the procedural score. */

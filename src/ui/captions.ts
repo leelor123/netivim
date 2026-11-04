@@ -89,9 +89,59 @@ function lastSentenceEnd(s: string): number {
   return best;
 }
 
-/** Splits a line's duration over its pages by length (each page at least `minMs`). */
-export function pageDurations(pages: readonly string[], totalMs: number, minMs = 1800): number[] {
-  if (totalMs <= 0) return pages.map(() => 0);
-  const total = pages.reduce((n, p) => n + p.length, 0) || 1;
-  return pages.map((p) => Math.max(minMs, Math.round((totalMs * p.length) / total)));
+/** Shortest time a caption page stays on screen (ms). */
+export const MIN_PAGE_MS = 1000;
+/** Reading pace for the non-last pages of a persistent line (ms per character, floored at MIN_PAGE_MS). */
+export const PERSISTENT_PAGE_MS_PER_CHAR = 70;
+
+/**
+ * Page timing contract (no page is ever skipped):
+ * - Timed line (`totalMs > 0`): every page gets `minMs`, the rest of `totalMs` is split by page
+ *   length, and the durations sum to exactly `totalMs`. When even `pages.length * minMs` does not
+ *   fit, every page gets `minMs` and the sum is larger than `totalMs`: the caption then asks the
+ *   line's owner to hold the line that long (subtitle:extend, see captionHoldMs).
+ * - Persistent line (`totalMs <= 0`): every page but the last gets a reading-time duration; the
+ *   last page gets 0 and stays until subtitle:clear (or the next subtitle:show).
+ */
+export function pageDurations(pages: readonly string[], totalMs: number, minMs = MIN_PAGE_MS): number[] {
+  if (pages.length === 0) return [];
+  if (totalMs <= 0) {
+    return pages.map((p, i) => (i === pages.length - 1 ? 0 : Math.max(minMs, Math.round(p.length * PERSISTENT_PAGE_MS_PER_CHAR))));
+  }
+  const budget = Math.max(Math.round(totalMs), pages.length * minMs);
+  const spare = budget - pages.length * minMs;
+  const chars = pages.reduce((n, p) => n + p.length, 0);
+  // Cumulative rounding keeps the sum exact (= budget) and each page at least minMs.
+  const out: number[] = [];
+  let acc = 0;
+  let given = 0;
+  for (const p of pages) {
+    acc += chars > 0 ? p.length : 1;
+    const upTo = Math.round((spare * acc) / (chars > 0 ? chars : pages.length));
+    out.push(minMs + upTo - given);
+    given = upTo;
+  }
+  return out;
+}
+
+/**
+ * How long the line must stay current so every page is shown: the sum of the page durations, or
+ * 0 for a persistent line whose last page has no timeout (it holds until cleared).
+ */
+export function captionHoldMs(durations: readonly number[]): number {
+  return durations.reduce((n, d) => n + d, 0);
+}
+
+export interface CaptionPlan {
+  readonly pages: string[];
+  readonly durations: number[];
+  /** captionHoldMs(durations). Larger than the line's durationMs when paging needs more time. */
+  readonly holdMs: number;
+}
+
+/** Pages a line for a caption capacity and times its pages (see pageDurations). */
+export function planCaption(text: string, capacity: number, durationMs: number): CaptionPlan {
+  const pages = paginateCaption(text, capacity);
+  const durations = pageDurations(pages, durationMs);
+  return { pages, durations, holdMs: captionHoldMs(durations) };
 }
