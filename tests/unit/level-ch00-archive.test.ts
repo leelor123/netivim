@@ -14,7 +14,7 @@ import archive, { type ArchiveLevel } from '../../src/levels/ch00/archive-night'
 import { LabelSorter, SORT_CARDS } from '../../src/levels/ch00/shared/labels';
 import { SPAWNS, STATE_ORDER, SPOTS, freshProgress, progressFor, promptFor } from '../../src/levels/ch00/shared/layout';
 
-function host(difficulty: 'story' | 'normal' | 'challenge' = 'normal') {
+function host(difficulty: 'story' | 'normal' | 'challenge' = 'normal', at?: { state: string; data: unknown }) {
   const bus = new EventBus<GameEvents>();
   const input = new BotInput();
   const failures: string[] = [];
@@ -23,6 +23,7 @@ function host(difficulty: 'story' | 'normal' | 'challenge' = 'normal') {
     bus,
     input,
     difficulty: () => difficulty,
+    ...(at ? { snapshot: { missionId: archive.missionId, state: at.state, checkpoint: at.state, data: at.data } } : {}),
     headless: true,
     quality: { ...DEFAULT_WORLD_QUALITY, shadows: false },
     reducedMotion: () => false,
@@ -39,7 +40,15 @@ function host(difficulty: 'story' | 'normal' | 'challenge' = 'normal') {
       h.update(FIXED_DT);
     }
   };
-  return { h, level, step, failures };
+  return { h, level, step, failures, input };
+}
+
+/** Starts the level at the lenses state with the player standing at (x, z). */
+function atLenses(x: number, z: number) {
+  const g = host('normal', { state: 'lenses', data: null });
+  g.level.enterCheckpoint('lenses', { x, z, progress: progressFor('lenses', null) });
+  g.step(5);
+  return g;
 }
 
 describe('archive-night level', () => {
@@ -232,6 +241,46 @@ describe('shelf tour and optional discovery', () => {
     expect(seen).not.toContain('codex:filastin-newspaper');
     expect(archive.briefingContextKey).toBe('levels.ch00.archive.context');
     expect(HEBREW['levels.ch00.archive.context']).toBeTruthy();
+  });
+});
+
+describe('sheets and the opening press', () => {
+  it('the press that opens a lens sheet neither closes it nor switches the lens', () => {
+    const g = atLenses(SPOTS.lensA.x, SPOTS.lensA.z);
+    g.input.tap('interact');
+    g.step(1);
+    expect(g.level.qa.modal).toBe('lens');
+    expect(g.level.qa.progress.lensA).toBe(true);
+    g.step(20);
+    expect(g.level.qa.modal).toBe('lens');
+    expect(g.level.qa.progress.lensB).toBe(false);
+    g.h.dispose();
+  });
+
+  it('the first lens is always the amber one, even when the player stands nearer the blue stand', () => {
+    const g = atLenses((SPOTS.lensA.x + SPOTS.lensB.x) / 2 + 0.5, SPOTS.lensA.z);
+    g.input.tap('interact');
+    g.step(1);
+    expect(g.level.qa.modal).toBe('lens');
+    expect(g.level.qa.progress.lensA).toBe(true);
+    expect(g.level.qa.progress.lensB).toBe(false);
+    g.h.dispose();
+  });
+
+  it('a display case sheet ignores its opening press and closes on a fresh one', () => {
+    const g = host('normal', { state: 'shelf_tour', data: null });
+    g.level.enterCheckpoint('shelf_tour', { x: SPOTS.caseA.x, z: SPOTS.caseA.z, progress: progressFor('shelf_tour', null) });
+    g.step(5);
+    g.input.tap('interact');
+    g.step(1);
+    expect(g.level.qa.modal).toBe('case');
+    g.step(10);
+    expect(g.level.qa.modal).toBe('case');
+    g.input.tap('interact');
+    g.step(1);
+    expect(g.level.qa.modal).toBe('none');
+    expect(g.level.qa.progress.caseA).toBe(true);
+    g.h.dispose();
   });
 });
 

@@ -82,7 +82,7 @@ const FAILURES: Readonly<Record<string, FailureInfo>> = {
 const objectiveKeys = OBJECTIVE_KEYS[MISSION_ID] ?? [];
 const okey = (i: number): string => objectiveKeys[i] ?? '';
 
-const lineMs = (text: string): number => Math.max(3200, text.length * 75);
+const lineMs = (text: string): number => Math.max(2600, text.length * 58);
 
 function isSnapshot(v: unknown): v is { x: number; z: number; progress: Progress } {
   if (typeof v !== 'object' || v === null) return false;
@@ -260,8 +260,8 @@ function build(ctx: LevelContext<E>): ArchiveLevel {
   caseSpot('caseC', '#5aa8f0');
   // Optional discovery: never required, available from the tour until the labels table.
   addSpot('nook', SPOTS.nook, p('prompt.nook'), '#7fd6ff', () => ['shelf_tour', 'lenses', 'labels_table'].includes(stateNow()) && !progress.nook, () => openCase('nook'));
-  addSpot('lensA', SPOTS.lensA, p('prompt.lensA'), '#f0a63a', () => stateNow() === 'lenses', () => openLens('a'));
-  addSpot('lensB', SPOTS.lensB, p('prompt.lensB'), '#5aa8f0', () => stateNow() === 'lenses', () => openLens('b'));
+  addSpot('lensA', SPOTS.lensA, p('prompt.lensA'), '#f0a63a', () => stateNow() === 'lenses' && !progress.lensA, () => openLens('a'));
+  addSpot('lensB', SPOTS.lensB, p('prompt.lensB'), '#5aa8f0', () => stateNow() === 'lenses' && progress.lensA && !progress.lensB, () => openLens('b'));
   addSpot('table', SPOTS.table, p('prompt.labels'), '#f2c14e', () => stateNow() === 'labels_table', () => openSorter());
   addSpot('glow', SPOTS.table, p('prompt.glow'), '#ffe9a8', () => stateNow() === 'document_opens' && finale < 0, () => startFinale());
   const offFocus = ctx.interactions.onFocus((next) => {
@@ -323,6 +323,7 @@ function build(ctx: LevelContext<E>): ArchiveLevel {
     else progress.lensB = true;
     cue('ui.toggle');
     open('lens');
+    refresh();
     const both = progress.lensA && progress.lensB;
     const paragraphs = [t(p('lens.' + which + '.body'))];
     if (both) paragraphs.push(t(p('lens.common')), t(p('lens.limits')));
@@ -381,6 +382,12 @@ function build(ctx: LevelContext<E>): ArchiveLevel {
     if (m === 'case' && activeCase) {
       progress[activeCase] = true;
       activeCase = null;
+      cue('ui.confirm');
+      if (allCases()) {
+        // Small payoff for finishing the tour: the lamp flickers and Noa reacts.
+        vis.flicker = 1.4;
+        say([[p('line.tour.done.noa'), 'noa']]);
+      }
       refresh();
     } else if (m === 'reflect') {
       send('tour_done');
