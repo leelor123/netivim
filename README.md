@@ -7,6 +7,8 @@ discovery, planning, rescue and understanding history from more than one perspec
 Status: early development (M0). See PROGRESS.md.
 
 ## Install on Android
+Hebrew install and auto-update guide (Obtainium): docs/INSTALL_HE.md
+
 Download netivim.apk from the latest release:
 https://github.com/leelor123/netivim/releases/latest/download/netivim.apk
 
