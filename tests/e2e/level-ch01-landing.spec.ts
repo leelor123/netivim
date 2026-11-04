@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import type { BotStep } from '../../src/gameplay/types';
+import { applyCpuThrottle } from './helpers/throttle';
 
 /**
  * Night Landing E2E, controller only: the page sees nothing but a mocked gamepad. A QA pilot reads
@@ -30,6 +31,8 @@ interface PadState {
 }
 
 test.beforeEach(async ({ page }) => {
+  // E2E_CPU_THROTTLE=<rate> emulates the slow CI machine (helpers/throttle.ts).
+  await applyCpuThrottle(page);
   await page.addInitScript(() => {
     const pad = {
       id: 'Xbox Wireless Controller (Vendor: 045e)',
@@ -70,6 +73,32 @@ async function pressConfirm(page: Page): Promise<void> {
 }
 
 const flowState = (page: Page): Promise<string | undefined> => page.evaluate(() => window.__netivim?.flow.state);
+
+/**
+ * Confirms "continue as usual" on the content note, once its primary button has the focus. A
+ * first pad press may only move the UI from touch to controller mode on a slow machine, so it
+ * presses again, but only while the note is still up (it never presses on the briefing).
+ */
+async function chooseStandardOnNote(page: Page): Promise<void> {
+  const note = page.locator('[data-screen="gp-content-note"]');
+  // The device is still "touch" here (no ring is drawn), so check the focused element itself.
+  await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute('data-key') ?? null), { timeout: 30000 }).toBe('note-standard');
+  for (let tries = 0; tries < 3; tries++) {
+    await pressConfirm(page);
+    const left = await expect
+      .poll(async () => (await flowState(page)) !== 'hub' || !(await note.isVisible()), { timeout: 20000 })
+      .toBe(true)
+      .then(() => true, () => false);
+    if (left) return;
+  }
+  const diag = await page.evaluate(() => ({
+    flow: window.__netivim?.flow.state,
+    focused: document.querySelector('.is-focus')?.getAttribute('data-key') ?? null,
+    screens: [...document.querySelectorAll('[data-screen]')].map((e) => e.getAttribute('data-screen')),
+    toasts: [...document.querySelectorAll('[role="status"]')].map((e) => e.textContent),
+  }));
+  console.log('[landing diagnostics] ' + JSON.stringify(diag));
+}
 const missionState = (page: Page): Promise<string | undefined> => page.evaluate(() => window.__netivimGameplay?.host?.state);
 
 interface DriveResult {
@@ -180,7 +209,7 @@ test('Night Landing: controller-only QA pilot, soft fail with retry, then the wh
   await expect(note).toBeVisible({ timeout: 30000 });
   problems.length = 0;
 
-  await pressConfirm(page);
+  await chooseStandardOnNote(page);
   await expect.poll(() => flowState(page), { timeout: 60000 }).toBe('briefing');
   await expect(page.locator('[data-screen="gp-briefing"]')).toBeVisible({ timeout: 60000 });
   await expect(page.locator('[data-screen="gp-briefing"]')).toContainText('נחיתת לילה');
@@ -248,7 +277,7 @@ test('Night Landing: the beach scene stays inside the Ultra render budget', asyn
   await page.evaluate(() => window.__netivimGameplay?.beginChapter('ch01', false));
   await expect(page.locator('[data-screen="gp-content-note"]')).toBeVisible({ timeout: 30000 });
   problems.length = 0;
-  await pressConfirm(page);
+  await chooseStandardOnNote(page);
   await expect.poll(() => flowState(page), { timeout: 60000 }).toBe('briefing');
   await pressConfirm(page);
   await expect.poll(() => missionState(page), { timeout: 60000 }).toBe('sea');
