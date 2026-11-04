@@ -11,7 +11,12 @@ export interface Buses {
   /** Music layers connect here; it is dipped while narration speaks. */
   readonly musicDuck: GainNode;
   readonly sfx: GainNode;
+  /** Ambience cues connect here. */
   readonly ambience: GainNode;
+  /** Ambience sits behind this stage, which is dipped under narration and captions. */
+  readonly ambienceDuck: GainNode;
+  /** Final stage before the speakers; faded to silence around suspend/resume so there is no click. */
+  readonly gate: GainNode;
   readonly narration: GainNode;
 }
 
@@ -22,6 +27,8 @@ export interface EngineOptions {
   maxVoices?: number;
   /** Scheduler period in ms. */
   tickMs?: number;
+  /** Milliseconds the output fades before the context is suspended (0 suspends at once). */
+  gateFadeMs?: number;
 }
 
 /** Headroom so summed buses stay below full scale before the compressor. */
@@ -49,6 +56,9 @@ export class AudioEngine {
   private hidden = false;
   private audio: AudioSettings | null = null;
   private ducked = false;
+  private captionDucked = false;
+  private suspendTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly gateFadeMs: number;
   private timer: ReturnType<typeof setInterval> | null = null;
   private resuming = false;
   private disposed = false;
@@ -62,6 +72,7 @@ export class AudioEngine {
     this.seed = opts.seed ?? (Date.now() & 0x7fffffff);
     this.limiter = new VoiceLimiter(opts.maxVoices ?? 20);
     this.tickMs = opts.tickMs ?? 100;
+    this.gateFadeMs = opts.gateFadeMs ?? 90;
   }
 
   get context(): AudioContext | null {
@@ -122,16 +133,36 @@ export class AudioEngine {
     rampTo(b.narration.gain, audio.narration, now);
   }
 
-  /** Dips the music while narration is spoken. */
+  /** Dips the music (and a little of the ambience) while narration is spoken. */
   setDucked(ducked: boolean): void {
     this.ducked = ducked;
-    const ctx = this.ctx;
-    const b = this.busGraph;
-    if (ctx && b) rampTo(b.musicDuck.gain, ducked ? 0.5 : 1, ctx.currentTime, 0.2);
+    this.applyDuck();
+  }
+
+  /** A lighter dip while a caption is on screen, voiced or not. */
+  setCaptionDuck(ducked: boolean): void {
+    this.captionDucked = ducked;
+    this.applyDuck();
   }
 
   get isDucked(): boolean {
     return this.ducked;
+  }
+
+  get isCaptionDucked(): boolean {
+    return this.captionDucked;
+  }
+
+  private applyDuck(): void {
+    const ctx = this.ctx;
+    const b = this.busGraph;
+    if (!ctx || !b) return;
+    const music = this.ducked ? 0.5 : this.captionDucked ? 0.72 : 1;
+    const ambience = this.ducked ? 0.75 : this.captionDucked ? 0.9 : 1;
+    // Down quickly, back up slowly, so the return never pumps.
+    const now = ctx.currentTime;
+    rampTo(b.musicDuck.gain, music, now, music < b.musicDuck.gain.value ? 0.12 : 0.5);
+    rampTo(b.ambienceDuck.gain, ambience, now, ambience < b.ambienceDuck.gain.value ? 0.12 : 0.5);
   }
 
   /** Registers a scheduler; it is called every tick while the context is running. */
@@ -165,6 +196,7 @@ export class AudioEngine {
   dispose(): void {
     this.disposed = true;
     this.stopTimer();
+    this.clearSuspendTimer();
     this.tickers.clear();
     this.readyListeners.clear();
     this.limiter.clear();
@@ -194,17 +226,29 @@ export class AudioEngine {
     compressor.ratio.value = 4;
     compressor.attack.value = 0.005;
     compressor.release.value = 0.25;
+    // A second, fast compressor acts as a safety limiter so summed layers can never clip.
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -3;
+    limiter.knee.value = 0;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.002;
+    limiter.release.value = 0.12;
+    const gate = ctx.createGain();
     master.connect(compressor);
-    compressor.connect(ctx.destination);
+    compressor.connect(limiter);
+    limiter.connect(gate);
+    gate.connect(ctx.destination);
     const music = ctx.createGain();
     const musicDuck = ctx.createGain();
     const sfx = ctx.createGain();
     const ambience = ctx.createGain();
+    const ambienceDuck = ctx.createGain();
     const narration = ctx.createGain();
     musicDuck.connect(music);
-    for (const bus of [music, sfx, ambience, narration]) bus.connect(master);
+    ambience.connect(ambienceDuck);
+    for (const bus of [music, sfx, ambienceDuck, narration]) bus.connect(master);
     this.ctx = ctx;
-    this.busGraph = { master, music, musicDuck, sfx, ambience, narration };
+    this.busGraph = { master, music, musicDuck, sfx, ambience, ambienceDuck, gate, narration };
     this.noiseBank = new NoiseBank(ctx, this.seed);
     // Start from the saved levels without a ramp, so the first sound is not a fade-in click.
     const a = this.audio;
@@ -215,7 +259,7 @@ export class AudioEngine {
       ambience.gain.value = a.sfx;
       narration.gain.value = a.narration;
     }
-    if (this.ducked) musicDuck.gain.value = 0.5;
+    this.applyDuck();
     // The platform may suspend the context on its own (call, audio focus); recover when wanted.
     ctx.onstatechange = () => this.reconcile();
     for (const fn of [...this.readyListeners]) {
@@ -227,33 +271,67 @@ export class AudioEngine {
     }
   }
 
-  /** Makes the context match what we want: running when active, suspended when paused or hidden. */
+  private clearSuspendTimer(): void {
+    if (this.suspendTimer !== null) {
+      clearTimeout(this.suspendTimer);
+      this.suspendTimer = null;
+    }
+  }
+
+  /**
+   * Makes the context match what we want: running when active, suspended when paused or hidden.
+   * Suspending first fades the output gate to silence and resuming fades it back, so neither
+   * edge clicks.
+   */
   private reconcile(): void {
     const ctx = this.ctx;
-    if (!ctx || this.disposed) return;
+    const gate = this.busGraph?.gate;
+    if (!ctx || !gate || this.disposed) return;
     if (this.wantsRunning) {
-      if (ctx.state !== 'running' && !this.resuming) {
-        this.resuming = true;
-        void ctx
-          .resume()
-          .catch(() => undefined)
-          .finally(() => {
-            this.resuming = false;
-            // The wish may have changed while the promise was pending.
-            if (!this.wantsRunning && this.ctx?.state === 'running') this.reconcile();
-            else this.syncTimer();
-          });
+      this.clearSuspendTimer();
+      if (ctx.state !== 'running') {
+        if (!this.resuming) {
+          this.resuming = true;
+          gate.gain.cancelScheduledValues(ctx.currentTime);
+          gate.gain.value = 0;
+          void ctx
+            .resume()
+            .catch(() => undefined)
+            .finally(() => {
+              this.resuming = false;
+              const c = this.ctx;
+              if (c && this.busGraph) rampTo(this.busGraph.gate.gain, 1, c.currentTime, 0.03);
+              // The wish may have changed while the promise was pending.
+              if (!this.wantsRunning && this.ctx?.state === 'running') this.reconcile();
+              else this.syncTimer();
+            });
+        }
+      } else {
+        rampTo(gate.gain, 1, ctx.currentTime, 0.03);
       }
-    } else if (ctx.state === 'running') {
-      void ctx
-        .suspend()
-        .catch(() => undefined)
-        .finally(() => {
-          if (this.wantsRunning && this.ctx && this.ctx.state !== 'running') this.reconcile();
-          else this.syncTimer();
-        });
+    } else if (ctx.state === 'running' && this.suspendTimer === null) {
+      if (this.gateFadeMs <= 0) this.suspendNow();
+      else {
+        rampTo(gate.gain, 0, ctx.currentTime, this.gateFadeMs / 3000);
+        this.suspendTimer = setTimeout(() => {
+          this.suspendTimer = null;
+          if (!this.wantsRunning) this.suspendNow();
+        }, this.gateFadeMs);
+      }
     }
     this.syncTimer();
+  }
+
+  private suspendNow(): void {
+    const ctx = this.ctx;
+    if (!ctx || ctx.state !== 'running') return;
+    void ctx
+      .suspend()
+      .catch(() => undefined)
+      .finally(() => {
+        if (this.wantsRunning && this.ctx && this.ctx.state !== 'running') this.reconcile();
+        else this.syncTimer();
+      });
   }
 
   private syncTimer(): void {

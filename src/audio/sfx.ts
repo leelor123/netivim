@@ -76,7 +76,7 @@ export class SfxPlayer {
     for (const ev of this.bedEvents) {
       if (now < ev.nextAt) continue;
       ev.nextAt = now + this.rng.range(ev.minGap, ev.maxGap);
-      this.handleCue(ev.cue, ev.intensity);
+      this.handleCue(ev.cue, clamp(ev.intensity * this.rng.range(0.75, 1.1), 0, 1));
     }
   }
 
@@ -91,7 +91,11 @@ export class SfxPlayer {
     }
     this.pendingBed = null;
     if (this.bed === name) return false;
-    for (const key of [...this.loops.keys()]) if (key.startsWith('bed:')) this.stopLoop(key, BED_FADE);
+    // Loops the new bed shares with the old one keep playing (their level is re-targeted); the
+    // others fade away, so a bed change never restarts or doubles a sound.
+    const keep = new Set<string>();
+    if (def) for (const l of def.loops) keep.add('bed:' + l.cue);
+    for (const key of [...this.loops.keys()]) if (key.startsWith('bed:') && !keep.has(key)) this.stopLoop(key, BED_FADE);
     this.bed = def ? name : null;
     this.bedEvents = [];
     if (!def) return true;
@@ -110,6 +114,12 @@ export class SfxPlayer {
     if (this.pendingBed) this.setBed(this.pendingBed);
   }
 
+  /** Fades out every sustained cue that is not part of the ambience bed (engines, crowds). */
+  stopWorldLoops(fade = 1): void {
+    for (const key of [...this.loops.keys()]) if (!key.startsWith('bed:')) this.stopLoop(key, fade);
+  }
+
+  /** Silences everything quickly (teardown). */
   stopAll(): void {
     for (const key of [...this.loops.keys()]) this.stopLoop(key, 0.2);
     this.bed = null;

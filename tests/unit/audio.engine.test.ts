@@ -11,7 +11,7 @@ const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 
 function make(): { fake: FakeAudioContext; engine: AudioEngine } {
   const fake = new FakeAudioContext();
-  const engine = new AudioEngine({ createContext: () => asAudioContext(fake), seed: 1 });
+  const engine = new AudioEngine({ createContext: () => asAudioContext(fake), seed: 1, gateFadeMs: 0 });
   return { fake, engine };
 }
 
@@ -55,9 +55,10 @@ describe('AudioEngine lifecycle', () => {
     engine.unlock();
     const buses = engine.buses;
     expect(buses).not.toBeNull();
-    expect(fake.compressors).toHaveLength(1);
+    expect(fake.compressors).toHaveLength(2);
     expect((buses?.master as unknown as { connections: unknown[] }).connections).toContain(fake.compressors[0]);
-    expect((fake.compressors[0] as unknown as { connections: unknown[] }).connections).toContain(fake.destination);
+    expect((fake.compressors[0] as unknown as { connections: unknown[] }).connections).toContain(fake.compressors[1]);
+    expect((buses?.gate as unknown as { connections: unknown[] }).connections).toContain(fake.destination);
   });
 
   it('suspends while paused or hidden and resumes only when neither applies', async () => {
@@ -155,7 +156,7 @@ describe('installAudio gesture and event wiring', () => {
     const { installAudio } = await import('../../src/audio/install');
     const bus = new EventBus<GameEvents>();
     const game = { bus, settings: { value: DEFAULT_SETTINGS }, i18n: createI18n('he', {}) } as unknown as Game;
-    return { bus, fake, dispose: installAudio(game), win, doc };
+    return { bus, fake, dispose: installAudio(game, { gateFadeMs: 0 }), win, doc };
   }
 
   it('does nothing before a gesture and wakes on keydown', async () => {
@@ -204,6 +205,31 @@ describe('installAudio gesture and event wiring', () => {
     doc.dispatchEvent(new Event('visibilitychange'));
     await flush();
     expect(fake.state).toBe('suspended');
+    dispose();
+  });
+  it('ducks the music for a caption without a voice and releases it on clear', async () => {
+    const { bus, fake, dispose, win } = await setup();
+    win.dispatchEvent(new Event('pointerdown'));
+    await flush();
+    // Gains in creation order: master, gate, music, musicDuck, sfx, ambience, ambienceDuck, narration.
+    const duck = fake.gains[3]?.gain as unknown as { target: number };
+    bus.emit('subtitle:show', { textKey: 'x', speakerKey: null, durationMs: 3000, voice: false });
+    expect(duck.target).toBeCloseTo(0.72);
+    bus.emit('subtitle:clear', {});
+    expect(duck.target).toBe(1);
+    dispose();
+  });
+
+  it('stops a mission engine loop when the next mission starts', async () => {
+    const { bus, fake, dispose, win } = await setup();
+    win.dispatchEvent(new Event('pointerdown'));
+    await flush();
+    bus.emit('audio:cue', { cue: 'engine.truck', intensity: 0.5 });
+    const sfxBus = fake.gains[4];
+    const loopOut = fake.gains.find((g) => (g as unknown as { connections: unknown[] }).connections.includes(sfxBus));
+    expect(loopOut).toBeDefined();
+    bus.emit('mission:started', { missionId: 'night-landing', checkpoint: 'sea' });
+    expect((loopOut?.gain as unknown as { target: number }).target).toBe(0);
     dispose();
   });
 });
