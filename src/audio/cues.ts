@@ -327,6 +327,114 @@ export const CUES: Readonly<Record<string, CueDef>> = {
       return { sources: [...e.sources] };
     },
   }),
+  surf: loop({
+    bus: 'ambience', priority: 5, level: (i) => 0.6 * i,
+    build: (e) => {
+      // Waves that arrive and withdraw: two slow swells at unrelated rates never line up twice.
+      const lp = filter(e, 'lowpass', 700, 0.5);
+      const swell = gainNode(e, 0.5);
+      looping(e, 'brown').connect(lp);
+      lp.connect(swell);
+      swell.connect(e.out);
+      const hp = filter(e, 'highpass', 2600, 0.5);
+      const foam = gainNode(e, 0.05);
+      looping(e, 'pink').connect(hp);
+      hp.connect(foam);
+      foam.connect(e.out);
+      return {
+        sources: [...e.sources, lfo(e, 0.083, 0.42, swell.gain), lfo(e, 0.131, 0.12, swell.gain), lfo(e, 0.083, 0.045, foam.gain)],
+      };
+    },
+  }),
+  'radio.hum': loop({
+    bus: 'ambience', priority: 4, level: (i) => 0.14 * i,
+    build: (e) => {
+      // Mains hum with a faint band of radio hiss; a quiet, lived-in room or street lamp.
+      const lp = filter(e, 'lowpass', 400, 0.5);
+      osc(e, 'sine', 50).connect(lp);
+      const h2 = gainNode(e, 0.35);
+      osc(e, 'sine', 100).connect(h2);
+      h2.connect(lp);
+      lp.connect(e.out);
+      const bp = filter(e, 'bandpass', 1800, 2);
+      const hiss = gainNode(e, 0.04);
+      looping(e, 'pink').connect(bp);
+      bp.connect(hiss);
+      hiss.connect(e.out);
+      return { sources: [...e.sources, lfo(e, 0.23, 0.025, hiss.gain)] };
+    },
+  }),
+
+  // ---- occasional distant sounds, used by the beds ----
+  gull: once({
+    bus: 'ambience', priority: 2, gain: 0.14, duration: 2,
+    build: (e) => {
+      const n = 2 + e.rng.int(2);
+      let at = 0;
+      for (let i = 0; i < n; i++) {
+        const base = e.rng.range(1500, 1900);
+        tone(e, { f0: base, f1: base * 1.35, at, dur: 0.12, peak: 0.7, lowpass: 4200 });
+        tone(e, { f0: base * 1.35, f1: base * 0.8, at: at + 0.12, dur: 0.3, attack: 0.03, peak: 0.7, lowpass: 4200 });
+        at += e.rng.range(0.5, 0.75);
+      }
+    },
+  }),
+  hammer: once({
+    bus: 'ambience', priority: 2, gain: 0.1, duration: 3,
+    build: (e) => {
+      // Distant carpentry: a few irregular knocks.
+      const n = 3 + e.rng.int(3);
+      let at = 0;
+      for (let i = 0; i < n; i++) {
+        burst(e, { kind: 'pink', filter: 'bandpass', f0: e.rng.range(800, 1100), q: 3, at, dur: 0.07, peak: e.rng.range(0.6, 1) });
+        tone(e, { f0: e.rng.range(300, 360), f1: 190, at, dur: 0.08, peak: 0.45, lowpass: 1200 });
+        at += e.rng.range(0.3, 0.7);
+      }
+    },
+  }),
+  'cart.creak': once({
+    bus: 'ambience', priority: 2, gain: 0.07, duration: 1.4,
+    build: (e) => {
+      const f = e.rng.range(150, 230);
+      const o = tone(e, { type: 'sawtooth', f0: f, f1: f * 1.15, dur: 1, attack: 0.25, peak: 0.5, lowpass: 650 });
+      lfo(e, 7, 6, o.frequency);
+    },
+  }),
+  rigging: once({
+    bus: 'ambience', priority: 2, gain: 0.07, duration: 1.8,
+    build: (e) => burst(e, { kind: 'pink', filter: 'bandpass', f0: e.rng.range(1000, 1400), f1: 800, q: 7, dur: 1.2, attack: 0.35, peak: 0.8 }),
+  }),
+  owl: once({
+    bus: 'ambience', priority: 2, gain: 0.09, duration: 2.4,
+    build: (e) => {
+      tone(e, { f0: 430, f1: 400, dur: 0.45, attack: 0.1, peak: 0.6, lowpass: 900 });
+      tone(e, { f0: 390, f1: 330, at: 0.7, dur: 0.7, attack: 0.1, peak: 0.6, lowpass: 900 });
+    },
+  }),
+  'horn.far': once({
+    bus: 'ambience', priority: 3, gain: 0.1, duration: 4.5,
+    build: (e) => {
+      tone(e, { type: 'sawtooth', f0: 98, dur: 3.6, attack: 0.7, peak: 0.45, lowpass: 320 });
+      tone(e, { type: 'sawtooth', f0: 147, dur: 3.6, attack: 0.7, peak: 0.3, lowpass: 320 });
+    },
+  }),
+  'room.settle': once({
+    bus: 'ambience', priority: 2, gain: 0.12, duration: 1.6,
+    build: (e) => {
+      tone(e, { f0: 72, f1: 44, dur: 0.6, attack: 0.05, peak: 0.5, lowpass: 220 });
+      burst(e, { kind: 'brown', filter: 'lowpass', f0: 160, dur: 0.45, attack: 0.04, peak: 0.4 });
+    },
+  }),
+  'footsteps.distant': once({
+    bus: 'ambience', priority: 2, gain: 0.06, duration: 3.4,
+    build: (e) => {
+      let at = 0;
+      for (let i = 0; i < 4 + e.rng.int(3); i++) {
+        burst(e, { kind: 'pink', filter: 'lowpass', f0: 650, q: 0.5, at, dur: 0.1, attack: 0.012, peak: 0.8 });
+        at += e.rng.range(0.45, 0.6);
+      }
+    },
+  }),
 };
 
 /** Environment beds started with ambience.<name>; one bed plays at a time, crossfaded. */
@@ -337,11 +445,66 @@ export interface BedDef {
 
 export const BEDS: Readonly<Record<string, BedDef>> = {
   desert: { loops: [{ cue: 'wind', intensity: 0.7 }], events: [] },
-  sea: { loops: [{ cue: 'sea', intensity: 0.8 }, { cue: 'wind', intensity: 0.25 }], events: [{ cue: 'birds', minGap: 12, maxGap: 25, intensity: 0.5 }] },
-  city: { loops: [{ cue: 'crowd.murmur', intensity: 0.9 }, { cue: 'wind', intensity: 0.12 }], events: [] },
-  village: { loops: [{ cue: 'crowd.murmur', intensity: 0.4 }, { cue: 'wind', intensity: 0.25 }], events: [{ cue: 'birds', minGap: 8, maxGap: 18, intensity: 0.6 }] },
-  interior: { loops: [{ cue: 'room.tone', intensity: 1 }], events: [] },
-  night: { loops: [{ cue: 'wind', intensity: 0.2 }], events: [{ cue: 'crickets', minGap: 3, maxGap: 5, intensity: 0.6 }] },
+  // Neutral sea (day or night): swell, a little wind, the odd creak of rope and a far horn.
+  sea: {
+    loops: [{ cue: 'sea', intensity: 0.8 }, { cue: 'wind', intensity: 0.25 }],
+    events: [{ cue: 'rigging', minGap: 14, maxGap: 30, intensity: 0.6 }, { cue: 'horn.far', minGap: 50, maxGap: 90, intensity: 0.4 }],
+  },
+  city: {
+    loops: [{ cue: 'crowd.murmur', intensity: 0.9 }, { cue: 'wind', intensity: 0.12 }],
+    events: [{ cue: 'cart.creak', minGap: 10, maxGap: 22, intensity: 0.7 }, { cue: 'hammer', minGap: 16, maxGap: 34, intensity: 0.5 }],
+  },
+  // Open settlement by day: birds and the sound of building.
+  village: {
+    loops: [{ cue: 'crowd.murmur', intensity: 0.4 }, { cue: 'wind', intensity: 0.25 }],
+    events: [
+      { cue: 'birds', minGap: 8, maxGap: 18, intensity: 0.6 },
+      { cue: 'hammer', minGap: 11, maxGap: 26, intensity: 0.55 },
+      { cue: 'cart.creak', minGap: 25, maxGap: 50, intensity: 0.5 },
+    ],
+  },
+  interior: {
+    loops: [{ cue: 'room.tone', intensity: 1 }],
+    events: [{ cue: 'room.settle', minGap: 20, maxGap: 42, intensity: 0.7 }, { cue: 'paper.rustle', minGap: 28, maxGap: 55, intensity: 0.25 }],
+  },
+  night: {
+    loops: [{ cue: 'wind', intensity: 0.2 }],
+    events: [{ cue: 'crickets', minGap: 3, maxGap: 5, intensity: 0.6 }, { cue: 'owl', minGap: 28, maxGap: 60, intensity: 0.6 }],
+  },
+  // Jaffa port by day: surf, people, gulls, ropes and carts.
+  harbor: {
+    loops: [{ cue: 'surf', intensity: 0.5 }, { cue: 'crowd.murmur', intensity: 0.45 }, { cue: 'wind', intensity: 0.15 }],
+    events: [
+      { cue: 'gull', minGap: 6, maxGap: 14, intensity: 0.6 },
+      { cue: 'cart.creak', minGap: 12, maxGap: 24, intensity: 0.6 },
+      { cue: 'rigging', minGap: 10, maxGap: 22, intensity: 0.5 },
+      { cue: 'hammer', minGap: 18, maxGap: 36, intensity: 0.4 },
+    ],
+  },
+  // Late afternoon into evening: the day's sounds thin out and the crickets begin.
+  dusk: {
+    loops: [{ cue: 'wind', intensity: 0.22 }, { cue: 'crowd.murmur', intensity: 0.15 }],
+    events: [
+      { cue: 'birds', minGap: 10, maxGap: 20, intensity: 0.4 },
+      { cue: 'crickets', minGap: 5, maxGap: 9, intensity: 0.4 },
+      { cue: 'hammer', minGap: 22, maxGap: 44, intensity: 0.3 },
+    ],
+  },
+  // A night beach: breaking waves close by, wind, and a ship far out.
+  beach: {
+    loops: [{ cue: 'surf', intensity: 0.9 }, { cue: 'wind', intensity: 0.3 }],
+    events: [{ cue: 'horn.far', minGap: 45, maxGap: 85, intensity: 0.5 }],
+  },
+  // A town at night with a radio on somewhere: hum, crickets, an owl, someone walking far off.
+  'town-night': {
+    loops: [{ cue: 'wind', intensity: 0.12 }, { cue: 'radio.hum', intensity: 0.5 }],
+    events: [
+      { cue: 'crickets', minGap: 4, maxGap: 7, intensity: 0.5 },
+      { cue: 'owl', minGap: 30, maxGap: 65, intensity: 0.5 },
+      { cue: 'footsteps.distant', minGap: 18, maxGap: 38, intensity: 0.7 },
+      { cue: 'cart.creak', minGap: 25, maxGap: 50, intensity: 0.4 },
+    ],
+  },
 };
 
 export const BED_PREFIX = 'ambience.';
