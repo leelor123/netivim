@@ -71,6 +71,14 @@ region: Tower planning table, finale skip, vote zoom; 'panel' region for level s
 short taps in InputManager; static test tests/unit/touchPaths.test.ts).
 Next: merge, full CI, release v0.2.2 with a Hebrew update.
 
+## M3 wave 1 running (2026-11-04, user asked for maximum parallel agents)
+Research (main folder, own files): Ch2 fresh fact-check (research/factcheck-ch02.md, SOURCES.md append),
+Ch3 historian (research/ch03-*), Ch4 historian (research/ch04-*), map lines geo research
+(research/map-lines*). Worktrees: deepen archive-night, jaffa-letters, tower-stockade, night-landing,
+the-vote (one agent each, own level files); accessibility round 2 (Low items + UI text size).
+Release v0.2.2: CI then tag (background). Next after wave 1: Ch2 content writer + 5 level builders,
+Ch3/Ch4 fresh fact-checks then content + level builders (all in parallel).
+
 ## Next: M3 (Act 1 = Prologue + Ch1-4) exact next steps
 1. Get the user's on-device feedback on v0.2.1 (Ultra fps, controllers in the WebView, subtitles, focus).
 2. Ch2 pipeline: Ch2 prerequisites above, then content writer, level builders (5 missions), fresh fact-check, QA.
