@@ -45,7 +45,7 @@ import {
 } from './landing/layout';
 import { RescueModel, voiceSide, type RescueSnapshot } from './landing/rescue';
 import { SweepLight } from './landing/sweep';
-import { applyNight, BoatVisual, ConeFan, DawnBlend, placeAt, SurvivorViews, WatcherViews } from './landing/visuals';
+import { applyNight, BoatVisual, ConeFan, DawnBlend, StaticBatch, SurvivorViews, WatcherViews } from './landing/visuals';
 
 /**
  * Night Landing (Aliyah Bet, 1946), mission 2 of Chapter 1. Phase 1: pilot a small boat from the
@@ -197,30 +197,33 @@ function build(ctx: LevelContext<E>): Level {
   const era = 'archiveNight' as const;
 
   // ---- static set dressing ---------------------------------------------------------------
+  // Merged per material: one draw call for the sea props (lift) and one for the beach props (solid).
+  const seaProps = new StaticBatch(world, world.mats.lift, 'landing-sea-props');
+  const beachProps = new StaticBatch(world, world.mats.solid, 'landing-beach-props');
   const seaColliders: Collider[] = [];
-  placeAt(world, immigrantShip({ era, seed: 'landing-ship' }), SHIP_POS.x, 1.8, SHIP_POS.z, SHIP_POS.ry);
+  seaProps.add(immigrantShip({ era, seed: 'landing-ship' }), SHIP_POS.x, 1.8, SHIP_POS.z, SHIP_POS.ry);
   SEA_ROCKS.forEach((r, i) => {
-    placeAt(world, rock({ era, seed: 'sea-rock-' + String(i), size: r.r * 0.78, color: '#4b5058' }), r.x, -0.9, r.z, i * 1.7);
+    seaProps.add(rock({ era, seed: 'sea-rock-' + String(i), size: r.r * 0.78, color: '#4b5058' }), r.x, -0.9, r.z, i * 1.7);
     seaColliders.push(circle(r.x, r.z, r.r));
   });
   // A few moored fishing boats as scenery (outside the route).
   [[-112, 152, 0.4], [-100, 128, 2.2], [-172, 40, 1.1]].forEach(([x, z, ry], i) => {
-    placeAt(world, fishingBoat({ era, seed: 'moored-' + String(i) }), x as number, -0.2, z as number, ry as number);
+    seaProps.add(fishingBoat({ era, seed: 'moored-' + String(i) }), x as number, -0.2, z as number, ry as number);
   });
   // Sandbar line south of the cove keeps the boat in the channel.
-  for (let x = -184; x <= -92; x += 11) placeAt(world, rock({ era, seed: 'bar-' + String(x), size: 2.2, color: '#6b6a5e' }), x, -0.8, SEA_BOUNDS.minZ - 3, x * 0.1);
+  for (let x = -184; x <= -92; x += 11) seaProps.add(rock({ era, seed: 'bar-' + String(x), size: 2.2, color: '#6b6a5e' }), x, -0.8, SEA_BOUNDS.minZ - 3, x * 0.1);
 
   // Beach: dune cover (blocks a watcher's sight), hedges, palms, bundles.
   DUNE_COVER.forEach((d, i) => {
-    world.place(rock({ era, seed: 'dune-cover-' + String(i), size: d.r * 0.8, color: '#8a826c' }), d.x, d.z, i, circle(d.x, d.z, d.r, 3));
+    beachProps.addGround(rock({ era, seed: 'dune-cover-' + String(i), size: d.r * 0.8, color: '#8a826c' }), d.x, d.z, i, circle(d.x, d.z, d.r, 3));
   });
   for (const [x, z, ry] of [[-50, -8, 0.6], [-30, -34, 2.2], [-66, -20, 1.3]] as const) {
-    world.place(sabraHedge({ era, seed: 'hedge-' + String(x), length: 5 }), x, z, ry, circle(x, z, 1.6, 1.5));
+    beachProps.addGround(sabraHedge({ era, seed: 'hedge-' + String(x), length: 5 }), x, z, ry, circle(x, z, 1.6, 1.5));
   }
-  for (const [x, z] of [[-16, -26], [-2, -18], [4, -4], [-40, 4]] as const) world.place(palmTree({ era, seed: 'palm-' + String(x) }), x, z, x * 0.2, circle(x, z, 0.5));
-  world.place(truck1940s({ era, seed: 'truck-a', covered: true }), TRUCKS.x - 2, TRUCKS.z + 3, 0.5, box(TRUCKS.x - 2, TRUCKS.z + 3, 1.3, 3, 3));
-  world.place(truck1940s({ era, seed: 'truck-b', covered: true }), TRUCKS.x + 3, TRUCKS.z - 2, 0.9, box(TRUCKS.x + 3, TRUCKS.z - 2, 1.3, 3, 3));
-  world.place(crate({ era }), TRUCKS.x + 1, TRUCKS.z + 5, 0.3);
+  for (const [x, z] of [[-16, -26], [-2, -18], [4, -4], [-40, 4]] as const) beachProps.addGround(palmTree({ era, seed: 'palm-' + String(x) }), x, z, x * 0.2, circle(x, z, 0.5));
+  beachProps.addGround(truck1940s({ era, seed: 'truck-a', covered: true }), TRUCKS.x - 2, TRUCKS.z + 3, 0.5, box(TRUCKS.x - 2, TRUCKS.z + 3, 1.3, 3, 3));
+  beachProps.addGround(truck1940s({ era, seed: 'truck-b', covered: true }), TRUCKS.x + 3, TRUCKS.z - 2, 0.9, box(TRUCKS.x + 3, TRUCKS.z - 2, 1.3, 3, 3));
+  beachProps.addGround(crate({ era }), TRUCKS.x + 1, TRUCKS.z + 5, 0.3);
 
   // Shore searchlight towers (the lamp is the beam origin).
   const lampMat = world.bag.material(new THREE.MeshBasicMaterial({ color: '#fff2c8', fog: false }));
@@ -234,13 +237,15 @@ function build(ctx: LevelContext<E>): Level {
     return m;
   };
   const towers = LIGHT_SETS.A.map((l, i) => {
-    world.place(watchtower({ era, seed: 'tower-' + String(i) }), l.x, l.z, Math.PI / 2, circle(l.x, l.z, 2.4, 14));
+    beachProps.addGround(watchtower({ era, seed: 'tower-' + String(i) }), l.x, l.z, Math.PI / 2, circle(l.x, l.z, 2.4, 14));
     return glow(lampGeo, lampMat, l.x - 0.4, world.heightAt(l.x, l.z) + 13.6, l.z);
   });
   for (const t of towers) t.visible = false;
   // Volunteer lanterns by the trucks.
   glow(lanternGeo, lanternMat, TRUCKS.x - 3.5, world.heightAt(TRUCKS.x - 3.5, TRUCKS.z + 1) + 1.6, TRUCKS.z + 1);
   glow(lanternGeo, lanternMat, TRUCKS.x + 1.5, world.heightAt(TRUCKS.x + 1.5, TRUCKS.z - 3) + 1.6, TRUCKS.z - 3);
+  seaProps.flush();
+  beachProps.flush();
 
   // ---- actors ----------------------------------------------------------------------------
   const player = new PlayerController(world, ctx.input, ctx.reducedMotion, { era: 'mandate1940', variant: 0 });

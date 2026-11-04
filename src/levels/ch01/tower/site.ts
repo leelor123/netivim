@@ -161,14 +161,17 @@ export class SiteView {
       if (c.kind === 'corner') this.slot.push({ corner: true, index: c.corner });
       else this.slot.push({ corner: false, index: straight++ });
     });
-    this.walls = new Inst(world, M.wallModule(), mats.solid, straight);
-    this.corners = new Inst(world, M.cornerModule(), mats.solid, 4);
-    this.gravel = new Inst(world, M.gravelStraight(), mats.solid, straight, false);
-    this.gravelCorners = new Inst(world, M.gravelCorner(), mats.solid, 4, false);
-    this.outline = new Inst(world, M.outlineTile(), mats.solid, n, false);
+    // Instanced rows get their own copy of the kit material: sharing one material between
+    // instanced and plain meshes flips its program variant mid-pass (getProgram churn per frame).
+    const instSolid = world.bag.material(mats.solid.clone());
+    this.walls = new Inst(world, M.wallModule(), instSolid, straight);
+    this.corners = new Inst(world, M.cornerModule(), instSolid, 4);
+    this.gravel = new Inst(world, M.gravelStraight(), instSolid, straight, false);
+    this.gravelCorners = new Inst(world, M.gravelCorner(), instSolid, 4, false);
+    this.outline = new Inst(world, M.outlineTile(), instSolid, n, false);
 
-    this.carts = new Inst(world, M.cart(), mats.solid, CART_SPOTS.length);
-    this.loads = new Inst(world, M.cartLoad(), mats.solid, CART_SPOTS.length);
+    this.carts = new Inst(world, M.cart(), instSolid, CART_SPOTS.length);
+    this.loads = new Inst(world, M.cartLoad(), instSolid, CART_SPOTS.length);
     CART_SPOTS.forEach((c, i) => {
       const ry = i % 2 === 0 ? 0.25 : -0.2;
       const y = world.heightAt(c.x, c.z);
@@ -209,7 +212,7 @@ export class SiteView {
     this.spot.castShadow = false;
     this.spot.position.copy(this.lampPos);
     world.scene.add(this.spot, this.spot.target);
-    const beamMat = world.bag.material(new THREE.MeshBasicMaterial({ color: 0xffe9b8, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+    const beamMat = world.bag.material(new THREE.MeshBasicMaterial({ color: 0xffe9b8, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, forceSinglePass: true }));
     this.beam = new THREE.Mesh(world.bag.geometry(M.beamCone(46, 3.4)), beamMat);
     this.beam.rotation.order = 'YXZ';
     this.beam.position.copy(this.lampPos);
@@ -302,7 +305,7 @@ export class SiteView {
       world.place(M.lampPost(), x, z, 0);
       glowSpots.push({ x: x + 0.3, y: world.heightAt(x, z) + 2.85, z, ry: 0 });
     }
-    this.glow = new Inst(world, M.windowGlow(), mats.glow, glowSpots.length, false);
+    this.glow = new Inst(world, M.windowGlow(), world.bag.material(mats.glow.clone()), glowSpots.length, false);
     glowSpots.forEach((g, i) => this.glow.set(i, g.x, g.y, g.z, g.ry, 1, 1, 1));
     this.glow.flush();
     this.glowCount = glowSpots.length;

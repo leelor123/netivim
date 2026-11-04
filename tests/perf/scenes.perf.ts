@@ -16,12 +16,6 @@ const BUDGET: Record<string, { calls: number; triangles: number }> = {
   ultra: { calls: 600, triangles: 3_000_000 },
 };
 
-/**
- * Known level-side overruns, reported (console + scenes.json) but not failed here: they belong to
- * the level owners and are tracked in docs/PERF_REPORT.md. Remove an entry once fixed.
- */
-const KNOWN_OVER = new Set<string>(['night-landing@battery']);
-
 const SAMPLE_MS = Number(process.env.PERF_SAMPLE_MS ?? 2500);
 const ONLY = process.env.PERF_PRESETS ? process.env.PERF_PRESETS.split(',') : null;
 
@@ -52,10 +46,6 @@ test('render budgets: hub and the five missions at every preset', async ({ page 
   for (const r of rows) {
     const b = BUDGET[r.preset];
     if (!b) continue;
-    if (KNOWN_OVER.has(r.scene + '@' + r.preset)) {
-      if (r.maxCalls > b.calls || r.maxTriangles > b.triangles) console.log('KNOWN OVER BUDGET', r.scene, r.preset, r.maxCalls, r.maxTriangles);
-      continue;
-    }
     expect.soft(r.maxCalls, r.scene + ' @ ' + r.preset + ' draw calls').toBeLessThanOrEqual(b.calls);
     expect.soft(r.maxTriangles, r.scene + ' @ ' + r.preset + ' triangles').toBeLessThanOrEqual(b.triangles);
   }

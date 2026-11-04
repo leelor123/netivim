@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import type { Collider } from '../../../gameplay/core/collision';
 import type { LevelWorld } from '../../../gameplay/runtime/levelKit';
 import { ERA_LOOKS, type EraLook } from '../../../world/eraLook';
 import { Crowd, figureGeometry, FigureMaterial } from '../../../world/kit/figures';
@@ -106,7 +108,7 @@ export class ConeFan {
     const geometry = world.bag.geometry(new THREE.BufferGeometry());
     geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     geometry.setIndex(index);
-    const material = world.bag.material(new THREE.MeshBasicMaterial({ color: this.calm, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+    const material = world.bag.material(new THREE.MeshBasicMaterial({ color: this.calm, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true, fog: false }));
     this.mesh = new THREE.Mesh(geometry, material);
     this.mesh.renderOrder = 5;
     this.mesh.frustumCulled = false;
@@ -128,18 +130,48 @@ export class ConeFan {
   }
 }
 
-/** Static kit geometry at an explicit height (sea props float on the water level). */
-export function placeAt(world: LevelWorld, geometry: THREE.BufferGeometry, x: number, y: number, z: number, ry = 0, scale = 1): THREE.Mesh {
-  const [baked] = bakePlacements(geometry, [{ x, y, z, ry, scale }]);
-  geometry.dispose();
-  if (!baked) throw new Error('bake failed');
-  const mesh = new THREE.Mesh(world.bag.geometry(baked), world.mats.lift);
-  mesh.castShadow = world.opts.quality.shadows;
-  mesh.receiveShadow = true;
-  mesh.matrixAutoUpdate = false;
-  mesh.updateMatrix();
-  world.scene.add(mesh);
-  return mesh;
+/**
+ * Static set dressing merged into one mesh per material (one draw call instead of one per prop).
+ * add() bakes a kit geometry at an explicit height (sea props float on the water level);
+ * addGround() puts it on the terrain and registers its collider, like LevelWorld.place.
+ * flush() once after the last prop. The geometries are consumed.
+ */
+export class StaticBatch {
+  private readonly parts: THREE.BufferGeometry[] = [];
+
+  constructor(
+    private readonly world: LevelWorld,
+    private readonly material: THREE.Material,
+    private readonly name: string,
+  ) {}
+
+  add(geometry: THREE.BufferGeometry, x: number, y: number, z: number, ry = 0, scale = 1): void {
+    const [baked] = bakePlacements(geometry, [{ x, y, z, ry, scale }]);
+    geometry.dispose();
+    if (!baked) throw new Error('bake failed');
+    this.parts.push(baked);
+  }
+
+  addGround(geometry: THREE.BufferGeometry, x: number, z: number, ry = 0, collider?: Collider): void {
+    this.add(geometry, x, this.world.heightAt(x, z), z, ry);
+    if (collider) this.world.colliders.push(collider);
+  }
+
+  flush(): THREE.Mesh | null {
+    if (this.parts.length === 0) return null;
+    const merged = mergeGeometries(this.parts, false);
+    for (const g of this.parts) g.dispose();
+    this.parts.length = 0;
+    merged.computeBoundingSphere();
+    const mesh = new THREE.Mesh(this.world.bag.geometry(merged), this.material);
+    mesh.name = this.name;
+    mesh.castShadow = this.world.opts.quality.shadows;
+    mesh.receiveShadow = true;
+    mesh.matrixAutoUpdate = false;
+    mesh.updateMatrix();
+    this.world.scene.add(mesh);
+    return mesh;
+  }
 }
 
 /** A movable boat mesh (the geometry is the kit boat; the lamp is a small unlit glow). */
