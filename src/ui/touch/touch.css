@@ -101,3 +101,41 @@
 .touch-root[data-side='left'] .touch-btn[data-action='interact'] { left: 0; }
 .touch-root[data-side='left'] .touch-btn[data-action='alt'] { left: calc(92px * var(--touch-scale)); }
 :root[data-motion='reduced'] .touch-btn { transition: none; }
+
+/* Touch action bar (level actions such as the planning table): screen region "toolbar". */
+.touch-bar {
+  position: absolute;
+  left: var(--rg-toolbar-x, 20vw);
+  top: var(--rg-toolbar-y, 50vh);
+  width: var(--rg-toolbar-w, 60vw);
+  height: var(--rg-toolbar-h, 52px);
+  display: flex;
+  /* Never wider than its region: on narrow phones the bar scrolls sideways instead of overlapping. */
+  justify-content: safe center;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  pointer-events: auto;
+}
+.touch-bar[hidden] { display: none; }
+.touch-root .touch-bar, .touch-root .touch-bar__btn { touch-action: pan-x; }
+.touch-bar__btn {
+  flex: none;
+  min-width: 48px;
+  height: 48px;
+  padding: 0 10px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  border-radius: 24px;
+  border: 1.5px solid rgb(255 255 255 / 0.6);
+  background: rgb(20 24 32 / 0.62);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  pointer-events: auto;
+}
+.touch-bar__btn[data-down] { background: rgb(255 255 255 / 0.6); color: #0e1116; }
+.touch-bar__btn[data-action='confirm'] { border-color: #e9c98a; }

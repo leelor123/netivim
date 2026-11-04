@@ -130,3 +130,11 @@ uses only that signature.
 - Look drag: InputManager.addLookDelta(dxPx, dyPx) accumulates CSS px; each step converts the sum to
   radians (lookDrag, see src/core/input/lookDrag.ts; no dt, so frame-rate independent). The touch look
   area (src/ui/touch) and a mouse drag on the canvas feed it, only during missions with no menu or sheet.
+- Touch paths (BRIEF 7: fully playable by touch): regions also include toolbar (bottom centre, above
+  the prompt) and panel (right column under the objective, level side panels such as the Tower
+  planning panel). LevelContext.touchActions(items | null) emits ui:touch-actions; the touch layer
+  shows those buttons (48 px, hidden on a controller) in the toolbar region. Every action a level
+  reads needs a touch path: a touch button, a touchActions item, or an entry in the level's exported
+  TOUCH_ALTERNATIVES map (tests/unit/touchPaths.test.ts enforces it).
+- InputManager latches presses: a touch tap or key press released before the next step still reads
+  as down / justPressed for exactly one update.

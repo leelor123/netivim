@@ -1,5 +1,15 @@
 import type { FlowState } from './flow';
-import type { GamepadFamily, InputDevice } from './input/types';
+import type { Action, GamepadFamily, InputDevice } from './input/types';
+
+/**
+ * One button of the touch action bar. `action` is pressed while held; `scroll` (+1 / -1) holds the
+ * trigger axis (zoom). `label` is display text (already translated).
+ */
+export interface TouchActionItem {
+  readonly action?: Action;
+  readonly scroll?: 1 | -1;
+  readonly label: string;
+}
 
 export type UnlockKind = 'codex' | 'archive' | 'testimony' | 'achievement' | 'medal' | 'fact';
 export type SaveSlotId = 'auto' | 'manual-1' | 'manual-2' | 'manual-3' | 'settings';
@@ -38,5 +48,10 @@ export interface GameEvents {
   'ui:toast': { textKey: string; params?: Record<string, string | number> };
   /** An interaction is in reach (the mission HUD shows its prompt); drives the touch interact button. */
   'ui:interact-available': { available: boolean };
+  /**
+   * Touch path for level-specific actions (planning table, skips): the touch layer shows these
+   * buttons in the "toolbar" screen region while not null. Hidden on a controller.
+   */
+  'ui:touch-actions': { items: readonly TouchActionItem[] | null };
   'haptics:pulse': { strength: 'light' | 'medium' | 'strong'; durationMs: number };
 }

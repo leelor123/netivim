@@ -1,4 +1,5 @@
 import type { Game } from '../../game';
+import type { TouchActionItem } from '../../core/gameEvents';
 import type { Action, Vec2 } from '../../core/input/types';
 import { glyphFor, setGlyphBindings } from '../glyphs';
 import { activeLayout } from '../layout';
@@ -89,7 +90,10 @@ export function installTouchControls(game: Game): () => void {
   const ring = make('div', 'touch-ring');
   const knob = make('div', 'touch-knob');
   const cluster = make('div', 'touch-btns');
-  root.append(look, zone, ring, knob, cluster);
+  // Level-specific actions (planning table...), in the "toolbar" screen region.
+  const bar = make('div', 'touch-bar');
+  bar.hidden = true;
+  root.append(look, zone, ring, knob, cluster, bar);
 
   const buttonEls = new Map<Action, HTMLButtonElement>();
   for (const action of TOUCH_BUTTONS) {
@@ -148,8 +152,56 @@ export function installTouchControls(game: Game): () => void {
     if (stickPointer === -1) placeIdle();
   };
 
+  // --- touch action bar ---
+  const barPointers = new Map<number, TouchActionItem>();
+  const holdItem = (item: TouchActionItem, pressed: boolean): void => {
+    if (item.action) input.setVirtual(item.action, pressed);
+    if (item.scroll) input.setTouchScroll(pressed ? item.scroll : 0);
+  };
+  const releaseBar = (): void => {
+    for (const item of barPointers.values()) holdItem(item, false);
+    barPointers.clear();
+    for (const el of bar.children) delete (el as HTMLElement).dataset.down;
+  };
+  const renderBar = (items: readonly TouchActionItem[] | null): void => {
+    releaseBar();
+    bar.replaceChildren();
+    bar.hidden = !items || items.length === 0;
+    if (!items) return;
+    for (const item of items) {
+      const b = make('button', 'touch-bar__btn');
+      b.type = 'button';
+      b.textContent = item.label;
+      if (item.action) b.dataset.action = item.action;
+      if (item.scroll) b.dataset.scroll = String(item.scroll);
+      b.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        try {
+          b.setPointerCapture(e.pointerId);
+        } catch {
+          // Synthetic events have no active pointer.
+        }
+        barPointers.set(e.pointerId, item);
+        b.dataset.down = '';
+        holdItem(item, true);
+      });
+      const up = (e: PointerEvent): void => {
+        const held = barPointers.get(e.pointerId);
+        if (!held) return;
+        barPointers.delete(e.pointerId);
+        delete b.dataset.down;
+        holdItem(held, false);
+      };
+      b.addEventListener('pointerup', up);
+      b.addEventListener('pointercancel', up);
+      b.addEventListener('lostpointercapture', up);
+      bar.append(b);
+    }
+  };
+
   const releaseAll = (): void => {
     releaseStick();
+    releaseBar();
     input.clearLookDelta();
     for (const [action, el] of buttonEls) {
       input.setVirtual(action, false);
@@ -244,12 +296,17 @@ export function installTouchControls(game: Game): () => void {
   window.addEventListener('resize', onResize);
 
   const offs = [
-    bus.on('flow:changed', syncVisibility),
+    bus.on('flow:changed', ({ to }) => {
+      // A level's action bar never outlives its mission.
+      if (to !== 'mission') renderBar(null);
+      syncVisibility();
+    }),
     bus.on('flow:pause-changed', syncVisibility),
     bus.on('settings:changed', ({ key }) => {
       // The layout recomputes its regions on the same event; place the stick after it.
       if (key === 'controls') queueMicrotask(applySettings);
     }),
+    bus.on('ui:touch-actions', ({ items }) => renderBar(items)),
     bus.on('ui:interact-available', ({ available }) => {
       interactAvailable = available;
       syncButtons();

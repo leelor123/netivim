@@ -3,7 +3,7 @@ import type { ChapterId } from '../content/eras';
 import type { ChapterContent, ContentLabel } from '../content/schema';
 import type { DifficultyLevel, DifficultyParams } from '../core/difficulty';
 import type { EventBus } from '../core/events';
-import type { GameEvents, UnlockKind } from '../core/gameEvents';
+import type { GameEvents, TouchActionItem, UnlockKind } from '../core/gameEvents';
 import type { Action, Vec2 } from '../core/input/types';
 import type { MissionDefinition } from '../core/mission';
 import type { GameScene } from '../render/sceneManager';
@@ -106,6 +106,12 @@ export interface LevelContext<E extends string = string> {
   reducedMotion(): boolean;
   /** True under the QA bot / unit tests: no DOM, no renderer. */
   readonly headless: boolean;
+  /**
+   * Touch path for actions the two touch buttons (interact, alt) and the stick do not cover:
+   * shows a touch action bar (null hides it). Every action a level reads must have a touch path
+   * (tests/unit/touchPaths.test.ts).
+   */
+  touchActions(items: readonly TouchActionItem[] | null): void;
 }
 
 /** Player position and camera yaw, read by the QA bot to steer. */

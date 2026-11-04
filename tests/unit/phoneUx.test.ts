@@ -92,6 +92,72 @@ describe('touch / mouse look drag', () => {
   });
 });
 
+describe('short taps are latched (never lost between two steps)', () => {
+  it('a touch tap down and up between two updates reads as pressed for exactly one update', () => {
+    const input = manager();
+    input.setVirtual('confirm', true);
+    input.setVirtual('confirm', false);
+    input.update();
+    expect(input.justPressed('confirm')).toBe(true);
+    expect(input.isDown('confirm')).toBe(true);
+    input.update();
+    expect(input.isDown('confirm')).toBe(false);
+    expect(input.justReleased('confirm')).toBe(true);
+  });
+
+  it('a key press and release between two updates reads as pressed for exactly one update', () => {
+    const input = manager();
+    const target = new EventTarget();
+    input.attach(target);
+    const key = (type: string, code: string): void => {
+      target.dispatchEvent(Object.assign(new Event(type), { code }));
+    };
+    key('keydown', 'Enter');
+    key('keyup', 'Enter');
+    input.update();
+    expect(input.justPressed('confirm')).toBe(true);
+    input.update();
+    expect(input.isDown('confirm')).toBe(false);
+  });
+
+  it('a held button stays down and is justPressed only once', () => {
+    const input = manager();
+    input.setVirtual('interact', true);
+    input.update();
+    expect(input.justPressed('interact')).toBe(true);
+    input.update();
+    expect(input.isDown('interact')).toBe(true);
+    expect(input.justPressed('interact')).toBe(false);
+    input.setVirtual('interact', false);
+    input.update();
+    expect(input.isDown('interact')).toBe(false);
+  });
+
+  it('the press that resumed the game is swallowed (no fresh pause press after resume)', () => {
+    const input = manager();
+    input.setVirtual('pause', true);
+    input.setVirtual('pause', false);
+    input.swallowPresses();
+    input.update();
+    expect(input.justPressed('pause')).toBe(false);
+    input.setVirtual('alt', true);
+    input.swallowPresses();
+    input.update();
+    expect(input.isDown('alt')).toBe(true);
+    expect(input.justPressed('alt')).toBe(false);
+  });
+
+  it('touch zoom holds the trigger axis while pressed', () => {
+    const input = manager();
+    input.setTouchScroll(1);
+    input.update();
+    expect(input.scroll).toBe(1);
+    input.setTouchScroll(0);
+    input.update();
+    expect(input.scroll).toBe(0);
+  });
+});
+
 describe('screen layout regions', () => {
   const viewports = [
     { w: 1170, h: 540 }, // S26 Ultra landscape in CSS px (hudshot)

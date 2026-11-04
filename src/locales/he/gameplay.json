@@ -168,5 +168,7 @@
   "gameplay.sample.quiz.retry.prompt": "אפשר לנסות שוב אחרי טעות בחידון?",
   "gameplay.sample.quiz.retry.a": "כן",
   "gameplay.sample.quiz.retry.b": "לא",
-  "gameplay.sample.quiz.retry.explain": "החידון סלחני: טעות היא חלק מהלמידה."
+  "gameplay.sample.quiz.retry.explain": "החידון סלחני: טעות היא חלק מהלמידה.",
+  "gameplay.touch.zoomIn": "התקרבות",
+  "gameplay.touch.zoomOut": "התרחקות"
 }

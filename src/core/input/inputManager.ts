@@ -46,9 +46,17 @@ export class InputManager {
   private prev = new Set<Action>();
   private readonly keys = new Set<string>();
   private readonly virtual = new Set<Action>();
+  /**
+   * Presses latched since the last update(): a tap or key press shorter than one simulation step
+   * (down and up between two updates) still reads as down / justPressed for exactly one update.
+   */
+  private readonly latchedVirtual = new Set<Action>();
+  private readonly latchedKeys = new Set<string>();
   private readonly touchMove: Vec2 = { x: 0, y: 0 };
   /** Drag distance in CSS px accumulated since the last step. */
   private readonly dragPx: Vec2 = { x: 0, y: 0 };
+  private touchScroll = 0;
+  private swallowNext = false;
   private readonly known = new Map<number, GamepadFamily>();
   private readonly seen = new Set<number>();
   private readonly stickHeld: Record<Dir, boolean> = { up: false, down: false, left: false, right: false };
@@ -108,10 +116,28 @@ export class InputManager {
     this.dragPx.y = 0;
   }
 
+  /**
+   * Drops presses that have not been read yet and makes the next update report no new presses
+   * (held buttons stay down, but nothing is justPressed). Used when the game resumes, so the
+   * press that closed the pause menu does not act in the game too.
+   */
+  swallowPresses(): void {
+    this.latchedKeys.clear();
+    this.latchedVirtual.clear();
+    this.swallowNext = true;
+  }
+
+  /** Touch zoom buttons: holds the trigger axis (-1..1) while pressed. */
+  setTouchScroll(v: number): void {
+    this.touchScroll = Math.max(-1, Math.min(1, v));
+    if (v !== 0) this.setDevice('touch', null);
+  }
+
   /** On-screen touch buttons. */
   setVirtual(action: Action, pressed: boolean): void {
     if (pressed) {
       this.virtual.add(action);
+      this.latchedVirtual.add(action);
       this.setDevice('touch', null);
     } else {
       this.virtual.delete(action);
@@ -125,6 +151,7 @@ export class InputManager {
       if (!code) return;
       if (ignoreKeyForTextEntry(code, e.target as TextEntryLike | null)) return;
       this.keys.add(code);
+      this.latchedKeys.add(code);
       this.setDevice('keyboard', null);
     };
     const onKeyUp = (e: Event): void => {
@@ -138,6 +165,9 @@ export class InputManager {
       // Keys released while the app was in the background must not stay stuck.
       this.keys.clear();
       this.virtual.clear();
+      this.latchedKeys.clear();
+      this.latchedVirtual.clear();
+      this.touchScroll = 0;
       this.clearLookDelta();
     };
     target.addEventListener('keydown', onKeyDown);
@@ -164,6 +194,14 @@ export class InputManager {
       if (acts) for (const a of acts) this.down.add(a);
     }
     for (const a of this.virtual) this.down.add(a);
+    // Latched presses (already released again) count for this one update.
+    for (const code of this.latchedKeys) {
+      const acts = this.bindings.keyboard[code];
+      if (acts) for (const a of acts) this.down.add(a);
+    }
+    for (const a of this.latchedVirtual) this.down.add(a);
+    this.latchedKeys.clear();
+    this.latchedVirtual.clear();
 
     this.move.x = 0;
     this.move.y = 0;
@@ -175,6 +213,7 @@ export class InputManager {
 
     const pad = this.pollGamepads();
     if (pad) this.readPad(pad);
+    if (this.scroll === 0) this.scroll = this.touchScroll;
 
     if (this.move.x === 0 && this.move.y === 0) {
       const right = this.keys.has('KeyD') || this.keys.has('ArrowRight') ? 1 : 0;
@@ -191,6 +230,11 @@ export class InputManager {
         this.move.x = this.touchMove.x;
         this.move.y = this.touchMove.y;
       }
+    }
+    if (this.swallowNext) {
+      // Everything down now counts as already down: no justPressed in this update.
+      this.swallowNext = false;
+      for (const a of this.down) this.prev.add(a);
     }
   }
 

@@ -128,6 +128,11 @@ export function startGame(canvas: HTMLCanvasElement, i18n: I18n, onPauseChanged:
     if (!paused) pausedByDisconnect = false;
   });
   bus.on('flow:pause-changed', ({ paused }) => onPauseChanged(paused));
+  // The press that resumed (Escape, Start, a tap) must not reach the game as a fresh press: the
+  // next step would read it as a new pause (latched presses make even a short tap visible).
+  bus.on('flow:pause-changed', ({ paused }) => {
+    if (!paused) input.swallowPresses();
+  });
   let backHandler: (() => void) | null = null;
   void bindAndroidBackButton(() => {
     if (backHandler) backHandler();

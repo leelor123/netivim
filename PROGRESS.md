@@ -65,11 +65,11 @@ Root causes found (evidence: phone-ratio captures via scripts/hudshot.mjs):
   subtitle box overlaps the testimony/label panel at the bottom (bug). Briefing at phone size pushes
   the Start button below the fold.
 MERGED: phone UX (touch/mouse look, src/ui/layout.ts regions, one caption, two touch buttons, sticky
-sheet footers; CONTRACTS 14). Follow-up running: touch paths for every level action (Tower planning
-table had none: touch softlock risk). Previously running (worktrees): phone UX agent (touch/mouse look, single screen-layout owner, one caption box,
-fewer touch buttons, sticky sheet footers) and a bug hunter (all 5 missions, non-UI fixes; reports
-UI bugs). Then: merge both, fix reported UI bugs, full CI, release v0.2.2 with a Hebrew update.
-MERGED: bug hunt (docs/BUG_HUNT_M2.md, 7 root-cause fixes).
+sheet footers; CONTRACTS 14). MERGED: bug hunt (docs/BUG_HUNT_M2.md, 7 root-cause fixes).
+DONE on the phone UX branch: touch paths for every level action (touch action bar in the 'toolbar'
+region: Tower planning table, finale skip, vote zoom; 'panel' region for level side panels; latched
+short taps in InputManager; static test tests/unit/touchPaths.test.ts).
+Next: merge, full CI, release v0.2.2 with a Hebrew update.
 
 ## Next: M3 (Act 1 = Prologue + Ch1-4) exact next steps
 1. Get the user's on-device feedback on v0.2.1 (Ultra fps, controllers in the WebView, subtitles, focus).

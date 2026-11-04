@@ -67,6 +67,8 @@ type E = 'unloaded' | 'walled' | 'filled' | 'raised' | 'fenced' | 'lit' | 'revie
 /** Handles the QA bot and tests use on the built level. */
 export interface TowerLevel extends Level {
   readonly sim: TowerSim;
+  /** Planning-table cursor and selection (read by tests). */
+  readonly planner: Planner;
   /** Plays the planning table with the stored solution (bot). */
   botPlan(): void;
 }
@@ -76,6 +78,27 @@ const WORKER = 'levels.ch01.tower.speaker.worker';
 const K = 'levels.ch01.tower.';
 const FINALE_SECONDS = 30;
 const SKIP_AFTER = 3;
+/**
+ * Touch paths for actions the touch buttons and the action bar do not carry
+ * (checked by tests/unit/touchPaths.test.ts).
+ */
+export const TOUCH_ALTERNATIVES: Partial<Record<Action, string>> = {
+  up: 'planning: the stick moves the cursor (handlePlanning reads input.move)',
+  down: 'planning: the stick moves the cursor (handlePlanning reads input.move)',
+  left: 'planning: the stick moves the cursor (handlePlanning reads input.move)',
+  right: 'planning: the stick moves the cursor (handlePlanning reads input.move)',
+};
+
+/** Planning-table actions on the touch action bar (order as shown, reading right to left). */
+const PLAN_TOUCH: readonly (readonly [Action, string])[] = [
+  ['tabPrev', 'prevType'],
+  ['tabNext', 'nextType'],
+  ['alt', 'rotate'],
+  ['confirm', 'place'],
+  ['interact', 'lift'],
+  ['map', 'clear'],
+  ['back', 'exit'],
+];
 
 const STAGE_SPAWN: Readonly<Record<Stage, Spot>> = {
   dawn: SPAWN,
@@ -132,6 +155,7 @@ function build(ctx: LevelContext<E>): TowerLevel {
   let finaleT = -1;
   let finaleFrom = 0.9;
   let panelShown = false;
+  let skipOffered = false;
   let briefed = false;
   let bed = '';
   let planMessage: string | null = null;
@@ -208,6 +232,8 @@ function build(ctx: LevelContext<E>): TowerLevel {
     planner.reset();
     planMessage = null;
     planPanel?.show(true);
+    // Touch path for every planning action (the stick moves the cursor; BRIEF 7: fully playable by touch).
+    ctx.touchActions(PLAN_TOUCH.map(([action, key]) => ({ action, label: ctx.t(K + 'touch.' + key) })));
     drawPlan();
   };
 
@@ -218,6 +244,7 @@ function build(ctx: LevelContext<E>): TowerLevel {
     player.rig.mode = 'follow';
     player.rig.snapBehind(player.motor.heading);
     planPanel?.show(false);
+    ctx.touchActions(null);
     site.hideGhost();
   };
 
@@ -546,6 +573,7 @@ function build(ctx: LevelContext<E>): TowerLevel {
     scene,
     player,
     sim,
+    planner,
     update(dt) {
       player.update(dt);
       const stage = sim.stage;
@@ -585,6 +613,8 @@ function build(ctx: LevelContext<E>): TowerLevel {
       breakLeft = 0;
       finaleT = sim.stage === 'lenses' ? FINALE_SECONDS : -1;
       panelShown = false;
+      if (skipOffered) ctx.touchActions(null);
+      skipOffered = false;
       lensesPanel?.show(false);
       lastAlert = -1;
       bed = '';
@@ -632,8 +662,13 @@ function build(ctx: LevelContext<E>): TowerLevel {
       review();
       return;
     }
+    if (!panelShown && finaleT > SKIP_AFTER && !skipOffered) {
+      skipOffered = true;
+      ctx.touchActions([{ action: 'confirm', label: ctx.t(K + 'touch.skip') }]);
+    }
     if (!panelShown && (finaleT >= FINALE_SECONDS || (finaleT > SKIP_AFTER && ctx.input.justPressed('confirm')))) {
       panelShown = true;
+      if (skipOffered) ctx.touchActions(null);
       lensesPanel?.show(true);
     } else if (panelShown && ctx.input.justPressed('confirm')) review();
   }

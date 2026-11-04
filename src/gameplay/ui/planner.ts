@@ -65,7 +65,9 @@ export function plannerScreen(t: T, model: LogisticsModel, onConfirm: () => void
       'section',
       { class: 'gp-sheet gp-sheet--wide', attrs: { role: 'dialog', 'aria-label': t('gameplay.logistics.title') } },
       h('h2', { class: 'gp-sheet__title', text: t('gameplay.logistics.title') }),
-      h('div', { class: 'gp-sheet__body', attrs: scrollableAttrs(t('gameplay.logistics.title')) }, rows, summary, problems, h('div', { class: 'gp-actions' }, confirm, gpButton(t('gameplay.common.back'), onBack, { key: 'plan-back' }))),
+      h('div', { class: 'gp-sheet__body', attrs: scrollableAttrs(t('gameplay.logistics.title')) }, rows, summary, problems),
+      // Sticky footer: Confirm and Back stay visible at any screen height.
+      h('div', { class: 'gp-sheet__foot' }, h('div', { class: 'gp-actions' }, confirm, gpButton(t('gameplay.common.back'), onBack, { key: 'plan-back' }))),
     ),
   );
   return { id: 'planner', el, back: onBack };
