@@ -83,6 +83,8 @@ Prologue and Chapter 1 are perfect and we align together. Ch2/Ch3/Ch4 research a
 - Audio polish (score, ambience, mixing per mission).
 - Controller-only full playthrough QA (tests/e2e/controller-full.spec.ts, docs/CONTROLLER_QA.md).
 Release v0.2.2 (phone UX + bug fixes): waiting for CI, then tag (background).
+Follow-up after level agents finish: text size in gameplay.css, timeline.css, livingMap.css, tower.css
+(calc(Npx * var(--nv-ts, 1))) and remaining a11y Low items 4 (gp-sheet), 5, 7, 8, 9, 11, 12.
 After the wave: merge all, fresh code review + content/Hebrew review of new beats, fix, release, ask
 the user to play and confirm Chapter 1 before anything else.
 
