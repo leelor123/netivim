@@ -204,6 +204,26 @@ export const LIGHT_CRATE: Spot = { x: 0, z: -4.5 };
 export const TOWER_BASE: Spot = { x: 7, z: -8.4 };
 export const JUG_SPOT: Spot = { x: -8, z: 6.2 };
 export const MEAL_SPOT: Spot = { x: -9, z: 0.5 };
+/** Corner stakes outside the ring corners (the red-rag stakes on the site); the player ties a cord to each. */
+export const STAKE_COUNT = 4;
+export const STAKE_SPOTS: readonly Spot[] = [
+  { x: cellX(0) - 1.4, z: cellZ(0) - 1.4 },
+  { x: cellX(GRID_W - 1) + 1.4, z: cellZ(0) - 1.4 },
+  { x: cellX(GRID_W - 1) + 1.4, z: cellZ(GRID_H - 1) + 1.4 },
+  { x: cellX(0) - 1.4, z: cellZ(GRID_H - 1) + 1.4 },
+];
+/** Where players and the bot stand to tie a stake's cord (a step toward the compound, clear of the table). */
+export const stakeStand = (i: number): Spot => {
+  const s = STAKE_SPOTS[i] as Spot;
+  return { x: s.x + (s.x < 0 ? 1.6 : -1.6), z: s.z + (s.z < -4 ? 1.6 : -1.6) };
+};
+/** The board with the day's schedule, near the start. */
+export const SIGN_SPOT: Spot = { x: -6.5, z: 16 };
+/** A man from the village on the hill, at the field's edge east of the gate (FICTIONAL COMPOSITE). */
+export const NEIGHBOR_SPOT: Spot = { x: 20.5, z: 4.5 };
+export const NEIGHBOR_STAND: Spot = { x: 18, z: 5.2 };
+/** Where the team sits down at dusk. */
+export const REST_SPOT: Spot = { x: -2.5, z: -2.5 };
 export const TENT_SPOTS: readonly Spot[] = [
   { x: -2.2, z: -8.9 },
   { x: 2.2, z: -8.9 },
@@ -290,6 +310,10 @@ export interface SimSnapshot {
   readonly warned: boolean;
   readonly water: boolean;
   readonly meal: boolean;
+  readonly staked?: readonly boolean[];
+  readonly signRead?: boolean;
+  readonly neighbor?: boolean;
+  readonly rested?: boolean;
 }
 
 export type FillResult = 'ok' | 'empty' | 'filled' | 'stage';
@@ -315,6 +339,32 @@ export class TowerSim {
   warned = false;
   water = false;
   meal = false;
+  /** Corner stakes tied at dawn. */
+  readonly staked: boolean[] = Array.from({ length: STAKE_COUNT }, () => false);
+  signRead = false;
+  /** The player went to the man at the field's edge (required before the searchlight). */
+  neighbor = false;
+  rested = false;
+
+  get allStaked(): boolean {
+    return this.staked.every(Boolean);
+  }
+
+  get stakedCount(): number {
+    return this.staked.filter(Boolean).length;
+  }
+
+  stake(i: number): boolean {
+    if (this.stage !== 'dawn' || this.staked[i] !== false) return false;
+    this.staked[i] = true;
+    return true;
+  }
+
+  hearNeighbor(): boolean {
+    if (this.stage !== 'dusk' || this.neighbor) return false;
+    this.neighbor = true;
+    return true;
+  }
 
   get allUnloaded(): boolean {
     return this.unloaded.every(Boolean);
@@ -428,7 +478,7 @@ export class TowerSim {
   }
 
   switchOn(): boolean {
-    if (this.stage !== 'dusk' || !this.lightMounted || this.lit) return false;
+    if (this.stage !== 'dusk' || !this.lightMounted || !this.neighbor || this.lit) return false;
     this.lit = true;
     return true;
   }
@@ -451,6 +501,10 @@ export class TowerSim {
     this.warned = false;
     this.water = false;
     this.meal = false;
+    for (let i = 0; i < STAKE_COUNT; i++) this.staked[i] = idx > STAGES.indexOf('dawn');
+    this.signRead = false;
+    this.neighbor = idx > STAGES.indexOf('dusk');
+    this.rested = false;
   }
 
   snapshot(): SimSnapshot {
@@ -474,6 +528,10 @@ export class TowerSim {
       warned: this.warned,
       water: this.water,
       meal: this.meal,
+      staked: [...this.staked],
+      signRead: this.signRead,
+      neighbor: this.neighbor,
+      rested: this.rested,
     };
   }
 
@@ -493,6 +551,10 @@ export class TowerSim {
     this.warned = s.warned;
     this.water = s.water;
     this.meal = s.meal;
+    for (let i = 0; i < STAKE_COUNT; i++) this.staked[i] = s.staked?.[i] === true;
+    this.signRead = s.signRead === true;
+    this.neighbor = s.neighbor === true;
+    this.rested = s.rested === true;
   }
 }
 

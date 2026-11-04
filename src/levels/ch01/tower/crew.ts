@@ -1,6 +1,9 @@
 import { Crowd, figureGeometry, FigureMaterial } from '../../../world/kit/figures';
 import type { LevelWorld } from '../../../gameplay/runtime/levelKit';
-import { CREW_ANCHORS, CREW_COUNT, type Spot, type Stage } from './rules';
+import { CREW_ANCHORS, CREW_COUNT, NEIGHBOR_SPOT, TOWER_BASE, type Spot, type Stage } from './rules';
+
+/** He faces the tower. */
+const NEIGHBOR_HEADING = Math.atan2(TOWER_BASE.x - NEIGHBOR_SPOT.x, TOWER_BASE.z - NEIGHBOR_SPOT.z);
 
 /**
  * The work team: labeled FICTIONAL COMPOSITE figures (two instanced crowds, one draw call each)
@@ -24,6 +27,9 @@ interface Walker {
 export class Crew {
   private readonly crowdA: Crowd;
   private readonly crowdB: Crowd;
+  /** One man from the village on the hill, standing at the field's edge from dusk. */
+  private readonly crowdC: Crowd;
+  private neighborVisible = false;
   private readonly walkers: Walker[] = [];
   private anchors: readonly Spot[] = CREW_ANCHORS.dawn;
   /** Girl who brings water: walks from `from` to `to` while `girlActive`. */
@@ -40,7 +46,9 @@ export class Crew {
     const geoB = world.bag.geometry(figureGeometry({ era, variant: 2, seed: 'crew-b' }));
     this.crowdA = world.bag.track(new Crowd(geoA, this.material, 3));
     this.crowdB = world.bag.track(new Crowd(geoB, this.material, 4));
-    for (const c of [this.crowdA, this.crowdB]) {
+    const geoC = world.bag.geometry(figureGeometry({ era, variant: 3, seed: 'neighbor' }));
+    this.crowdC = world.bag.track(new Crowd(geoC, this.material, 1));
+    for (const c of [this.crowdA, this.crowdB, this.crowdC]) {
       c.mesh.frustumCulled = false;
       world.scene.add(c.mesh);
     }
@@ -53,6 +61,7 @@ export class Crew {
   /** Switches the anchors; `snap` teleports the team (checkpoint restart). */
   setStage(stage: Stage, snap: boolean): void {
     this.anchors = CREW_ANCHORS[stage];
+    this.neighborVisible = stage === 'dusk' || stage === 'lenses';
     for (let i = 0; i < CREW_COUNT; i++) {
       const w = this.walkers[i] as Walker;
       const a = this.anchors[i * 2] as Spot;
@@ -119,10 +128,14 @@ export class Crew {
       g.heading = Math.atan2(this.girlTo.x - this.girlFrom.x, this.girlTo.z - this.girlFrom.z);
       this.crowdB.set(3, g.x, this.world.heightAt(g.x, g.z), g.z, g.heading, this.girlT < 1 ? 1 : 0, 0.5, 0.82);
     }
+    if (this.neighborVisible) this.crowdC.set(0, NEIGHBOR_SPOT.x, this.world.heightAt(NEIGHBOR_SPOT.x, NEIGHBOR_SPOT.z), NEIGHBOR_SPOT.z, NEIGHBOR_HEADING, 0, 0.3);
+    else this.crowdC.set(0, 0, -400, -400, 0, 0, 0, 0.0001);
     this.crowdA.markMoved();
     this.crowdB.markMoved();
+    this.crowdC.markMoved();
     this.crowdA.gait.needsUpdate = true;
     this.crowdB.gait.needsUpdate = true;
+    this.crowdC.gait.needsUpdate = true;
     this.material.update(elapsed);
   }
 }

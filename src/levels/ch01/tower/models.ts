@@ -70,6 +70,15 @@ export function stake(): THREE.BufferGeometry {
   return g.build();
 }
 
+/** Chalk board on two posts: the day's schedule. */
+export function signboard(): THREE.BufferGeometry {
+  const g = b('signboard');
+  for (const x of [-0.8, 0.8]) g.block(0.12, 1.9, 0.12, PLANK_DARK, x, 0, 0);
+  g.block(1.9, 0.95, 0.08, PLANK, 0, 0.85, 0);
+  g.block(1.5, 0.06, 0.02, CLOTH, 0, 1.65, 0.05);
+  return g.build();
+}
+
 /** Hand cart with wheels (empty). */
 export function cart(): THREE.BufferGeometry {
   const g = b('cart');
