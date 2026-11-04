@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createI18n } from '../../src/core/i18n';
 import { Narrator, pickHebrewVoice, type SpeechLike } from '../../src/audio/narration';
 
@@ -98,6 +98,66 @@ describe('Narrator', () => {
     spoken[1]?.onstart?.();
     narrator.cancel();
     expect(narrator.isSpeaking).toBe(false);
+  });
+
+  describe('stale utterance events (synth.cancel() fires the old onend/onerror late)', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('a late onend/onerror of a cancelled line does not end the new line or un-duck the music', () => {
+      const { narrator, spoken, ducks } = setup([voice('he-IL')]);
+      narrator.onSubtitle({ textKey: 'line.one', voice: true });
+      spoken[0]?.onstart?.();
+      narrator.onSubtitle({ textKey: 'line.one', voice: true });
+      spoken[1]?.onstart?.();
+      // The cancelled first utterance reports its end only now, after B started.
+      spoken[0]?.onend?.();
+      spoken[0]?.onerror?.();
+      spoken[0]?.onstart?.();
+      expect(narrator.isSpeaking).toBe(true);
+      // Ducked by A, released by the cancel, ducked again by B; nothing stale after that.
+      expect(ducks).toEqual([true, false, true]);
+      spoken[1]?.onend?.();
+      expect(narrator.isSpeaking).toBe(false);
+      expect(ducks).toEqual([true, false, true, false]);
+    });
+
+    it('a stale event does not clear the failsafe of the current line', () => {
+      vi.useFakeTimers();
+      const { narrator, spoken } = setup([voice('he-IL')]);
+      narrator.onSubtitle({ textKey: 'line.one', voice: true });
+      narrator.onSubtitle({ textKey: 'line.one', voice: true });
+      spoken[1]?.onstart?.();
+      spoken[0]?.onerror?.();
+      expect(narrator.isSpeaking).toBe(true);
+      // B never fires onend (some WebViews): the failsafe still releases the ducking.
+      vi.advanceTimersByTime(60_000);
+      expect(narrator.isSpeaking).toBe(false);
+    });
+
+    it('events after cancel() are ignored', () => {
+      const { narrator, spoken, ducks } = setup([voice('he-IL')]);
+      narrator.onSubtitle({ textKey: 'line.one', voice: true });
+      narrator.cancel();
+      spoken[0]?.onstart?.();
+      expect(narrator.isSpeaking).toBe(false);
+      expect(ducks).toEqual([]);
+    });
+
+    it('arms the failsafe on start, so a slow-starting voice is not cut short', () => {
+      vi.useFakeTimers();
+      const { narrator, spoken } = setup([voice('he-IL')]);
+      narrator.onSubtitle({ textKey: 'line.one', voice: true });
+      // The engine takes long to start (voice download / warm-up).
+      vi.advanceTimersByTime(20_000);
+      spoken[0]?.onstart?.();
+      expect(narrator.isSpeaking).toBe(true);
+      vi.advanceTimersByTime(1_000);
+      expect(narrator.isSpeaking).toBe(true);
+      vi.advanceTimersByTime(60_000);
+      expect(narrator.isSpeaking).toBe(false);
+    });
   });
 
   it('never throws when SpeechSynthesis is missing or misbehaves', () => {
