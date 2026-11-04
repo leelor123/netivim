@@ -1,5 +1,5 @@
 import { expect, test, type CDPSession, type Page } from '@playwright/test';
-import { CART_SPOTS, SOLUTION, TABLE_SPOT } from '../../src/levels/ch01/tower/rules';
+import { CART_SPOTS, SOLUTION, stakeStand, TABLE_SPOT } from '../../src/levels/ch01/tower/rules';
 
 /**
  * Touch only (no controller, no keyboard): Tower and Stockade from the briefing through the
@@ -98,7 +98,11 @@ test('touch only: the Tower planning table is completed with joystick, buttons a
   await expect.poll(() => missionState(page), { timeout: 60000 }).toBe('dawn');
   expect(await page.evaluate(() => window.__netivim?.input.device)).toBe('touch');
 
-  // Dawn: unload the four carts with the interact touch button.
+  // Dawn: tie the four corner cords, then unload the four carts, with the interact touch button.
+  for (let i = 0; i < 4; i++) {
+    const s = stakeStand(i);
+    await useSpot(page, 'stake-' + String(i), s.x, s.z);
+  }
   for (let i = 0; i < 4; i++) {
     const c = CART_SPOTS[i] as { x: number; z: number };
     await useSpot(page, 'cart-' + String(i), c.x, c.z + 2.3);

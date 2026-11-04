@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { CART_SPOTS, fenceSpot, GRAVEL_PILE, LIGHT_CRATE, SECTION_PILE, STATION_SPOTS, TABLE_SPOT, TOWER_BASE } from '../../src/levels/ch01/tower/rules';
+import { CART_SPOTS, fenceSpot, GRAVEL_PILE, LIGHT_CRATE, NEIGHBOR_STAND, SECTION_PILE, stakeStand, STATION_SPOTS, TABLE_SPOT, TOWER_BASE } from '../../src/levels/ch01/tower/rules';
 
 /**
  * Chapter 1, mission 1 "Tower and Stockade" in the browser, controller only (mocked
@@ -90,6 +90,8 @@ const STAND: Readonly<Record<string, Spot>> = {
   table: { x: TABLE_SPOT.x, z: TABLE_SPOT.z + 2.2 },
   'gravel-pile': { x: GRAVEL_PILE.x, z: GRAVEL_PILE.z + 2.4 },
   ...Object.fromEntries(STATION_SPOTS.map((s, i) => ['station-' + String(i), s])),
+  ...Object.fromEntries([0, 1, 2, 3].map((i) => ['stake-' + String(i), stakeStand(i)])),
+  neighbor: NEIGHBOR_STAND,
   sections: { x: SECTION_PILE.x, z: SECTION_PILE.z + 2.3 },
   'tower-base': { x: TOWER_BASE.x - 2.2, z: TOWER_BASE.z + 1.9 },
   'light-crate': { x: LIGHT_CRATE.x, z: LIGHT_CRATE.z + 2.3 },
@@ -138,12 +140,16 @@ test('controller only: Tower and Stockade from briefing through sunset, Two Lens
   await expect.poll(() => flowState(page), { timeout: 60000 }).toBe('mission');
   await expect.poll(() => missionState(page), { timeout: 60000 }).toBe('dawn');
   await expect(page.locator('.gp-hud__objective')).toHaveText('פרקו את מסגרות העץ המוכנות מהעגלות.');
-  await expect(page.locator('.gp-hud__steps')).toHaveText('0 מתוך 4');
+  await expect(page.locator('.gp-hud__steps')).toHaveText('0 מתוך 8');
 
-  // Dawn: unload the four carts.
+  // Dawn: tie the four corner cords (stakes), then unload the four carts, in either order.
+  for (let i = 0; i < 4; i++) {
+    await use(page, 'stake-' + String(i));
+    await expect(page.locator('.gp-hud__steps')).toHaveText(String(i + 1) + ' מתוך 8');
+  }
   for (let i = 0; i < 4; i++) {
     await use(page, 'cart-' + String(i));
-    if (i < 3) await expect(page.locator('.gp-hud__steps')).toHaveText(String(i + 1) + ' מתוך 4');
+    if (i < 3) await expect(page.locator('.gp-hud__steps')).toHaveText(String(i + 5) + ' מתוך 8');
   }
   await expect.poll(() => missionState(page), { timeout: 60000 }).toBe('walls');
   await expect(page.locator('.gp-hud__objective')).toHaveText('העמידו את קירות העץ הכפולים לפי תוואי החומה.');
@@ -187,6 +193,17 @@ test('controller only: Tower and Stockade from briefing through sunset, Two Lens
   for (let leg = 0; leg < 4; leg++) await use(page, 'fence-post', fenceSpot(leg));
   await expect.poll(() => missionState(page), { timeout: 60000 }).toBe('dusk');
   await expect(page.locator('.gp-hud__objective')).toHaveText('סיימו לפני השקיעה.');
+
+  // Dusk: the lamp cannot be lit before the man at the field's edge has been heard; pick the first answer.
+  await teleport(page, STAND['tower-base'] as Spot);
+  await page.waitForTimeout(500);
+  expect(await page.evaluate(() => window.__netivimGameplay?.host?.interactions.focused?.id ?? null)).not.toBe('tower-base');
+  await use(page, 'neighbor');
+  await expect(page.locator('[data-screen="gp-decision"]')).toBeVisible({ timeout: 30000 });
+  await press(page, A);
+  await expect(page.locator('[data-key="decision-continue"]')).toBeVisible({ timeout: 30000 });
+  await press(page, A);
+  await expect(page.locator('[data-screen="gp-decision"]')).toBeHidden({ timeout: 30000 });
 
   // Dusk: switch the searchlight on; the sun runs down and the debrief plays.
   await use(page, 'tower-base');

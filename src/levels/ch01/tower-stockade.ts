@@ -1,15 +1,19 @@
 import { MISSION_SCRIPTS, SPEAKER_KEYS } from '../../content/ch01/dialogue';
 import type { Action } from '../../core/input/types';
 import type { Interactable, InteractableKind } from '../../gameplay/core/interaction';
+import type { DecisionDef } from '../../gameplay/core/ledger';
 import { MissionTimer } from '../../gameplay/core/telegraph';
 import { LevelWorld, type Marker } from '../../gameplay/runtime/levelKit';
 import { PlayerController } from '../../gameplay/runtime/player';
 import { defineLevel, type BotStep, type FailureInfo, type Level, type LevelContext, type Line } from '../../gameplay/types';
 import { Crew } from './tower/crew';
+import * as M from './tower/models';
 import { Planner } from './tower/planner';
 import {
   CART_COUNT,
   CART_SPOTS,
+  cellX,
+  cellZ,
   CENTER_X,
   CENTER_Z,
   CHECKPOINT_STAGES,
@@ -27,6 +31,13 @@ import {
   LIGHT_CRATE,
   LOADS_PER_TRIP,
   MEAL_SPOT,
+  NEIGHBOR_SPOT,
+  NEIGHBOR_STAND,
+  REST_SPOT,
+  SIGN_SPOT,
+  STAKE_COUNT,
+  STAKE_SPOTS,
+  stakeStand,
   PIECES,
   parseSnapshot,
   restartFraction,
@@ -36,6 +47,7 @@ import {
   SOLUTION,
   SPAWN,
   STAGES,
+  STATION_CELLS,
   STATION_COUNT,
   STATION_SPOTS,
   SUN_METER_FROM,
@@ -76,6 +88,28 @@ export interface TowerLevel extends Level {
 const FOREMAN = 'levels.ch01.tower.speaker.foreman';
 const WORKER = 'levels.ch01.tower.speaker.worker';
 const K = 'levels.ch01.tower.';
+const NEIGHBOR = 'levels.ch01.tower.speaker.neighbor';
+const D = K + 'd.';
+const DECISION_GIRL = 'tower-water-girl';
+const DECISION_FIELD = 'tower-field-edge';
+const opt = (d: string, id: string): { id: string; labelKey: string; consequenceKey: string } => ({ id, labelKey: D + d + '.' + id, consequenceKey: D + d + '.' + id + '.result' });
+/** Two conversations on the site. Both are RECONSTRUCTED composites: no answer is right, and the history text says so. */
+export const DECISIONS: readonly DecisionDef[] = [
+  {
+    id: DECISION_GIRL,
+    promptKey: D + 'girl.prompt',
+    options: [opt('girl', 'honest'), opt('girl', 'hope'), opt('girl', 'ask')],
+    historical: { optionId: null, textKey: D + 'girl.history', sources: [], label: 'reconstructed' },
+  },
+  {
+    id: DECISION_FIELD,
+    promptKey: D + 'field.prompt',
+    options: [opt('field', 'ask'), opt('field', 'water'), opt('field', 'nod')],
+    historical: { optionId: null, textKey: D + 'field.history', sources: ['C1-101', 'C1-103'], label: 'reconstructed' },
+  },
+];
+/** What the QA bot answers at the field's edge. */
+const BOT_FIELD = 'ask';
 const FINALE_SECONDS = 30;
 const SKIP_AFTER = 3;
 /**
@@ -176,7 +210,7 @@ function build(ctx: LevelContext<E>): TowerLevel {
   // ---- objectives and state changes ---------------------------------------------------------
 
   const syncObjectives = (): void => {
-    ctx.objectives.progress('o1', sim.unloaded.filter(Boolean).length);
+    ctx.objectives.progress('o1', sim.unloaded.filter(Boolean).length + sim.stakedCount);
     ctx.objectives.progress('o2', sim.puzzle.placedCount);
     ctx.objectives.progress('o3', sim.filledCount);
     ctx.objectives.progress('o4', sim.sections + sim.fence + (sim.lightMounted ? 1 : 0));
@@ -301,7 +335,9 @@ function build(ctx: LevelContext<E>): TowerLevel {
       const r = planner.place();
       planOutcome(r.reasonKey);
       if (r.ok) {
-        cue('ui.confirm');
+        // A wooden "clack" and a puff of dust where the frame snaps in.
+        cue('ui.toggle');
+        burst('dust', { x: cellX(planner.cx), z: cellZ(planner.cy) }, 0.3, 8);
         changed();
         if (sim.walled) {
           finishPlanning();
@@ -343,6 +379,13 @@ function build(ctx: LevelContext<E>): TowerLevel {
     cue('ui.confirm');
     changed();
   };
+  /** A burst of dust / gravel / sparks at a spot on the ground (building feedback). */
+  const burst = (kind: 'dust' | 'gravel' | 'spark', at: Spot, rise = 0.6, count = 10): void => site.puff.emit(kind, at.x, world.heightAt(at.x, at.z) + rise, at.z, count);
+  const stationCenter = (k: number): Spot => {
+    const cells = STATION_CELLS[k] ?? [];
+    const mid = cells[Math.floor(cells.length / 2)];
+    return mid ? { x: mid.x, z: mid.z } : (STATION_SPOTS[k] as Spot);
+  };
 
   for (let i = 0; i < CART_COUNT; i++) {
     add(
@@ -355,13 +398,42 @@ function build(ctx: LevelContext<E>): TowerLevel {
       () => {
         if (!sim.unload(i)) return;
         afterUse();
-        if (sim.allUnloaded) {
-          say([line(K + 'say.unloaded', FOREMAN, 7000)]);
-          advance('unloaded');
-        }
+        dawnCheck(sim.allUnloaded ? 'unloaded' : null);
       },
     );
   }
+  for (let i = 0; i < STAKE_COUNT; i++) {
+    add(
+      'stake-' + String(i),
+      'marker',
+      STAKE_SPOTS[i] as Spot,
+      3,
+      'stake',
+      () => sim.stage === 'dawn' && sim.staked[i] === false,
+      () => {
+        if (!sim.stake(i)) return;
+        afterUse();
+        burst('dust', STAKE_SPOTS[i] as Spot, 0.4, 6);
+        dawnCheck(sim.allStaked ? 'staked' : null);
+      },
+    );
+  }
+  add(
+    'signboard',
+    'generic',
+    SIGN_SPOT,
+    3.2,
+    'sign',
+    () => (sim.stage === 'dawn' || sim.stage === 'walls') && !sim.signRead && !planning,
+    () => {
+      sim.signRead = true;
+      const lines = [line(K + 'sign.1', null, 9000), line(K + 'sign.2', null, 7000)];
+      say(lines, 'reconstructed');
+      breakLeft = totalSeconds(lines) + 1;
+      cue('ui.toggle');
+    },
+    '#8fd0a8',
+  );
   add('table', 'generic', TABLE_SPOT, 3.2, 'plan', () => sim.stage === 'walls' && !planning, enterPlanning);
   add(
     'gravel-pile',
@@ -385,6 +457,8 @@ function build(ctx: LevelContext<E>): TowerLevel {
       () => {
         if (sim.fillStation(k) !== 'ok') return;
         afterUse();
+        burst('gravel', stationCenter(k), 1.2, 12);
+        if (sim.filledCount === 3 && !sim.allFilled) say([line(K + 'say.halfway', WORKER, 5000)]);
         if (sim.allFilled) {
           unlockOnce('testimony', 'settler');
           say([line(K + 'say.filled', FOREMAN, 5000)]);
@@ -418,12 +492,19 @@ function build(ctx: LevelContext<E>): TowerLevel {
     TOWER_BASE,
     3.9,
     'place',
-    () => (sim.stage === 'tower' && sim.carry === 'section') || (sim.stage === 'fence' && sim.carry === 'light') || (sim.stage === 'dusk' && sim.lightMounted && !sim.lit),
+    () => (sim.stage === 'tower' && sim.carry === 'section') || (sim.stage === 'fence' && sim.carry === 'light') || (sim.stage === 'dusk' && sim.lightMounted && sim.neighbor && !sim.lit),
     () => {
       if (sim.stage === 'tower' && sim.placeSection()) {
         afterUse();
+        // Each section lands with a puff higher up; the last one is the payoff: sparks, a chime, a cheer.
+        burst('dust', TOWER_BASE, 1 + sim.sections * 2, 12);
+        if (sim.sections === 2) say([line(K + 'say.sec2', WORKER, 4000)]);
         if (sim.towerReady) {
-          say([line(K + 'say.towerUp', FOREMAN, 5500)]);
+          cue('ui.save');
+          burst('spark', TOWER_BASE, M.TOWER_TOP_Y, 36);
+          const lines = [line(K + 'say.towerUp', FOREMAN, 5500), line(K + 'say.towerCheer', WORKER, 4500)];
+          say(lines);
+          breakLeft = 3;
           advance('raised');
         }
       } else if (sim.stage === 'fence' && sim.mountLight()) {
@@ -444,6 +525,7 @@ function build(ctx: LevelContext<E>): TowerLevel {
     () => {
       if (!sim.stringFence(sim.fence)) return;
       afterUse();
+      burst('dust', fenceSpot(sim.fence - 1), 0.5, 8);
       checkFenced();
     },
   );
@@ -467,11 +549,16 @@ function build(ctx: LevelContext<E>): TowerLevel {
     () => (sim.stage === 'gravel' || sim.stage === 'tower' || sim.stage === 'fence') && !sim.water,
     () => {
       sim.water = true;
-      const lines = [line('ch01.tower.moment', null, 8000), line(K + 'say.water', FOREMAN, 4500)];
-      say(lines, 'reconstructed');
-      breakLeft = totalSeconds(lines) + 1;
+      const first = [line('ch01.tower.moment', null, 8000)];
+      say(first, 'reconstructed');
+      breakLeft = totalSeconds(first) + 1;
       crew.startGirl({ x: -22, z: 13 }, { x: JUG_SPOT.x - 1.4, z: JUG_SPOT.z + 1.2 });
       cue('ui.toggle');
+      ctx.decide(DECISION_GIRL, (optionId) => {
+        const after = [line(D + 'girl.' + optionId + '.result', null, 5000), line(K + 'say.water', FOREMAN, 4500)];
+        say(after, 'reconstructed');
+        breakLeft = totalSeconds(after) + 1;
+      });
     },
     '#8fd0a8',
   );
@@ -492,9 +579,64 @@ function build(ctx: LevelContext<E>): TowerLevel {
     '#8fd0a8',
   );
 
+  /** Dawn ends once the cords are tied AND the carts are unloaded, in either order. */
+  function dawnCheck(done: 'unloaded' | 'staked' | null): void {
+    if (sim.allUnloaded && sim.allStaked) {
+      say([line(K + 'say.unloaded', FOREMAN, 7000)]);
+      advance('unloaded');
+    } else if (done === 'unloaded') say([line(K + 'say.unloadedFirst', FOREMAN, 6000)]);
+    else if (done === 'staked') say([line(K + 'say.stakedFirst', FOREMAN, 5500)]);
+  }
+
+  // Dusk: the man at the field's edge (the neighbours' side of Two Lenses, as a conversation) and a quiet rest.
+  let fieldBusy = false;
+  let heardOnce = false;
+  add(
+    'neighbor',
+    'generic',
+    NEIGHBOR_SPOT,
+    4,
+    'neighbor',
+    () => sim.stage === 'dusk' && !sim.neighbor && !fieldBusy,
+    () => {
+      fieldBusy = true;
+      const intro = [line(K + 'neighbor.intro', null, 8000)];
+      say(intro, 'reconstructed');
+      breakLeft = totalSeconds(intro) + 1;
+      ctx.decide(DECISION_FIELD, (optionId) => {
+        const lines = [line(D + 'field.' + optionId + '.result', NEIGHBOR, 9000), line(K + 'neighbor.outro', null, 5000)];
+        say(lines, 'composite');
+        breakLeft = totalSeconds(lines) + 1;
+        fieldBusy = false;
+        heardOnce = true;
+        if (sim.hearNeighbor()) {
+          unlockOnce('testimony', 'tenant');
+          cue('ui.confirm');
+        }
+      });
+    },
+    '#8fd0a8',
+  );
+  add(
+    'crew-rest',
+    'generic',
+    REST_SPOT,
+    3,
+    'rest',
+    () => sim.stage === 'dusk' && !sim.rested,
+    () => {
+      sim.rested = true;
+      const lines = [line(K + 'rest.1', null, 7000), line(K + 'rest.2', WORKER, 4000), line(K + 'rest.3', FOREMAN, 4000), line(K + 'rest.4', WORKER, 5500), line(K + 'rest.5', FOREMAN, 3500)];
+      say(lines, 'composite');
+      breakLeft = totalSeconds(lines) + 1;
+      cue('ui.toggle');
+    },
+    '#8fd0a8',
+  );
+
   function checkFenced(): void {
     if (sim.fenceDone && sim.lightMounted) {
-      say([line(K + 'say.fenced', FOREMAN, 5500)]);
+      say([line(K + 'say.fenced', FOREMAN, 5500), line(K + 'say.dusk', FOREMAN, 8000)]);
       advance('fenced');
     }
   }
@@ -502,7 +644,10 @@ function build(ctx: LevelContext<E>): TowerLevel {
   function switchOn(): void {
     finaleFrom = sim.clock;
     syncObjectives();
-    cue('ui.confirm');
+    // The reward: a chime, a shower of sparks from the lamp, and the team cheers before the debrief.
+    cue('ui.save');
+    burst('spark', TOWER_BASE, M.TOWER_TOP_Y + 0.4, 48);
+    burst('spark', TOWER_BASE, M.TOWER_TOP_Y + 1.2, 24);
     unlockOnce('codex', 'tel-amal');
     unlockOnce('testimony', 'tenant');
     unlockOnce('archive', 'peel');
@@ -515,7 +660,7 @@ function build(ctx: LevelContext<E>): TowerLevel {
     }
     finaleT = 0;
     player.controllable = false;
-    say(DEBRIEF, 'composite');
+    say([line(K + 'say.cheer', WORKER, 4500), ...DEBRIEF], 'composite');
   }
 
   const refreshTargets = (): void => {
@@ -550,7 +695,11 @@ function build(ctx: LevelContext<E>): TowerLevel {
     if (bed === name) return;
     bed = name;
     cue('ambience.' + name);
+    // Calm by day, reflective from dusk on (1937).
+    ctx.bus.emit('audio:mood', { mood: name === 'village' ? 'calm' : 'reflective', era: 1937 });
   };
+  /** Village by day, the dusk bed from clock 0.7, the night bed from 0.8. */
+  const bedFor = (clock: number): string => (clock >= 0.8 ? 'night' : clock >= 0.7 ? 'dusk' : 'village');
 
   const scene = world.gameScene(() => {
     if (disposed) return;
@@ -598,7 +747,7 @@ function build(ctx: LevelContext<E>): TowerLevel {
         lastAlert = meter;
         ctx.alert(meter);
       }
-      setBed(sim.clock >= 0.8 ? 'night' : 'village');
+      setBed(bedFor(sim.clock));
     },
     enterCheckpoint(checkpoint, data) {
       const snap = parseSnapshot(data);
@@ -607,6 +756,9 @@ function build(ctx: LevelContext<E>): TowerLevel {
       if (snap) sim.restore(snap);
       else sim.resetTo(stage, restartFraction(stage, recorded[stage]));
       if (recorded[sim.stage] === undefined) recorded[sim.stage] = sim.clock;
+      fieldBusy = false;
+      // A retry at dusk does not repeat the conversation.
+      if (sim.stage === 'dusk' && heardOnce) sim.neighbor = true;
       startClock(sim.clock);
       planner.reset();
       planMessage = null;
@@ -630,14 +782,14 @@ function build(ctx: LevelContext<E>): TowerLevel {
       sky.apply(sim.clock);
       syncObjectives();
       refreshTargets();
-      setBed(sim.clock >= 0.8 ? 'night' : 'village');
+      setBed(bedFor(sim.clock));
       if (sim.stage === 'dawn' && !snap) {
         unlockOnce('codex', 'arab-revolt');
         unlockOnce('codex', 'peel-commission');
         unlockOnce('codex', 'tower-and-stockade');
         if (!briefed) {
           briefed = true;
-          say(BRIEFING, 'composite');
+          say([...BRIEFING, line(K + 'say.stakeFirst', FOREMAN, 7000)], 'composite');
         }
       }
     },
@@ -736,13 +888,45 @@ const gravelTrips: readonly (readonly BotStep[])[] = [
 const sectionTrip: BotStep[] = [walk(APPROACH.sections, 0.8), press('interact'), walk(APPROACH.tower, 0.8), press('interact')];
 
 // Works from inside the compound (straight through the gate) and from the south-west corner outside.
-const DUSK_ROUTE: BotStep[] = [walk(GATE_OUT, 1.5), walk(GATE_IN, 1.2), walk(APPROACH.tower, 0.8), press('interact')];
+// Dusk first goes to the man at the field's edge east of the gate (south of the east fence leg's end), then lights the lamp.
+const DUSK_ROUTE: BotStep[] = [
+  walk(GATE_OUT, 1.5),
+  walk(at(12, 8.5), 1.5),
+  walk(NEIGHBOR_STAND, 0.8),
+  press('interact'),
+  { kind: 'choose', optionId: BOT_FIELD },
+  walk(at(12, 8.5), 1.5),
+  walk(GATE_OUT, 1.5),
+  walk(GATE_IN, 1.2),
+  walk(APPROACH.tower, 0.8),
+  press('interact'),
+];
+
+/** Dawn: tie the four cords (clockwise from the north-west, going around outside the future wall), then unload. */
+const STAKE_STEPS: readonly BotStep[] = [
+  walk(at(-10, 15), 2),
+  walk(stakeStand(3), 0.8),
+  press('interact'),
+  walk(at(-16, -4), 1.5),
+  walk(stakeStand(0), 0.8),
+  press('interact'),
+  walk(at(0, -17), 1.5),
+  walk(stakeStand(1), 0.8),
+  press('interact'),
+  walk(at(16, -4), 1.5),
+  walk(stakeStand(2), 0.8),
+  press('interact'),
+  walk(at(14, 4), 1.5),
+  walk(at(14, 14), 1.5),
+  walk(at(8, 14.5), 1.5),
+];
 
 const botScript: Record<Stage, readonly BotStep[]> = {
   dawn: [
-    walk(APPROACH.cart(2), 0.8),
-    press('interact'),
+    ...STAKE_STEPS,
     walk(APPROACH.cart(3), 0.8),
+    press('interact'),
+    walk(APPROACH.cart(2), 0.8),
     press('interact'),
     walk(at(0, 15.5), 1.5),
     walk(APPROACH.cart(1), 0.8),
@@ -809,13 +993,15 @@ export default defineLevel<Stage, E>({
     },
   },
   objectives: [
-    { id: 'o1', textKey: 'ch01.tower.o1', states: ['dawn'], steps: CART_COUNT },
+    { id: 'o1', textKey: 'ch01.tower.o1', states: ['dawn'], steps: CART_COUNT + STAKE_COUNT },
     { id: 'o2', textKey: 'ch01.tower.o2', states: ['walls'], steps: PIECES.length },
     { id: 'o3', textKey: 'ch01.tower.o3', states: ['gravel'], steps: STATION_COUNT },
     { id: 'o4', textKey: 'ch01.tower.o4', states: ['tower', 'fence'], steps: SECTION_COUNT + FENCE_LEGS + 1 },
     { id: 'o5', textKey: 'ch01.tower.o5', states: ['dusk', 'lenses'] },
   ],
   failures,
+  decisions: DECISIONS,
+  briefingContextKey: K + 'context',
   botScript,
   extraCheckpoints: EXTRA_CHECKPOINT_STAGES,
   briefingMap: {

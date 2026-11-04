@@ -13,7 +13,7 @@ import type { PlayerController } from '../../src/gameplay/runtime/player';
 import type { AnyLevelDefinition } from '../../src/gameplay/types';
 import { DEFAULT_WORLD_QUALITY } from '../../src/world/quality';
 import type { TowerLevel } from '../../src/levels/ch01/tower-stockade';
-import { APPROACH } from '../../src/levels/ch01/tower-stockade';
+import { APPROACH, DECISIONS } from '../../src/levels/ch01/tower-stockade';
 import { Planner } from '../../src/levels/ch01/tower/planner';
 import {
   CART_PIECES,
@@ -32,6 +32,7 @@ import {
   SOLUTION,
   STAGE_START,
   STAGES,
+  STAKE_COUNT,
   STATION_CELLS,
   STATION_COUNT,
   sunsetReason,
@@ -102,6 +103,28 @@ describe('tower layout and frames', () => {
     expect(sim.isAvailable('l4-0')).toBe(false);
     sim.stage = 'walls';
     expect(sim.unload(1)).toBe(false);
+  });
+
+  it('corner stakes are tied at dawn only, once each, and a restart keeps them', () => {
+    const sim = new TowerSim();
+    expect(sim.stake(0)).toBe(true);
+    expect(sim.stake(0)).toBe(false);
+    expect(sim.stakedCount).toBe(1);
+    for (let i = 1; i < STAKE_COUNT; i++) sim.stake(i);
+    expect(sim.allStaked).toBe(true);
+    sim.stage = 'walls';
+    const fresh = new TowerSim();
+    fresh.stage = 'walls';
+    expect(fresh.stake(0)).toBe(false);
+    fresh.restore(sim.snapshot());
+    expect(fresh.allStaked).toBe(true);
+    const again = new TowerSim();
+    again.resetTo('gravel', STAGE_START.gravel);
+    expect(again.allStaked).toBe(true);
+    again.resetTo('dusk', STAGE_START.dusk);
+    expect(again.neighbor).toBe(false);
+    again.resetTo('lenses', 1);
+    expect(again.neighbor).toBe(true);
   });
 });
 
@@ -204,6 +227,9 @@ describe('gravel, tower, fence and searchlight rules', () => {
     expect(sim.takeLight()).toBe(true);
     expect(sim.mountLight()).toBe(true);
     sim.stage = 'dusk';
+    expect(sim.switchOn(), 'not before the man at the field edge was heard').toBe(false);
+    expect(sim.hearNeighbor()).toBe(true);
+    expect(sim.hearNeighbor()).toBe(false);
     expect(sim.switchOn()).toBe(true);
     expect(sim.switchOn()).toBe(false);
   });
@@ -291,19 +317,25 @@ describe('level definition', () => {
     const keys = [
       'levels.ch01.tower.context',
       ...['corner', 'l4', 'l3', 'l2', 'l1'].map((t) => 'levels.ch01.tower.piece.' + t),
-      ...['unload', 'plan', 'gravel', 'fill', 'section', 'place', 'fence', 'lightCrate', 'mount', 'switch', 'water', 'meal', 'early'].map((p) => 'levels.ch01.tower.prompt.' + p),
-      ...['unloaded', 'walled', 'filled', 'towerUp', 'fenced', 'warn', 'water', 'meal1', 'meal2'].map((s) => 'levels.ch01.tower.say.' + s),
+      ...['unload', 'plan', 'gravel', 'fill', 'section', 'place', 'fence', 'lightCrate', 'mount', 'switch', 'water', 'meal', 'early', 'stake', 'sign', 'neighbor', 'rest'].map((p) => 'levels.ch01.tower.prompt.' + p),
+      ...['unloaded', 'walled', 'filled', 'towerUp', 'fenced', 'warn', 'water', 'meal1', 'meal2', 'stakeFirst', 'unloadedFirst', 'stakedFirst', 'dusk', 'halfway', 'sec2', 'towerCheer', 'cheer'].map((s) => 'levels.ch01.tower.say.' + s),
+      ...['sign.1', 'sign.2', 'neighbor.intro', 'neighbor.outro', 'rest.1', 'rest.2', 'rest.3', 'rest.4', 'rest.5'].map((s) => 'levels.ch01.tower.' + s),
       ...['timeout', 'unfilled', 'order'].map((r) => 'levels.ch01.tower.fail.' + r),
       ...['title', 'controls', 'progress', 'fits', 'nofit', 'none', 'notNow', 'notUnloaded'].map((p) => 'levels.ch01.tower.plan.' + p),
       ...['kicker', 'accepted', 'shared', 'continue'].map((p) => 'levels.ch01.tower.lenses.' + p),
       'levels.ch01.tower.speaker.foreman',
       'levels.ch01.tower.speaker.worker',
+      'levels.ch01.tower.speaker.neighbor',
       'levels.ch01.tower.map.carts',
       'levels.ch01.tower.map.table',
       'levels.ch01.tower.map.gate',
       'levels.ch01.tower.map.tower',
       'ch01.tower.moment',
     ];
+    for (const d of DECISIONS) {
+      keys.push(d.promptKey, d.historical.textKey);
+      for (const o of d.options) keys.push(o.labelKey, o.consequenceKey);
+    }
     for (const k of keys) expect(HEBREW[k], k).toBeTruthy();
     const land = TWO_LENSES.find((x) => x.id === 'land');
     expect(land?.lenses).toHaveLength(2);

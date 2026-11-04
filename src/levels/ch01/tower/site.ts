@@ -6,6 +6,7 @@ import { stoneVillageHouse, tent } from '../../../world/kit/buildings';
 import { oliveTree, rock } from '../../../world/kit/nature';
 import { Rng } from '../../../world/rng';
 import * as M from './models';
+import { Puff } from './puff';
 import {
   CART_SPOTS,
   CELL,
@@ -17,7 +18,9 @@ import {
   JUG_SPOT,
   LIGHT_CRATE,
   MEAL_SPOT,
+  NEIGHBOR_SPOT,
   RING,
+  SIGN_SPOT,
   SECTION_COUNT,
   SECTION_PILE,
   STATION_CELLS,
@@ -75,6 +78,11 @@ class Inst {
 }
 
 const ease = (t: number): number => t * t * (3 - 2 * t);
+/** Ease out with a small overshoot (peaks near 1.1), 0 at 0 and 1 at 1. */
+const backOut = (t: number): number => {
+  const u = t - 1;
+  return 1 + 2.2 * u * u * u + 1.2 * u * u;
+};
 
 /** Moves each value toward its target by at most `delta`; true when anything moved. */
 function approach(cur: Float32Array, to: Float32Array, delta: number): boolean {
@@ -132,12 +140,15 @@ export class SiteView {
   private readonly lampPos = new THREE.Vector3();
   private readonly dyn: Collider[] = [];
   private instant = true;
+  /** Dust and spark bursts for building feedback. */
+  readonly puff: Puff;
 
   constructor(
     private readonly world: LevelWorld,
     private readonly reduced: () => boolean,
   ) {
     const mats = world.mats;
+    this.puff = new Puff(world, reduced);
     const n = RING.length;
     this.ground = new Float32Array(n);
     this.rise = new Float32Array(n);
@@ -238,6 +249,8 @@ export class SiteView {
     this.sectionPile = world.place(M.sectionPile(), SECTION_PILE.x, SECTION_PILE.z, 0.1, box(SECTION_PILE.x, SECTION_PILE.z, 1.3, 1.1, 1));
     this.lightCrate = world.place(M.lightCrate(), LIGHT_CRATE.x, LIGHT_CRATE.z, 0.4, circle(LIGHT_CRATE.x, LIGHT_CRATE.z, 0.7, 1.2));
     world.place(M.jug(), JUG_SPOT.x, JUG_SPOT.z, 0, circle(JUG_SPOT.x, JUG_SPOT.z, 0.6, 1));
+    world.place(M.signboard(), SIGN_SPOT.x, SIGN_SPOT.z, 0.15, box(SIGN_SPOT.x, SIGN_SPOT.z, 1.1, 0.4, 1));
+    world.colliders.push(circle(NEIGHBOR_SPOT.x, NEIGHBOR_SPOT.z, 0.6, 1.8));
     this.blanket = world.place(M.mealBlanket(), MEAL_SPOT.x, MEAL_SPOT.z, 0.2);
     this.blanket.visible = false;
     TENT_SPOTS.forEach((t, i) => world.place(tent({ ...era, seed: 'tent-' + String(i) }), t.x, t.z, 0, box(t.x, t.z, 1.6, 2.1, 2)));
@@ -406,7 +419,8 @@ export class SiteView {
       const sl = this.slot[i];
       if (!c || !sl) continue;
       const g = this.ground[i] ?? 0;
-      const r = ease(this.rise[i] ?? 0);
+      // Walls overshoot a little and settle: the frame "snaps" into place.
+      const r = backOut(this.rise[i] ?? 0);
       const ry = c.kind === 'corner' ? (CORNER_RY[c.corner] ?? 0) : c.kind === 'v' ? Math.PI / 2 : 0;
       const fl = ease(this.fill[i] ?? 0);
       const wall = c.kind === 'corner' ? this.corners : this.walls;
@@ -416,7 +430,7 @@ export class SiteView {
       else wall.set(sl.index, c.x, g, c.z, ry, 0, 0, 0);
       if (fl > 0.001) gr.set(sl.index, c.x, g + 0.1, c.z, ry, 1, fl, 1);
       else gr.set(sl.index, c.x, g + 0.1, c.z, ry, 0, 0, 0);
-      const o = 1 - r;
+      const o = Math.max(0, 1 - r);
       if (o > 0.001) this.outline.set(i, c.x, g + 0.03, c.z, 0, o, 1, o);
       else this.outline.set(i, c.x, g + 0.03, c.z, 0, 0, 0, 0);
     }
@@ -450,6 +464,7 @@ export class SiteView {
    */
   update(dt: number, elapsed: number, px: number, py: number, pz: number, heading: number, dusk: number): void {
     const speed = this.instant || this.reduced() ? 1000 : 1;
+    this.puff.update(dt);
     let moving = false;
     if (approach(this.rise, this.riseTo, 2.2 * speed * dt)) moving = true;
     if (approach(this.fill, this.fillTo, 0.9 * speed * dt)) moving = true;
