@@ -133,6 +133,20 @@ describe('short taps are latched (never lost between two steps)', () => {
     expect(input.isDown('interact')).toBe(false);
   });
 
+  it('the press that resumed the game is swallowed (no fresh pause press after resume)', () => {
+    const input = manager();
+    input.setVirtual('pause', true);
+    input.setVirtual('pause', false);
+    input.swallowPresses();
+    input.update();
+    expect(input.justPressed('pause')).toBe(false);
+    input.setVirtual('alt', true);
+    input.swallowPresses();
+    input.update();
+    expect(input.isDown('alt')).toBe(true);
+    expect(input.justPressed('alt')).toBe(false);
+  });
+
   it('touch zoom holds the trigger axis while pressed', () => {
     const input = manager();
     input.setTouchScroll(1);

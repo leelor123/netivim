@@ -15,7 +15,6 @@ import { createSubtitles } from './subtitles';
 import { DomScreenHost, type UiScreen } from './uiScreen';
 
 /** A key the UI handled this recently owns the pause press of the same frame (Escape = back + pause). */
-const RECENT_KEY_MS = 300;
 /** Screens hosted by other systems (timeline, living map) carry data-screen outside the UI root. */
 const FOREIGN_SCREEN = '[data-screen]';
 
@@ -162,7 +161,13 @@ export function installUI(game: Game): () => void {
   // Running: menus read input every simulation step. Paused: steps stop, so the frame hook does
   // (input is already updated for that frame) and owns resuming on the pause button.
   const offStep = game.onStep((dt) => focus.tick(dt));
+  // Time of the previous frame-hook check: a press the UI already handled as a key event since
+  // then (Escape popping a sub-screen) must not also resume. Presses are latched by the input
+  // manager, so the press and its UI handling always fall in the same frame window.
+  let lastFrameCheck = performance.now();
   const offFrame = game.onFrame((dt, paused) => {
+    const since = lastFrameCheck;
+    lastFrameCheck = performance.now();
     if (!paused) return;
     const input = game.input;
     if (
@@ -170,7 +175,7 @@ export function installUI(game: Game): () => void {
       pausePressResumes({
         pressedPause: input.justPressed('pause'),
         pressedBack: input.justPressed('back'),
-        recentUiKey: performance.now() - focus.lastKeyAt < RECENT_KEY_MS,
+        recentUiKey: focus.lastKeyAt >= since,
       })
     ) {
       resume();
