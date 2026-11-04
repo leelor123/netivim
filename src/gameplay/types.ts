@@ -22,6 +22,8 @@ import type { ObjectiveDef, ObjectiveTracker } from './core/objectives';
 export interface LevelInput {
   readonly move: Readonly<Vec2>;
   readonly look: Readonly<Vec2>;
+  /** Touch / mouse drag rotation for this step, radians (see core/input/lookDrag.ts). */
+  readonly lookDrag: Readonly<Vec2>;
   readonly scroll: number;
   isDown(a: Action): boolean;
   justPressed(a: Action): boolean;

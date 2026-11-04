@@ -22,7 +22,8 @@ export interface GameEvents {
   'unlock:item': { kind: UnlockKind; id: string };
   'settings:changed': { key: string };
   /** Show a subtitle line (always shown, even when voice narration is off). */
-  'subtitle:show': { textKey: string; speakerKey: string | null; durationMs: number; voice: boolean };
+  /** `label`: content label of the line (testimony, composite character); shown as a chip in the caption. */
+  'subtitle:show': { textKey: string; speakerKey: string | null; durationMs: number; voice: boolean; label?: 'documented' | 'reconstructed' | 'composite' | null };
   'subtitle:clear': Record<string, never>;
   /** Play a named sound cue (sfx/ambience/music change), owned by the audio system. */
   'audio:cue': { cue: string; intensity?: number };
@@ -35,5 +36,7 @@ export interface GameEvents {
   /** The pause menu asks the gameplay director to open the codex (hub only). */
   'ui:open-codex': Record<string, never>;
   'ui:toast': { textKey: string; params?: Record<string, string | number> };
+  /** An interaction is in reach (the mission HUD shows its prompt); drives the touch interact button. */
+  'ui:interact-available': { available: boolean };
   'haptics:pulse': { strength: 'light' | 'medium' | 'strong'; durationMs: number };
 }

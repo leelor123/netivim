@@ -26,14 +26,26 @@ export function sourcesLine(t: T, sources: readonly string[]): HTMLElement | nul
   return sources.length === 0 ? null : h('p', { class: 'gp-sources', text: t('gameplay.sources', { ids: sources.join(', ') }) });
 }
 
-function sheet(id: string, title: string, ...children: (Node | null)[]): { el: HTMLElement; body: HTMLElement } {
-  const body = h('div', { class: 'gp-sheet__body', attrs: scrollableAttrs(title) }, ...children);
-  const el = h('section', { class: 'gp-sheet gp-sheet--' + id, attrs: { role: 'dialog', 'aria-label': title } }, h('h2', { class: 'gp-sheet__title', text: title }), body);
-  return { el: h('div', { class: 'gp-stage' }, el), body };
+/**
+ * A sheet: title, a scrolling body and a sticky footer. Children made with footActions() go to
+ * the footer, so the main actions (Start, Continue, Retry...) are always visible, at any screen
+ * height; everything else scrolls in the body (triggers / right stick scroll it on a controller).
+ */
+function sheet(id: string, title: string, ...children: (Node | null)[]): { el: HTMLElement; body: HTMLElement; foot: HTMLElement; section: HTMLElement } {
+  const isFoot = (c: Node | null): c is HTMLElement => c instanceof HTMLElement && c.classList.contains('gp-actions--foot');
+  const body = h('div', { class: 'gp-sheet__body', attrs: scrollableAttrs(title) }, ...children.filter((c) => !isFoot(c)));
+  const foot = h('div', { class: 'gp-sheet__foot' }, ...children.filter(isFoot));
+  const section = h('section', { class: 'gp-sheet gp-sheet--' + id, attrs: { role: 'dialog', 'aria-label': title } }, h('h2', { class: 'gp-sheet__title', text: title }), body, foot);
+  return { el: h('div', { class: 'gp-stage' }, section), body, foot, section };
 }
 
 function actions(...buttons: (HTMLElement | null)[]): HTMLElement {
   return h('div', { class: 'gp-actions' }, ...buttons);
+}
+
+/** The sheet's main actions: rendered in the sticky footer. */
+function footActions(...buttons: (HTMLElement | null)[]): HTMLElement {
+  return h('div', { class: 'gp-actions gp-actions--foot' }, ...buttons);
 }
 
 export interface HubMenuOptions {
@@ -169,7 +181,7 @@ export function briefingScreen(t: T, o: BriefingOptions): GpScreen {
     'briefing',
     t('gameplay.briefing.title'),
     h('div', { class: 'gp-split' }, text, canvas),
-    actions(
+    footActions(
       gpButton(t(o.resumes ? 'gameplay.briefing.resume' : 'gameplay.briefing.start'), o.onStart, { primary: true, key: 'start-mission' }),
       gpButton(t('gameplay.common.back'), o.onBack, { key: 'briefing-back' }),
     ),
@@ -204,7 +216,7 @@ export function failureScreen(t: T, r: FailureReport, onRetry: () => void, onAss
     info ? h('p', { class: 'gp-hint', text: t('gameplay.failure.hint', { hint: t(info.hintKey) }) }) : null,
     offer ? h('p', { class: 'gp-dim', text: t('gameplay.assist.offer') }) : null,
     offer ? actions(...r.assistOptions.map((o) => gpButton(t(ASSIST_KEYS[o]), () => onAssist(o), { key: 'assist-' + o }))) : null,
-    actions(gpButton(t(offer ? 'gameplay.assist.decline' : 'gameplay.failure.retry'), onRetry, { primary: true, key: 'retry' })),
+    footActions(gpButton(t(offer ? 'gameplay.assist.decline' : 'gameplay.failure.retry'), onRetry, { primary: true, key: 'retry' })),
   );
   return { id: 'failure', el: s.el, back: onRetry };
 }
@@ -214,18 +226,16 @@ export function decisionScreen(t: T, def: DecisionDef, onDone: (optionId: string
   const body = h('div', { class: 'gp-col' });
   const s = sheet('decision', t('gameplay.decision.title'), body);
   const showOptions = (): void => {
-    fill(body, 
+    fill(body,
       h('p', { class: 'gp-lead', text: t(def.promptKey) }),
       def.contextKey ? h('p', { text: t(def.contextKey) }) : null,
       actions(
         ...def.options.map((o) =>
           gpButton(t(o.labelKey), () => {
-            fill(body, 
-              h('p', { class: 'gp-lead', text: t(o.labelKey) }),
-              h('p', { text: t(o.consequenceKey) }),
-              actions(gpButton(t('gameplay.common.continue'), () => onDone(o.id), { primary: true, key: 'decision-continue' })),
-            );
-            focusables(body)[0]?.focus();
+            fill(body, h('p', { class: 'gp-lead', text: t(o.labelKey) }), h('p', { text: t(o.consequenceKey) }));
+            body.scrollTop = 0;
+            fill(s.foot, footActions(gpButton(t('gameplay.common.continue'), () => onDone(o.id), { primary: true, key: 'decision-continue' })));
+            focusables(s.section)[0]?.focus();
           }, { key: 'option-' + o.id }),
         ),
       ),
@@ -265,7 +275,7 @@ export function debriefScreen(t: T, titleKey: string, rows: readonly LedgerRow[]
     h('p', { class: 'gp-lead', text: t(chapterEnd ? 'gameplay.debrief.chapterDone' : 'gameplay.debrief.missionDone') }),
     rows.length > 0 ? h('h3', { class: 'gp-subtitle', text: t('gameplay.ledger.title') }) : null,
     rows.length > 0 ? ledgerList(t, rows) : null,
-    actions(gpButton(t(chapterEnd ? 'gameplay.debrief.toQuiz' : 'gameplay.debrief.next'), onContinue, { primary: true, key: 'debrief-continue' })),
+    footActions(gpButton(t(chapterEnd ? 'gameplay.debrief.toQuiz' : 'gameplay.debrief.next'), onContinue, { primary: true, key: 'debrief-continue' })),
   );
   return { id: 'debrief', el: s.el };
 }
@@ -281,10 +291,10 @@ export function quizScreen(t: T, chapter: ChapterContent, facts: readonly Fact[]
   const session = new QuizSession(chapter.quiz);
   const body = h('div', { class: 'gp-col' });
   const s = sheet('quiz', t('gameplay.quiz.title'), body);
-  const focusFirst = (): void => focusables(body)[0]?.focus();
+  const focusFirst = (): void => focusables(s.section)[0]?.focus();
   /** After a re-render, keep focus on the same control when it still exists (else the first one). */
   const refocus = (key: string | undefined): void => {
-    const same = key ? findByKey(body, key) : null;
+    const same = key ? findByKey(s.section, key) : null;
     if (same && !(same as HTMLButtonElement).disabled) same.focus();
     else focusFirst();
   };
@@ -293,18 +303,19 @@ export function quizScreen(t: T, chapter: ChapterContent, facts: readonly Fact[]
     const sc = session.score();
     const factList = h('ul', { class: 'gp-list' });
     for (const f of facts) factList.append(h('li', {}, document.createTextNode(t(f.textKey) + ' '), labelChip(t, f.label)));
-    fill(body, 
+    fill(body,
       h('p', { class: 'gp-stars', text: '★'.repeat(sc.stars) + '☆'.repeat(3 - sc.stars), attrs: { role: 'img', 'aria-label': t('gameplay.quiz.stars', { n: sc.stars }) } }),
       h('p', { class: 'gp-lead', text: t('gameplay.quiz.score', { correct: sc.correct, total: sc.total }) }),
       facts.length > 0 ? h('h3', { class: 'gp-subtitle', text: t('gameplay.quiz.didYouKnow') }) : null,
       facts.length > 0 ? factList : null,
-      actions(gpButton(t('gameplay.quiz.finish'), () => onFinish({ stars: sc.stars, correct: sc.correct, total: sc.total }), { primary: true, key: 'quiz-finish' })),
     );
+    body.scrollTop = 0;
+    fill(s.foot, footActions(gpButton(t('gameplay.quiz.finish'), () => onFinish({ stars: sc.stars, correct: sc.correct, total: sc.total }), { primary: true, key: 'quiz-finish' })));
     focusFirst();
   };
 
   const render = (feedback: string | null): void => {
-    const prevKey = activeKey(body);
+    const prevKey = activeKey(s.section);
     const q = session.current;
     if (!q) {
       renderEnd();
@@ -322,13 +333,16 @@ export function quizScreen(t: T, chapter: ChapterContent, facts: readonly Fact[]
       if (resolved || session.isWrongPick(i)) b.disabled = true;
       return b;
     });
-    fill(body, 
+    fill(body,
       h('p', { class: 'gp-dim', text: t('gameplay.quiz.progress', { n: session.position + 1, total: session.questions.length }) }),
       h('p', { class: 'gp-lead', text: t(q.promptKey) }),
       actions(...opts),
       feedback ? h('p', { class: 'gp-feedback', text: feedback, attrs: { role: 'status' } }) : null,
       resolved ? h('p', { text: t(q.explanationKey) }) : null,
-      actions(
+    );
+    fill(
+      s.foot,
+      footActions(
         resolved
           ? gpButton(t('gameplay.quiz.next'), () => {
               session.next();

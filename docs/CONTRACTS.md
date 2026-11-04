@@ -116,3 +116,17 @@ uses only that signature.
 - antialias "msaa" means MSAA 4x plus SMAA.
 - getRenderPipeline(game.renderer).setDepthOfField(focus, aperture?, maxBlur?) and clearDepthOfField(); allocation-free; only active when the depthOfField setting is on. Cinematics registers it with setDepthOfFieldTarget.
 - ui:toast { textKey, params } shows a short notice; graphics notices use it.
+
+## 14. Screen layout, captions and touch look (v0.2.2)
+- src/ui/layout.ts is the one owner of the in-game screen. Regions: system (top-left icons), objective
+  (top-right), notice / hint / toast (top-centre lines), prompt + captions (bottom-centre), stick and
+  actions (bottom corners, mirrored when left-handed). It writes --rg-<region>-x/y/w/h/r/b on :root;
+  every overlay positions itself ONLY with those variables. Regions never intersect (unit-tested).
+- Captions: one component (src/ui/subtitles.ts). subtitle:show { ..., label? } carries the content
+  label of the line (testimony, composite character); the caption shows speaker + label chip + text and
+  pages long text. Nothing else may draw a box in the captions region.
+- ui:interact-available { available } is emitted by the mission HUD; the touch interact button is
+  dimmed when false.
+- Look drag: InputManager.addLookDelta(dxPx, dyPx) accumulates CSS px; each step converts the sum to
+  radians (lookDrag, see src/core/input/lookDrag.ts; no dt, so frame-rate independent). The touch look
+  area (src/ui/touch) and a mouse drag on the canvas feed it, only during missions with no menu or sheet.

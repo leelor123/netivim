@@ -2,14 +2,14 @@ import type * as THREE from 'three';
 import { Crowd, figureGeometry, FigureMaterial } from '../../world/kit/figures';
 import type { EraId } from '../../world/eraLook';
 import { CharacterMotor, DEFAULT_MOTOR, type MotorParams } from '../core/movement';
-import { applyLook, DEFAULT_ORBIT, orbitPosition, safeDistance, smoothDistance, type OrbitParams, type OrbitState } from '../core/orbit';
+import { applyLook, applyLookDrag, DEFAULT_ORBIT, orbitPosition, safeDistance, smoothDistance, type OrbitParams, type OrbitState } from '../core/orbit';
 import type { LevelInput, PlayerView } from '../types';
 import type { LevelWorld } from './levelKit';
 
 export type CameraMode = 'follow' | 'planning' | 'vehicle';
 
 /**
- * Camera rig with three modes: third-person orbit (right stick, collision-safe distance),
+ * Camera rig with three modes: third-person orbit (right stick or touch / mouse drag, collision-safe distance),
  * top-down planning table (stick pans, triggers zoom) and vehicle follow (behind a heading).
  * Reduced motion: no lag on follow, no pulsing, slower look speed.
  */
@@ -47,6 +47,7 @@ export class CameraRig {
     if (this.mode === 'follow') {
       const k = rm ? 0.6 : 1;
       applyLook(this.orbit, input.look.x * k, input.look.y * k, dt, this.params);
+      applyLookDrag(this.orbit, input.lookDrag.x * k, input.lookDrag.y * k, this.params);
       const headY = ty + 1.5;
       const safe = safeDistance(tx, headY, tz, this.orbit.yaw, this.orbit.pitch, this.params.distance, this.world.heightAt, this.world.colliders, this.params);
       this.orbit.distance = smoothDistance(this.orbit.distance, safe, dt, rm);

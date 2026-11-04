@@ -1,0 +1,30 @@
+import { chromium } from '@playwright/test';
+import { spawn } from 'node:child_process';
+const PORT = Number(process.env.HUDSHOT_PORT ?? 4590);
+const out = process.argv[2];
+const server = spawn('npx vite preview --outDir dist-test --port ' + PORT + ' --strictPort', { shell: true, stdio: 'ignore' });
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+try {
+  await wait(4000);
+  const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+  const page = await browser.newPage({ viewport: { width: 1170, height: 540 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+  await page.goto('http://localhost:' + PORT + '/', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => window.__netivim?.flow.state === 'title' && !!window.__netivimGameplay, null, { timeout: 120000 });
+  await page.evaluate(() => { window.__netivimGraphics?.setAdaptiveEnabled(false); window.__netivim.settings.update('graphics', { mode: 'preset', preset: 'low', benchmarked: true }); });
+  await page.screenshot({ path: out + '/a-title.png' });
+  await page.evaluate(() => window.__netivim.flow.send('openHub'));
+  await page.waitForSelector('[data-screen="gp-hub"]', { timeout: 60000 });
+  await wait(3000);
+  await page.screenshot({ path: out + '/b-hub.png' });
+  await page.evaluate(() => window.__netivimGameplay.beginChapter('prologue', false));
+  await page.waitForFunction(() => window.__netivim.flow.state === 'briefing', null, { timeout: 60000 });
+  await wait(2000);
+  await page.screenshot({ path: out + '/c-briefing.png' });
+  await page.evaluate(() => window.dispatchEvent(Object.assign(new Event('pointerdown'), { pointerType: 'touch' })));
+  await page.getByRole('button', { name: 'התחלת המשימה' }).click();
+  await page.waitForFunction(() => window.__netivim.flow.state === 'mission', null, { timeout: 60000 });
+  await page.evaluate(() => window.dispatchEvent(Object.assign(new Event('pointerdown'), { pointerType: 'touch' })));
+  await wait(6000);
+  await page.screenshot({ path: out + '/d-mission.png' });
+  await browser.close();
+} finally { server.kill(); }

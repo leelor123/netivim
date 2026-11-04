@@ -94,6 +94,8 @@ export class MissionHost {
   private checkpointProgress: Record<string, number> = {};
   private sayQueue: Line[] = [];
   private sayTimer = 0;
+  /** Content label of the lines being said (shown as a chip in the caption). */
+  private sayLabel: ContentLabel | null = null;
   private lastFailure: FailureReport | null = null;
   private readonly ctx: LevelContext;
   private disposed = false;
@@ -294,6 +296,7 @@ export class MissionHost {
 
   private say(lines: readonly Line[], label: ContentLabel | null): void {
     this.sayQueue = [...lines];
+    this.sayLabel = label;
     this.sayTimer = 0;
     this.o.hooks.onSay?.(lines, label);
   }
@@ -304,6 +307,6 @@ export class MissionHost {
     if (this.sayTimer > 0) return;
     const line = this.sayQueue.shift() as Line;
     this.sayTimer = line.durationMs / 1000;
-    this.o.bus.emit('subtitle:show', { textKey: line.textKey, speakerKey: line.speakerKey, durationMs: line.durationMs, voice: true });
+    this.o.bus.emit('subtitle:show', { textKey: line.textKey, speakerKey: line.speakerKey, durationMs: line.durationMs, voice: true, label: this.sayLabel });
   }
 }

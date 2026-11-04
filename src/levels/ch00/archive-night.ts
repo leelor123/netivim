@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CH00_CHAPTER } from '../../content/ch00/chapter';
-import { GUIDES_NOTE_KEY, MISSION_LINES, OBJECTIVE_KEYS, speakerKey } from '../../content/ch00/dialogue';
+import { MISSION_LINES, OBJECTIVE_KEYS, speakerKey } from '../../content/ch00/dialogue';
 import type { ArchiveItem } from '../../content/schema';
 import { turnToward } from '../../gameplay/core/movement';
 import { DEFAULT_ORBIT } from '../../gameplay/core/orbit';
@@ -121,12 +121,17 @@ function build(ctx: LevelContext<E>): ArchiveLevel {
   let card: HTMLElement | null = null;
   let hudPause: HTMLElement | null = null;
 
+  /** Touch has no map button: tapping the codex tutorial line opens it (set by the overlay). */
+  let tappedCodex = false;
   const overlay = headless
     ? null
     : new ArchiveOverlay({
         t,
         glyph: (a) => ctx.glyph(a),
         onClose: () => closeModal(),
+        onPromptTap: () => {
+          tappedCodex = true;
+        },
         onSorterClick: (kind, index) => {
           if (modal !== 'sorter') return;
           if (kind === 'card') {
@@ -143,7 +148,11 @@ function build(ctx: LevelContext<E>): ArchiveLevel {
   // ---- helpers ----
   const stateNow = (): S => ctx.mission.state as S;
   const say = (keys: readonly (readonly [string, string])[]): void => {
-    ctx.say(keys.map(([key, sp]): Line => ({ textKey: key, speakerKey: speakerKey(sp as 'noa' | 'samir'), durationMs: lineMs(t(key)) })));
+    // Noa and Samir are composite characters: every line carries that label in the caption.
+    ctx.say(
+      keys.map(([key, sp]): Line => ({ textKey: key, speakerKey: speakerKey(sp as 'noa' | 'samir'), durationMs: lineMs(t(key)) })),
+      'composite',
+    );
   };
   const missionLines = (state: string): void => {
     const src = MISSION_LINES[MISSION_ID]?.[state] ?? [];
@@ -186,7 +195,6 @@ function build(ctx: LevelContext<E>): ArchiveLevel {
   };
   const overlayPrompt = (): void => {
     overlay?.setPrompt(modal === 'none' && finale < 0 ? promptFor(stateNow(), progress) : null);
-    overlay?.setNote(modal === 'none' && finale < 0 ? t(GUIDES_NOTE_KEY) : null, 'composite');
   };
 
   const send = (event: E): void => {
@@ -463,7 +471,8 @@ function build(ctx: LevelContext<E>): ArchiveLevel {
       const fresh = justOpened;
       justOpened = false;
       if (modal !== 'none') modalInput(fresh);
-      else if (finale < 0 && ctx.input.justPressed('map') && stateNow() === 'codex_ledger' && progress.ledger) openCodex();
+      else if (finale < 0 && (ctx.input.justPressed('map') || tappedCodex) && stateNow() === 'codex_ledger' && progress.ledger) openCodex();
+      tappedCodex = false;
       player.controllable = modal === 'none' && finale < 0;
       player.update(dt);
       const s = stateNow();
@@ -486,7 +495,9 @@ function build(ctx: LevelContext<E>): ArchiveLevel {
         if (Math.hypot(player.x - sp.x, player.z - sp.z) > 2) progress.moved = true;
       }
       if (!progress.looked) {
-        lookAccum += (Math.abs(ctx.input.look.x) + Math.abs(ctx.input.look.y)) * dt;
+        // Stick look is a rate (scaled by dt); drag look is already an angle (about 0.25 rad of drag
+        // counts like 0.4 s of full stick).
+        lookAccum += (Math.abs(ctx.input.look.x) + Math.abs(ctx.input.look.y)) * dt + (Math.abs(ctx.input.lookDrag.x) + Math.abs(ctx.input.lookDrag.y)) * 1.6;
         if (lookAccum >= 0.4 || (s === 'reading_room' && stateTime >= 12)) progress.looked = true;
       }
       if (s === 'arrival' && Math.hypot(player.x - SPOTS.door.x, player.z - SPOTS.door.z) <= ARRIVE_RADIUS) {
@@ -551,8 +562,8 @@ function build(ctx: LevelContext<E>): ArchiveLevel {
     const inp = ctx.input;
     const lx = inp.look.x + inp.move.x;
     const ly = inp.look.y + inp.move.y;
-    const dy = -lx * dt * 1.5;
-    const dp = ly * dt * 1.2;
+    const dy = -lx * dt * 1.5 - inp.lookDrag.x;
+    const dp = ly * dt * 1.2 + inp.lookDrag.y;
     view.yaw = Math.max(-1.2, Math.min(1.2, view.yaw + dy));
     view.pitch = Math.max(-0.5, Math.min(0.6, view.pitch + dp));
     view.rot += Math.abs(dy) + Math.abs(dp);

@@ -86,8 +86,12 @@ export function startGame(canvas: HTMLCanvasElement, i18n: I18n, onPauseChanged:
   const settings = new SettingsManager(bus, primary);
   // Remapped buttons (BRIEF 7) take effect immediately and after every change.
   input.setBindings(settings.value.controls.bindings);
+  input.lookSensitivity = settings.value.controls.lookSensitivity;
   bus.on('settings:changed', ({ key }) => {
-    if (key === 'controls') input.setBindings(settings.value.controls.bindings);
+    if (key === 'controls') {
+      input.setBindings(settings.value.controls.bindings);
+      input.lookSensitivity = settings.value.controls.lookSensitivity;
+    }
   });
   let state: SaveData = createNewSave(Date.now());
   const save = new SaveManager({

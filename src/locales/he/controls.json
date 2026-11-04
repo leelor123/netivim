@@ -12,5 +12,6 @@
   "controls.action.left": "שמאלה",
   "controls.action.right": "ימינה",
   "controls.touch.joystick": "ג׳ויסטיק תנועה",
-  "controls.touch.group": "פקדי מגע"
+  "controls.touch.group": "פקדי מגע",
+  "controls.touch.look": "אזור סיבוב המבט: גררו כדי להסתכל סביב"
 }

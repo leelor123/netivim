@@ -12,6 +12,8 @@ export interface OverlayDeps {
   readonly glyph: (action: 'interact' | 'map' | 'pause' | 'back') => string;
   readonly onClose: () => void;
   readonly onSorterClick: (kind: 'card' | 'tray', index: number) => void;
+  /** Touch: a tap on the tutorial line performs its action when no on-screen button has it (codex). */
+  readonly onPromptTap?: (action: 'map') => void;
 }
 
 export interface SheetContent {
@@ -22,13 +24,16 @@ export interface SheetContent {
   readonly footer: string;
 }
 
-/** DOM layer of the level: tutorial banner, small modal sheets, the sorter and the finale wash. */
+/**
+ * DOM layer of the level: the tutorial line (screen region "notice", src/ui/layout.ts), small
+ * modal sheets, the sorter and the finale wash. Captions (guide lines with their label chip) go
+ * through the shared caption component, never through this overlay.
+ */
 export class ArchiveOverlay {
   readonly root: HTMLElement;
   private readonly bannerGlyph = h('kbd', { class: 'gp-hud__glyph' });
   private readonly bannerText = h('span', {});
   private readonly banner = h('p', { class: 'an-banner', attrs: { 'aria-live': 'polite' } });
-  private readonly note = h('p', { class: 'an-note' });
   private readonly sheetHost = h('div', { class: 'an-stage', attrs: { hidden: '' } });
   private readonly sorterHost = h('div', { class: 'an-stage', attrs: { hidden: '' } });
   private readonly viewerHost = h('div', { class: 'an-viewer', attrs: { hidden: '' } });
@@ -39,8 +44,10 @@ export class ArchiveOverlay {
   constructor(private readonly d: OverlayDeps) {
     this.banner.append(this.bannerGlyph, this.bannerText);
     this.banner.hidden = true;
-    this.note.hidden = true;
-    this.root = h('div', { class: 'an-root', attrs: { dir: 'rtl' } }, this.note, this.banner, this.sheetHost, this.sorterHost, this.viewerHost, this.wash);
+    this.banner.addEventListener('click', () => {
+      if (this.lastPrompt?.action === 'map') this.d.onPromptTap?.('map');
+    });
+    this.root = h('div', { class: 'an-root', attrs: { dir: 'rtl' } }, this.banner, this.sheetHost, this.sorterHost, this.viewerHost, this.wash);
     // The level turns the confirm key into the sorter action; stop the browser acting a second time.
     const swallow = (e: KeyboardEvent): void => {
       if ((e.code === 'Enter' || e.code === 'Space') && e.target instanceof HTMLButtonElement) e.preventDefault();
@@ -57,17 +64,15 @@ export class ArchiveOverlay {
     this.lastGlyph = glyph;
     this.banner.hidden = !spec;
     if (!spec) return;
+    // A new line fades in, then settles to a quieter look (CSS; none with reduced motion).
+    this.banner.classList.remove('is-fresh');
+    void this.banner.offsetWidth;
+    this.banner.classList.add('is-fresh');
+    if (spec.action === 'map') this.banner.dataset.tappable = '';
+    else delete this.banner.dataset.tappable;
     this.bannerGlyph.hidden = !spec.action;
     this.bannerGlyph.textContent = glyph;
     this.bannerText.textContent = this.d.t(spec.key);
-  }
-
-  /** A short caption under the objective, with an optional label chip. */
-  setNote(text: string | null, label: ContentLabel | null): void {
-    this.note.hidden = text === null;
-    if (text === null) return;
-    this.note.replaceChildren(document.createTextNode(text + ' '));
-    if (label) this.note.append(this.chip(label));
   }
 
   chip(label: ContentLabel): HTMLElement {

@@ -2,6 +2,7 @@ import type { EventBus } from '../events';
 import type { GameEvents } from '../gameEvents';
 import { DEFAULT_BINDINGS, type Bindings } from './bindings';
 import { applyDeadZone, BTN, detectFamily, type GamepadLike } from './gamepad';
+import { dragToLook } from './lookDrag';
 import { ignoreKeyForTextEntry, type TextEntryLike } from './textEntry';
 import type { Action, GamepadFamily, InputDevice, Vec2 } from './types';
 
@@ -27,6 +28,14 @@ type Dir = (typeof DIRS)[number];
 export class InputManager {
   readonly move: Vec2 = { x: 0, y: 0 };
   readonly look: Vec2 = { x: 0, y: 0 };
+  /**
+   * Camera rotation from touch / mouse drag for THIS step, in radians (x yaw, y pitch; same signs
+   * as the stick). Kept apart from `look` (a rate the right stick also uses to scroll menus).
+   * See lookDrag.ts for the frame-rate independent conversion.
+   */
+  readonly lookDrag: Vec2 = { x: 0, y: 0 };
+  /** Multiplier for drag look (settings.controls.lookSensitivity). */
+  lookSensitivity = 1;
   /** -1..1 from the triggers (right minus left). */
   scroll = 0;
   device: InputDevice = 'touch';
@@ -38,6 +47,8 @@ export class InputManager {
   private readonly keys = new Set<string>();
   private readonly virtual = new Set<Action>();
   private readonly touchMove: Vec2 = { x: 0, y: 0 };
+  /** Drag distance in CSS px accumulated since the last step. */
+  private readonly dragPx: Vec2 = { x: 0, y: 0 };
   private readonly known = new Map<number, GamepadFamily>();
   private readonly seen = new Set<number>();
   private readonly stickHeld: Record<Dir, boolean> = { up: false, down: false, left: false, right: false };
@@ -80,6 +91,23 @@ export class InputManager {
     if (x !== 0 || y !== 0) this.setDevice('touch', null);
   }
 
+  /**
+   * Look drag from the touch look area or a mouse drag on the 3D view, in CSS px (x right,
+   * y down). Accumulated until the next step, which converts the sum into radians.
+   */
+  addLookDelta(dx: number, dy: number, device: 'touch' | 'mouse' = 'touch'): void {
+    if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
+    this.dragPx.x += dx;
+    this.dragPx.y += dy;
+    if (dx !== 0 || dy !== 0) this.setDevice(device === 'mouse' ? 'keyboard' : 'touch', null);
+  }
+
+  /** Drops a pending drag (a menu opened, the app lost focus). */
+  clearLookDelta(): void {
+    this.dragPx.x = 0;
+    this.dragPx.y = 0;
+  }
+
   /** On-screen touch buttons. */
   setVirtual(action: Action, pressed: boolean): void {
     if (pressed) {
@@ -110,6 +138,7 @@ export class InputManager {
       // Keys released while the app was in the background must not stay stuck.
       this.keys.clear();
       this.virtual.clear();
+      this.clearLookDelta();
     };
     target.addEventListener('keydown', onKeyDown);
     target.addEventListener('keyup', onKeyUp);
@@ -141,6 +170,8 @@ export class InputManager {
     this.look.x = 0;
     this.look.y = 0;
     this.scroll = 0;
+    dragToLook(this.dragPx.x, this.dragPx.y, this.lookSensitivity, this.lookDrag);
+    this.clearLookDelta();
 
     const pad = this.pollGamepads();
     if (pad) this.readPad(pad);
