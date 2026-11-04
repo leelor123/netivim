@@ -64,12 +64,12 @@ Root causes found (evidence: phone-ratio captures via scripts/hudshot.mjs):
   pills, tutorial banner mid-screen, four big touch buttons (map and pause duplicate the HUD), and the
   subtitle box overlaps the testimony/label panel at the bottom (bug). Briefing at phone size pushes
   the Start button below the fold.
-- Touch look, clutter, caption overlap, briefing fold: FIXED on branch worktree-agent-aeba3798c6a08eb13
-  (touch/mouse drag look via InputManager.addLookDelta; one screen-layout owner src/ui/layout.ts with
-  non-intersecting regions; one caption component with speaker + label chip + paging; touch buttons
-  interact (contextual) + alt only; sheets with sticky action footers). Contract: docs/CONTRACTS.md 14.
-  Follow-up: every level action has a touch path (planning-table touch bar, see CONTRACTS 14).
-Next: a bug-hunt agent on phone viewport; then release v0.2.2.
+MERGED: phone UX (touch/mouse look, src/ui/layout.ts regions, one caption, two touch buttons, sticky
+sheet footers; CONTRACTS 14). MERGED: bug hunt (docs/BUG_HUNT_M2.md, 7 root-cause fixes).
+DONE on the phone UX branch: touch paths for every level action (touch action bar in the 'toolbar'
+region: Tower planning table, finale skip, vote zoom; 'panel' region for level side panels; latched
+short taps in InputManager; static test tests/unit/touchPaths.test.ts).
+Next: merge, full CI, release v0.2.2 with a Hebrew update.
 
 ## Next: M3 (Act 1 = Prologue + Ch1-4) exact next steps
 1. Get the user's on-device feedback on v0.2.1 (Ultra fps, controllers in the WebView, subtitles, focus).

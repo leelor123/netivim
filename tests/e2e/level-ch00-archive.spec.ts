@@ -251,6 +251,10 @@ test('controller only: the whole Archive at Night tutorial, to the debrief', asy
   await press(page, X);
   await page.waitForTimeout(3500);
   await shot(page, '7-glow');
+  // The chapter's opening cutscene plays between the mission and its debrief (it is registered
+  // when the chapter opens, whichever way the player got there).
+  await expect.poll(() => page.evaluate(() => window.__netivim?.flow.state), { timeout: 60000 }).toBe('cutscene');
+  await page.evaluate(() => window.__netivimCinematics?.player.skip());
   await expect.poll(() => page.evaluate(() => window.__netivim?.flow.state), { timeout: 60000 }).toBe('debrief');
   const done = await page.evaluate(() => {
     const s = window.__netivim?.save.load('auto');

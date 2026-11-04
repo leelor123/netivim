@@ -451,11 +451,16 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
       for (const p of PLACES) greeted[p] = false;
       stage.setRadio(0);
       model.resetTo(st);
-      const saved = data as { model?: Parameters<VoteModel['restore']>[0]; x?: number; z?: number; neighbor?: string; carried?: number } | null;
+      const saved = data as { model?: Parameters<VoteModel['restore']>[0]; x?: number; z?: number; neighbor?: string; carried?: number; finale?: number } | null;
       if (saved?.model) {
         model.restore(saved.model);
         carried = saved.carried ?? -1;
         neighborChoice = saved.neighbor ?? '';
+        // A save taken while the radio plays resumes the broadcast's remaining time, not a dead radio.
+        if (st === 'vote' && typeof saved.finale === 'number' && saved.finale >= 0) {
+          finale = saved.finale;
+          stage.setRadio(1);
+        }
       }
       if (saved && typeof saved.x === 'number' && typeof saved.z === 'number') player.spawn(saved.x, saved.z, 0);
       else if (st === 'map') player.spawn(SPAWN.x, SPAWN.z, SPAWN.heading);
@@ -469,7 +474,7 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
       refresh();
     },
     warp: (x, z) => player.spawn(x, z, 0),
-    snapshotData: () => ({ model: model.snapshot(), x: player.x, z: player.z, neighbor: neighborChoice, carried }),
+    snapshotData: () => ({ model: model.snapshot(), x: player.x, z: player.z, neighbor: neighborChoice, carried, finale }),
     dispose: () => scene.dispose(),
   };
 }

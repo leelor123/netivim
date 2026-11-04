@@ -52,6 +52,8 @@ export type AfterFlow = 'none' | 'resumeMission' | 'toDebrief';
 export interface CinematicsApi {
   readonly player: CutscenePlayer;
   register(def: CutsceneDefinition): void;
+  /** True when a cutscene with this id is registered. */
+  has(id: string): boolean;
   /**
    * Plays a registered cutscene. If the game flow allows it the flow enters `cutscene` (so exit
    * auto-saves stay restricted) and `after` is sent when the cutscene ends.
@@ -108,6 +110,7 @@ export function installCinematics(game: Game, seenStore: SeenStore = localSeenSt
     register: (def) => {
       library.set(def.id, def);
     },
+    has: (id) => library.has(id),
     play(id, afterFlow = 'none') {
       const def = library.get(id);
       if (!def) return false;
