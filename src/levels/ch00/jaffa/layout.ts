@@ -175,10 +175,10 @@ export const WAY_TO_STATION: readonly Pt[] = [p(56, 54), p(38, 48), p(22, 46)];
 
 // ---- ambience regions -----------------------------------------------------------------------------------
 
-export type Bed = 'sea' | 'village' | 'city';
+export type Bed = 'harbor' | 'village' | 'city';
 
 export function bedAt(x: number, z: number): Bed {
-  if (x < -22) return 'sea';
+  if (x < -22) return 'harbor';
   if (x > 95 && z < -60) return 'city';
   return 'village';
 }

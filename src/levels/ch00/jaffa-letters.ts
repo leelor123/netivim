@@ -309,7 +309,7 @@ function build(ctx: LevelContext<E>): Level {
         line(k('line.debora.tea.3'), NARRATOR),
       ];
       say(cup, 'composite');
-      ctx.bus.emit('audio:mood', { mood: 'reflective', era: 0 });
+      ctx.bus.emit('audio:mood', { mood: 'reflective', era: 1895 });
       const tip = line(k('line.colony.petah'), NARRATOR);
       later(seconds(cup) + 0.5, () => say([tip]));
       advance('colonyDone');
@@ -566,7 +566,7 @@ function build(ctx: LevelContext<E>): Level {
     ];
     lensUntil = elapsed + delay + seconds(lens) + 0.4;
     queuedUntil = lensUntil;
-    ctx.bus.emit('audio:mood', { mood: 'reflective', era: 0 });
+    ctx.bus.emit('audio:mood', { mood: 'reflective', era: 1895 });
     later(delay, () => ctx.say(lens, 'documented'));
   }
 
@@ -790,7 +790,7 @@ function build(ctx: LevelContext<E>): Level {
       if (checkpoint === 'jerusalem_delivered') say([line(k('line.jerusalem.arrive'), NARRATOR)]);
     }
     emitBed(true);
-    ctx.bus.emit('audio:mood', { mood: checkpoint === 'jerusalem_delivered' ? 'hopeful' : 'calm', era: 0 });
+    ctx.bus.emit('audio:mood', { mood: checkpoint === 'jerusalem_delivered' ? 'hopeful' : 'calm', era: 1895 });
   }
 
   function emitBed(force = false): void {
@@ -969,7 +969,7 @@ function build(ctx: LevelContext<E>): Level {
       player.controllable = true;
       player.spawn(L.SPAWN_JERUSALEM.x, L.SPAWN_JERUSALEM.z, L.SPAWN_JERUSALEM.heading);
       say([line(k('line.jerusalem.arrive'), NARRATOR)]);
-      ctx.bus.emit('audio:mood', { mood: 'hopeful', era: 0 });
+      ctx.bus.emit('audio:mood', { mood: 'hopeful', era: 1895 });
       refresh();
     }
   }
