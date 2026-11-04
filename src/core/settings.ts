@@ -14,6 +14,12 @@ export type GraphicsMode = 'auto' | 'preset' | 'custom';
 export type ShadowQuality = 'off' | 'low' | 'medium' | 'high' | 'ultra';
 export type AntiAliasing = 'none' | 'fxaa' | 'smaa' | 'msaa';
 export type FpsCap = 30 | 60 | 0;
+export type UiTextSize = 'normal' | 'large' | 'xlarge';
+
+/** Multiplier for all DOM UI text per UiTextSize; written to CSS as --nv-ts (src/ui/install.ts). */
+export const UI_TEXT_SCALE: Readonly<Record<UiTextSize, number>> = { normal: 1, large: 1.2, xlarge: 1.4 };
+/** Lowest touch-control opacity: below this the buttons fall under 3:1 against bright scenes. */
+export const TOUCH_OPACITY_MIN = 0.5;
 
 /** Every individually adjustable graphics option (BRIEF 7, Custom). */
 export interface GraphicsOptions {
@@ -58,6 +64,8 @@ export interface Settings {
   };
   readonly accessibility: {
     readonly subtitleSize: 'small' | 'medium' | 'large' | 'xlarge';
+    /** Scales every DOM UI text (menus, HUD, sheets) through the --nv-ts CSS variable. */
+    readonly uiTextSize: UiTextSize;
     readonly reducedMotion: boolean;
     readonly contentIntensity: 'gentle' | 'standard';
   };
@@ -98,7 +106,7 @@ export const DEFAULT_SETTINGS: Settings = {
   version: SETTINGS_VERSION,
   graphics: { mode: 'auto', preset: 'high', custom: DEFAULT_GRAPHICS_OPTIONS, benchmarked: false, debugOverlay: false },
   audio: { master: 0.9, music: 0.7, sfx: 0.8, narration: 1, voice: true },
-  accessibility: { subtitleSize: 'medium', reducedMotion: false, contentIntensity: 'standard' },
+  accessibility: { subtitleSize: 'medium', uiTextSize: 'normal', reducedMotion: false, contentIntensity: 'standard' },
   gameplay: { difficulty: 'normal' },
   controls: { bindings: DEFAULT_BINDINGS, vibration: true, touchSize: 1, touchOpacity: 0.7, touchLayout: 'right-handed', lookSensitivity: 1 },
 };
@@ -164,6 +172,7 @@ export function sanitizeSettings(v: unknown): Settings {
     },
     accessibility: {
       subtitleSize: pick(acc.subtitleSize, ['small', 'medium', 'large', 'xlarge'] as const, D.accessibility.subtitleSize),
+      uiTextSize: pick(acc.uiTextSize, ['normal', 'large', 'xlarge'] as const, D.accessibility.uiTextSize),
       reducedMotion: bool(acc.reducedMotion, D.accessibility.reducedMotion),
       contentIntensity: pick(acc.contentIntensity, ['gentle', 'standard'] as const, D.accessibility.contentIntensity),
     },
@@ -172,7 +181,7 @@ export function sanitizeSettings(v: unknown): Settings {
       bindings: c.bindings === undefined ? DEFAULT_BINDINGS : sanitizeBindings(c.bindings),
       vibration: bool(c.vibration, D.controls.vibration),
       touchSize: num(c.touchSize, 0.75, 1.5, D.controls.touchSize),
-      touchOpacity: num(c.touchOpacity, 0.3, 1, D.controls.touchOpacity),
+      touchOpacity: num(c.touchOpacity, TOUCH_OPACITY_MIN, 1, D.controls.touchOpacity),
       touchLayout: pick(c.touchLayout, ['right-handed', 'left-handed'] as const, D.controls.touchLayout),
       lookSensitivity: num(c.lookSensitivity, LOOK_SENSITIVITY_MIN, LOOK_SENSITIVITY_MAX, D.controls.lookSensitivity),
     },
