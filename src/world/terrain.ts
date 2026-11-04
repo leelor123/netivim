@@ -354,6 +354,20 @@ export class Terrain {
           fadeMaterial,
           initialized: false,
         });
+        if (ci === 0 && cj === 0) {
+          // Hidden carrier for the alpha-hash cross-fade variant: renderer.compile() at scene load
+          // links that program up front instead of on the first LOD switch (a mid-play hitch).
+          // Every chunk's fade material shares the same program. Never drawn.
+          const first = meshes[0];
+          if (first) {
+            const carrier = new THREE.Mesh(first.geometry, fadeMaterial);
+            carrier.visible = false;
+            carrier.receiveShadow = true;
+            carrier.matrixAutoUpdate = false;
+            carrier.name = 'terrain-fade-prewarm';
+            this.group.add(carrier);
+          }
+        }
       }
     }
   }
