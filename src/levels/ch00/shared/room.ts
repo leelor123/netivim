@@ -263,6 +263,13 @@ export function buildArchiveRoom(world: LevelWorld): ArchiveRoom {
   for (let i = 0; i < 3; i++) props.box(0.55, 0.4, 0.4, '#a58457', 8.1, 0.2 + i * 0.4, 6.4, rng.range(-0.2, 0.2));
   cols.push(box(8.1, 6.4, 0.35, 0.3, 1.2));
 
+  // Display plinths: three label cases by the west wall and a newspaper nook by the east wall.
+  for (const f of [F.caseA, F.caseB, F.caseC, F.nook]) {
+    props.box(f.hw * 2, 0.9, f.hd * 2, WOOD_DARK, f.x, 0.45, f.z);
+    props.box(f.hw * 2 - 0.1, 0.03, f.hd * 2 - 0.1, PAPER, f.x, 0.92, f.z);
+    cols.push(box(f.x, f.z, f.hw, f.hd, 1));
+  }
+
   // Guides stand at fixed spots; they are drawn by the level as figures.
   cols.push(circle(F.noa.x, F.noa.z, 0.45, 1.8), circle(F.samir.x, F.samir.z, 0.45, 1.8));
 

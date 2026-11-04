@@ -6,6 +6,8 @@ export interface MoodLayer {
   fadeOut(now: number, seconds: number): void;
   schedule(until: number): void;
   stopScheduling(): void;
+  /** Optional: thin the music while someone speaks. */
+  setSparse?(on: boolean): void;
   dispose(): void;
 }
 
@@ -34,6 +36,7 @@ export class MoodMachine<L extends MoodLayer> {
   private currentReadyAt = 0;
   private outgoing: Outgoing<L>[] = [];
   private lastNow = 0;
+  private sparse = false;
   private readonly fadeOutSeconds: number;
   private readonly maxLayers: number;
 
@@ -72,10 +75,17 @@ export class MoodMachine<L extends MoodLayer> {
       old?.layer.dispose();
     }
     const layer = this.create(key);
+    if (this.sparse) layer.setSparse?.(true);
     layer.fadeIn(now, layer.fadeInSeconds);
     this.current = layer;
     this.currentReadyAt = now + layer.fadeInSeconds;
     return hadCurrent ? 'crossfade' : 'started';
+  }
+
+  /** Applies to the playing layer and to every layer created later. */
+  setSparse(on: boolean): void {
+    this.sparse = on;
+    this.current?.setSparse?.(on);
   }
 
   /** Per scheduler tick: finishes fades and lets the active layer schedule its notes. */

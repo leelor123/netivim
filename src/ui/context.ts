@@ -35,7 +35,7 @@ export function panel(ctx: UiContext, title: string, opts: { back?: boolean; wid
     header.prepend(back);
   }
   const body = h('div', { class: 'nv-panel__body' });
-  const sheet = h('section', { class: 'nv-panel' + (opts.wide ? ' nv-panel--wide' : ''), attrs: { 'aria-labelledby': titleId } }, header, body);
+  const sheet = h('section', { class: 'nv-panel' + (opts.wide ? ' nv-panel--wide' : ''), attrs: { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': titleId } }, header, body);
   const el = h('div', { class: 'nv-stage' }, sheet);
   return { el, body, header };
 }

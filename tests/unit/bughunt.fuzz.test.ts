@@ -15,7 +15,8 @@ const LEVELS_DIFF: readonly DifficultyLevel[] = ['story', 'normal', 'challenge']
 /** Deep-clones through JSON, exactly like a save file round trip. */
 const roundTrip = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
-describe('bug hunt: save/restore and retry fuzz', () => {
+// Each case replays a whole mission from several save points; allow for slow shared CI machines.
+describe('bug hunt: save/restore and retry fuzz', { timeout: 600_000 }, () => {
   for (const def of LEVELS) {
     for (const difficulty of LEVELS_DIFF) {
       // Restores are the slow half of the fuzz: Normal covers the logic, difficulty only scales timers.

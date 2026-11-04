@@ -84,7 +84,7 @@ describe('jaffa-letters: definition and content', () => {
   it('has a sound machine with two extra checkpoints and a bot script for each', async () => {
     const d = await def();
     expect(analyzeMission(d.mission).problems).toEqual([]);
-    expect(d.mission.checkpoints).toHaveLength(8);
+    expect(d.mission.checkpoints).toHaveLength(9);
     expect(d.extraCheckpoints).toEqual(['road_mid', 'path_mid']);
     expect(d.missionId).toBe('letters-from-jaffa');
     expect(d.mission.gameplayType).toBe('LOG');
@@ -106,7 +106,7 @@ describe('jaffa-letters: definition and content', () => {
     const own = [...src.matchAll(/\bk\('([^']+)'\)/g)].map((m) => 'levels.ch00.jaffa.' + (m[1] ?? ''));
     const plan = [...src.matchAll(/'(levels\.ch00\.jaffa\.[a-zA-Z0-9.]+)'/g)].map((m) => m[1] ?? '');
     const content = [...src.matchAll(/'(ch00\.[a-zA-Z0-9.-]+)'/g)].map((m) => m[1] ?? '');
-    const dynamic = ['1', '2', '3', '4'].map((n) => 'levels.ch00.jaffa.line.tag.' + n);
+    const dynamic = [...['1', '2', '3', '4'].map((n) => 'levels.ch00.jaffa.line.tag.' + n), ...['porter', 'water', 'runner'].flatMap((w) => ['1', '2'].map((n) => 'levels.ch00.jaffa.line.market.' + w + '.' + n)), ...['porter', 'waterSeller', 'runner', 'wayfarer'].map((s) => 'levels.ch00.jaffa.speaker.' + s)];
     const missing = [...own, ...plan, ...content, ...dynamic].filter((key) => !(key in HEBREW) && !key.endsWith('.'));
     expect(missing).toEqual([]);
     const planKeys = PLAN_SCENARIO.routes.flatMap((r) => [r.labelKey, r.riskKey ?? '']);
@@ -140,7 +140,7 @@ describe('jaffa-letters: the layout is walkable', () => {
       hooks: { onFailed: () => undefined, onDecision: () => undefined, onComplete: () => undefined, onPlan: () => undefined },
     });
     host.start();
-    const ids = ['vendor', 'plan-desk', 'debora', 'jamila', 'stationmaster', 'ticket', 'train-door', 'eliyahu', 'listen', 'well-sign', 'oven', 'decoy-village', 'decoy-jerusalem', 'load-parts', 'load-parcel', 'load-letter', 'lantern-clerk', 'lantern-colony', 'lantern-village', 'lantern-jerusalem', 'tag-0', 'tag-3'];
+    const ids = ['vendor', 'plan-desk', 'debora', 'jamila', 'stationmaster', 'ticket', 'train-door', 'eliyahu', 'listen', 'well-sign', 'oven', 'decoy-village', 'decoy-jerusalem', 'load-parts', 'load-parcel', 'load-letter', 'lantern-clerk', 'lantern-colony', 'lantern-village', 'lantern-jerusalem', 'tag-0', 'tag-3', 'market-0', 'market-1', 'market-2', 'road-well', 'wayfarer'];
     // Colliders are reachable through a player motor.
     const colliders = (host.level?.player as unknown as PlayerController).motor.colliders;
     const points: [string, number, number][] = ids.map((id) => {
@@ -148,7 +148,7 @@ describe('jaffa-letters: the layout is walkable', () => {
       expect(it, id).toBeTruthy();
       return [id, it?.x ?? 0, it?.z ?? 0];
     });
-    for (const sp of ['SPAWN_PORT', 'SPAWN_COLONY', 'SPAWN_VILLAGE_ARRIVAL', 'SPAWN_VILLAGE_DONE', 'SPAWN_STATION', 'SPAWN_JERUSALEM', 'SPAWN_ROAD_MID', 'SPAWN_PATH_MID'] as const) {
+    for (const sp of ['SPAWN_PORT', 'SPAWN_COLONY', 'SPAWN_VILLAGE_ARRIVAL', 'SPAWN_VILLAGE_DONE', 'SPAWN_STATION', 'SPAWN_JERUSALEM', 'SPAWN_ROAD_MID', 'SPAWN_PATH_MID', 'SPAWN_MARKET'] as const) {
       const s = L[sp];
       points.push([sp, s.x, s.z]);
     }
@@ -175,6 +175,56 @@ describe('jaffa-letters: the layout is walkable', () => {
         for (const p of route) expect(p.x >= f.minX - 4 && p.x <= f.maxX + 4 && p.z >= f.minZ - 4 && p.z <= f.maxZ + 4, f.id + ' near ' + String(p.x) + ',' + String(p.z)).toBe(false);
       }
     }
+  });
+});
+
+describe('jaffa-letters: the market, the roadside well and the cold tea', () => {
+  it('needs the three quay talks before the planning desk, and the well and the tea around the colony delivery', async () => {
+    const d = await def();
+    const bus = new EventBus<GameEvents>();
+    const shown: string[] = [];
+    bus.on('subtitle:show', (e) => shown.push(e.textKey));
+    const r = runBot(d, { difficulty: 'normal', bus });
+    expect(r.completed, r.log.join(' | ')).toBe(true);
+    for (const key of [
+      'levels.ch00.jaffa.line.market.porter.1',
+      'levels.ch00.jaffa.line.market.water.1',
+      'levels.ch00.jaffa.line.market.runner.1',
+      'levels.ch00.jaffa.line.roadwell.main',
+      'levels.ch00.jaffa.line.debora.tea.1',
+    ]) {
+      expect(shown, key).toContain(key);
+    }
+    const at = (key: string): number => shown.indexOf(key);
+    expect(at('levels.ch00.jaffa.line.market.runner.1')).toBeLessThan(at('levels.ch00.jaffa.line.habib.briefed'));
+    expect(at('levels.ch00.jaffa.line.roadwell.main')).toBeLessThan(at('levels.ch00.jaffa.line.debora.tea.1'));
+  });
+
+  it('asks the courier to water at the well first, without failing, then lets the colony delivery go through', async () => {
+    const d = await def();
+    const bus = new EventBus<GameEvents>();
+    const shown: string[] = [];
+    bus.on('subtitle:show', (e) => shown.push(e.textKey));
+    const noWell = withScript(d, 'road_mid', [walk(L.DEBORA, 1.5), interact, ...(d.botScript['road_mid'] ?? [])]);
+    const r = runBot(noWell, { difficulty: 'normal', fromCheckpoint: 'road_mid', bus });
+    expect(r.failures).toEqual([]);
+    expect(r.completed, r.log.join(' | ')).toBe(true);
+    expect(shown).toContain('levels.ch00.jaffa.line.debora.dusty');
+  });
+});
+
+describe('jaffa-letters: riding the cart on the open road', () => {
+  it('offers the cart away from the places, carries the player to the well and the story goes on', async () => {
+    const d = await def();
+    const bus = new EventBus<GameEvents>();
+    const shown: string[] = [];
+    bus.on('subtitle:show', (e) => shown.push(e.textKey));
+    const ride = withScript(d, 'road_colony', [walk({ x: -20, z: 56 }, 2), { kind: 'wait', seconds: 0.8 }, interact, { kind: 'wait', seconds: 12 }, ...(d.botScript['road_colony'] ?? [])]);
+    const r = runBot(ride, { difficulty: 'normal', fromCheckpoint: 'road_colony', bus });
+    expect(r.failures).toEqual([]);
+    expect(r.completed, r.log.join(' | ')).toBe(true);
+    expect(shown).toContain('levels.ch00.jaffa.line.ride.offer');
+    expect(shown).toContain('levels.ch00.jaffa.line.ride.a1.1');
   });
 });
 

@@ -50,6 +50,7 @@ export function pickHebrewVoice(voices: readonly SpeechSynthesisVoice[]): Speech
  */
 export class Narrator {
   private speaking = false;
+  private failsafe: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private readonly deps: NarratorDeps) {}
 
@@ -87,6 +88,8 @@ export class Narrator {
       u.onend = () => this.setSpeaking(false);
       u.onerror = () => this.setSpeaking(false);
       synth.speak(u);
+      // Some WebViews never fire onend; release the ducking after a generous estimate.
+      this.failsafe = setTimeout(() => this.setSpeaking(false), Math.max(3000, text.length * 110 + 2000));
     } catch {
       this.setSpeaking(false);
     }
@@ -103,6 +106,10 @@ export class Narrator {
   }
 
   private setSpeaking(v: boolean): void {
+    if (!v && this.failsafe !== null) {
+      clearTimeout(this.failsafe);
+      this.failsafe = null;
+    }
     if (this.speaking === v) return;
     this.speaking = v;
     this.deps.onSpeaking?.(v);

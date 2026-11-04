@@ -11,6 +11,7 @@ import {
   L,
   MAP_LAYERS,
   NOTE_DESK,
+  NOTE_POINTS,
   PARTIES,
   PLACES,
   PLACE_DEFS,
@@ -49,6 +50,7 @@ describe('The Vote: progress model', () => {
     expect(m.submit()).toBe('warn');
     expect(m.submit()).toBe('fail');
     m.jerusalem = true;
+    for (let i = 0; i < PARTIES.length; i++) m.addPoint(i);
     expect(m.submit()).toBe('ok');
   });
 
@@ -74,6 +76,41 @@ describe('The Vote: progress model', () => {
     const copy = new VoteModel();
     copy.restore(JSON.parse(JSON.stringify(m.snapshot())) as ReturnType<VoteModel['snapshot']>);
     expect(copy.snapshot()).toEqual(m.snapshot());
+  });
+});
+
+describe('The Vote: the briefing note', () => {
+  it('Jerusalem is checked first; with it in, missing party positions only ask for more', () => {
+    const m = new VoteModel();
+    m.jerusalem = true;
+    expect(m.submit()).toBe('points');
+    expect(m.submit()).toBe('points');
+    for (let i = 0; i < PARTIES.length; i++) expect(m.addPoint(i)).toBe(true);
+    expect(m.addPoint(0)).toBe(false);
+    expect(m.submit()).toBe('ok');
+  });
+
+  it('party positions survive a snapshot and an old save without them restores cleanly', () => {
+    const m = new VoteModel();
+    m.addPoint(2);
+    const copy = new VoteModel();
+    copy.restore(JSON.parse(JSON.stringify(m.snapshot())) as ReturnType<VoteModel['snapshot']>);
+    expect(copy.points).toEqual([false, false, true, false]);
+    const { points: _ignored, ...old } = m.snapshot();
+    void _ignored;
+    const legacy = new VoteModel();
+    legacy.restore(old);
+    expect(legacy.pointsCount).toBe(0);
+  });
+
+  it('has its own briefing context, a slip per party, and the bot completes from every checkpoint', () => {
+    expect(def.briefingContextKey).toBe(L('context'));
+    expect(NOTE_POINTS.length).toBe(PARTIES.length);
+    for (const from of ['map', 'statements', 'visits', 'note', 'vote'] as const) {
+      const r = runBot(def, { difficulty: 'normal', fromCheckpoint: from });
+      expect(r.completed, from).toBe(true);
+      expect(r.failures, from).toEqual([]);
+    }
   });
 });
 
@@ -166,9 +203,12 @@ describe('The Vote: content', () => {
     for (const l of MAP_LAYERS) keys.push(l.titleKey, l.factKey);
     for (let i = 1; i <= 4; i++) keys.push(L('prompt.card.' + String(i)));
     for (const party of PARTIES) keys.push(L('prompt.station.' + party));
-    for (const k of ['prompt.table', 'prompt.tableNext', 'prompt.tableClose', 'prompt.listen', 'prompt.advice', 'prompt.page', 'prompt.submit', 'prompt.neighbor', 'prompt.radio', 'prompt.tally',
+    for (const k of ['prompt.table', 'prompt.tableNext', 'prompt.tableClose', 'prompt.listen', 'prompt.advice', 'prompt.page', 'prompt.submit', 'prompt.neighbor', 'prompt.radio', 'context', 'say.point', 'say.notePoints', 'prompt.tally',
       'say.card', 'say.retry', 'say.page', 'say.noteOk', 'say.noteWarn', 'say.tally', 'radio.announce', 'neighbor.honest', 'neighbor.promise', 'neighbor.quiet', 'speaker.neighbor',
       'hint.map', 'hint.visits', 'hint.vote', 'map.hall', 'map.home', 'map.town', 'map.office', 'map.radio']) keys.push(L(k));
+    for (const p of PLACES) keys.push(PLACE_DEFS[p].farewellKey);
+    for (const party of PARTIES) keys.push(L('prompt.point.' + party));
+    if (def.briefingContextKey) keys.push(def.briefingContextKey);
     for (const o of def.objectives) keys.push(o.textKey);
     const missing = keys.filter((k) => !Object.hasOwn(HEBREW, k));
     expect(missing).toEqual([]);
@@ -179,7 +219,7 @@ describe('The Vote: content', () => {
     expect(own.length).toBeGreaterThan(80);
     for (const [k, v] of own) {
       expect(v, k).not.toMatch(/אונסקו|UNSCOP/);
-      for (const n of v.match(/\d+/g) ?? []) expect(['1', '2', '3', '4', '10', '13', '21', '20', '33', '181', '1937'], k + ': ' + v).toContain(n);
+      for (const n of v.match(/\d+/g) ?? []) expect(['1', '2', '3', '4', '10', '13', '21', '20', '33', '181', '1937', '29', '1947'], k + ': ' + v).toContain(n);
     }
   });
 

@@ -10,7 +10,7 @@ import { defineLevel, type BotStep, type FailureInfo, type Level, type LevelCont
 import { Cart } from './jaffa/cart';
 import { Folk, folkColliders } from './jaffa/folk';
 import * as L from './jaffa/layout';
-import { createPlan } from './jaffa/plan';
+import { createPlan, ROUTE_MAIN } from './jaffa/plan';
 import { buildScenery, trainGeometry } from './jaffa/scenery';
 
 /**
@@ -25,6 +25,7 @@ import { buildScenery, trainGeometry } from './jaffa/scenery';
 
 export type S =
   | 'port_start'
+  | 'market'
   | 'loaded'
   | 'road_colony'
   | 'road_mid'
@@ -34,7 +35,7 @@ export type S =
   | 'village_delivered'
   | 'station'
   | 'jerusalem_delivered';
-export type E = 'briefed' | 'cartReady' | 'halfway' | 'colonyDone' | 'junction' | 'atVillage' | 'villageDone' | 'atStation' | 'boarded' | 'lettersDone';
+export type E = 'briefed' | 'marketDone' | 'cartReady' | 'halfway' | 'colonyDone' | 'junction' | 'atVillage' | 'villageDone' | 'atStation' | 'boarded' | 'lettersDone';
 
 export const MISSION_ID = 'letters-from-jaffa';
 const k = (s: string): string => 'levels.ch00.jaffa.' + s;
@@ -59,7 +60,15 @@ for (const f of FAILURES) {
 
 interface Flags {
   tags: boolean[];
+  /** The three quay talks. */
+  talks: boolean[];
   planned: boolean;
+  /** The plan put a cart on the main road (the road with a well). */
+  planMain: boolean;
+  watered: boolean;
+  wayfarer: boolean;
+  colonyGiven: boolean;
+  tea: boolean;
   parts: boolean;
   parcel: boolean;
   letter: boolean;
@@ -77,7 +86,13 @@ interface Flags {
 
 const freshFlags = (): Flags => ({
   tags: [false, false, false, false],
+  talks: [false, false, false],
   planned: false,
+  planMain: false,
+  watered: false,
+  wayfarer: false,
+  colonyGiven: false,
+  tea: false,
   parts: false,
   parcel: false,
   letter: false,
@@ -153,6 +168,10 @@ function build(ctx: LevelContext<E>): Level {
   let lensUntil = 0;
   let queuedUntil = 0;
   let stuckT = 0;
+  let habibWaitS = 0;
+  let carRide: CarRide | null = null;
+  let rideCheckT = 0;
+  const rideHinted = new Set<string>();
   let stuckShown = false;
   let nudgeCooldown = 0;
   let fieldWarned = false;
@@ -182,6 +201,11 @@ function build(ctx: LevelContext<E>): Level {
     queuedUntil = at + seconds(lines) + 0.3;
     later(at - elapsed + 0.2, () => ctx.say(lines, label));
   };
+  /** Reward moment for a finished step: a confirm tone and a light buzz (a bigger one for a delivery). */
+  const cheer = (big = false): void => {
+    ctx.bus.emit('audio:cue', { cue: big ? 'ui.save' : 'ui.confirm' });
+    ctx.bus.emit('haptics:pulse', { strength: big ? 'medium' : 'light', durationMs: big ? 140 : 60 });
+  };
   const once = (kind: Parameters<LevelContext['unlock']>[0], id: string): void => {
     const key = kind + ':' + id;
     if (unlocked.has(key)) return;
@@ -210,11 +234,33 @@ function build(ctx: LevelContext<E>): Level {
     add('tag-' + String(i), 'pickup', { x: at.x, z: at.z + 0.3 }, 2.1, k('prompt.tag'), () => {
       if (f.tags[i]) return;
       f.tags[i] = true;
+      cheer();
       say([line(k('line.tag.' + String(i + 1)), NARRATOR)]);
       const n = f.tags.filter(Boolean).length;
       ctx.objectives.progress('tags', n);
       if (n >= 4) {
         advance('briefed');
+      } else refresh();
+    }),
+  );
+  const MARKET_LINES: readonly (readonly [string, string])[] = [
+    ['porter', 'speaker.porter'],
+    ['water', 'speaker.waterSeller'],
+    ['runner', 'speaker.runner'],
+  ];
+  const marketItems = L.MARKET_TALKS.map((at, i) =>
+    add('market-' + String(i), 'generic', at, 2.2, k('prompt.talk'), () => {
+      if (f.talks[i]) return;
+      f.talks[i] = true;
+      cheer();
+      const [name, speaker] = MARKET_LINES[i] as readonly [string, string];
+      const talk = [line(k('line.market.' + name + '.1'), k(speaker)), line(k('line.market.' + name + '.2'), k(speaker))];
+      say(talk, 'composite');
+      ctx.objectives.progress('market', f.talks.filter(Boolean).length);
+      if (f.talks.every(Boolean)) {
+        // Habib's next line waits until the last talk has been read.
+        habibWaitS = seconds(talk) + 0.5;
+        advance('marketDone');
       } else refresh();
     }),
   );
@@ -225,8 +271,11 @@ function build(ctx: LevelContext<E>): Level {
   });
   const lanternClerk = lantern('clerk', 'composite-jaffa-clerk', L.LANTERN_CLERK);
   const planDesk = add('plan-desk', 'generic', { x: L.PLAN_DESK.x, z: L.PLAN_DESK.z + 0.6 }, 2.2, k('prompt.plan'), () => {
-    ctx.plan(createPlan(ctx.params().resourceScale), () => {
+    const model = createPlan(ctx.params().resourceScale);
+    ctx.plan(model, () => {
       f.planned = true;
+      cheer(true);
+      f.planMain = model.vehiclesOn(ROUTE_MAIN) > 0;
       syncObjectives();
       say([line(k('line.habib.planned'), speakerKey('habib')), ...checkpointLines('loaded')], 'composite');
       refresh();
@@ -239,6 +288,7 @@ function build(ctx: LevelContext<E>): Level {
         return;
       }
       f[id] = true;
+      cheer();
       cart.set(f.parts, f.parcel, f.letter);
       syncObjectives();
       refresh();
@@ -248,9 +298,30 @@ function build(ctx: LevelContext<E>): Level {
   const loadLetter = loadItem('letter', L.LOAD_LETTER);
 
   const debora = add('debora', 'generic', L.DEBORA, 2.2, k('prompt.deliver'), () => {
+    if (f.colonyGiven) {
+      // A quiet stop: cold tea at the new well before the walk back (the second press).
+      f.tea = true;
+      cheer();
+      ctx.objectives.progress('colony', 3);
+      const cup = [
+        line(k('line.debora.tea.1'), speakerKey('debora')),
+        line(k('line.debora.tea.2'), k('speaker.farmer')),
+        line(k('line.debora.tea.3'), NARRATOR),
+      ];
+      say(cup, 'composite');
+      ctx.bus.emit('audio:mood', { mood: 'reflective', era: 0 });
+      const tip = line(k('line.colony.petah'), NARRATOR);
+      later(seconds(cup) + 0.5, () => say([tip]));
+      advance('colonyDone');
+      return;
+    }
     if (!f.parts) {
       say([line(k('line.debora.none'), speakerKey('debora'))], 'composite');
       ctx.mission.fail(FAIL.colonyNoParts);
+      return;
+    }
+    if (!f.watered) {
+      say([line(k('line.debora.dusty'), speakerKey('debora'))], 'composite');
       return;
     }
     if (cart.distanceTo(L.DEBORA.x, L.DEBORA.z) > 12) {
@@ -259,16 +330,34 @@ function build(ctx: LevelContext<E>): Level {
     }
     f.parts = false;
     f.letter = false;
+    f.colonyGiven = true;
+    cheer(true);
     cart.set(f.parts, f.parcel, f.letter);
-    const lines = [...checkpointLines('colony_delivered'), line(k('line.debora.take'), speakerKey('debora')), line(k('line.debora.reply'), speakerKey('debora'))];
+    const lines = [...checkpointLines('colony_delivered'), line(k('line.debora.take'), speakerKey('debora')), line(k('line.debora.reply'), speakerKey('debora')), line(k('line.debora.offer'), speakerKey('debora'))];
     say(lines, 'composite');
     once('codex', 'rishon-lezion');
     once('codex', 'edmond-de-rothschild');
-    // Unlocked now, not inside the delayed tip: a timer is lost when the player restores a save or retries.
+    // Unlocked now, not inside the later tip: a timer is lost when the player restores a save or retries.
     once('codex', 'petah-tikva');
-    const tip = line(k('line.colony.petah'), NARRATOR);
-    later(seconds(lines) + 0.5, () => say([tip]));
-    advance('colonyDone');
+    ctx.objectives.progress('colony', 2);
+    refresh();
+  });
+  const roadWell = add('road-well', 'generic', L.ROAD_WELL_SIGN, 2.4, k('prompt.rest'), () => {
+    f.watered = true;
+    cheer();
+    const lines = [
+      line(k(f.planMain ? 'line.roadwell.main' : 'line.roadwell.other'), NARRATOR),
+      line(k('line.roadwell.rest'), NARRATOR),
+    ];
+    say(lines, undefined);
+    ctx.objectives.progress('colony', 1);
+    refresh();
+  });
+  const rideSeat = add('ride', 'generic', { x: 0, z: 0 }, 2, k('prompt.ride'), () => startCarRide());
+  const wayfarer = add('wayfarer', 'generic', L.ROAD_WAYFARER, 2.2, k('prompt.talk'), () => {
+    f.wayfarer = true;
+    say([line(k('line.wayfarer.1'), k('speaker.wayfarer')), line(k('line.wayfarer.2'), k('speaker.wayfarer'))], 'composite');
+    refresh();
   });
   const wellSign = add('well-sign', 'generic', L.WELL_SIGN, 2.4, 'gameplay.prompt.read', () => {
     f.wellRead = true;
@@ -294,6 +383,7 @@ function build(ctx: LevelContext<E>): Level {
         return;
       }
       f.villageDelivered = true;
+      cheer(true);
       f.parcel = false;
       cart.set(f.parts, f.parcel, f.letter);
       say(checkpointLines('village_delivered'), 'composite');
@@ -302,6 +392,7 @@ function build(ctx: LevelContext<E>): Level {
       return;
     }
     f.coffee = true;
+    cheer();
     ctx.objectives.progress('village', 2);
     const cup = [line(k('line.jamila.coffee'), speakerKey('jamila')), line(k('line.jamila.reply'), speakerKey('jamila'))];
     say(cup, 'composite');
@@ -324,6 +415,7 @@ function build(ctx: LevelContext<E>): Level {
   });
   const ticketWindow = add('ticket', 'generic', L.TICKET_WINDOW, 2, k('prompt.ticket'), () => {
     f.ticket = true;
+    cheer();
     ctx.objectives.progress('station', 1);
     say([...checkpointLines('station'), line(k('line.stationmaster.ticket'), k('speaker.stationmaster'))], 'composite');
     bell.reset();
@@ -343,6 +435,7 @@ function build(ctx: LevelContext<E>): Level {
   const eliyahu = add('eliyahu', 'generic', L.ELIYAHU, 2.2, k('prompt.deliver'), () => {
     if (!f.jerusalemDelivered) {
       f.jerusalemDelivered = true;
+      cheer(true);
       say(checkpointLines('jerusalem_delivered'), 'composite');
       once('codex', 'old-yishuv-halukka');
       ctx.objectives.progress('jerusalem', 1);
@@ -350,6 +443,7 @@ function build(ctx: LevelContext<E>): Level {
       return;
     }
     f.sat = true;
+    cheer();
     ctx.objectives.progress('jerusalem', 2);
     const meal = [line(k('line.eliyahu.bread'), speakerKey('eliyahu')), line(k('line.eliyahu.thanks'), speakerKey('eliyahu'))];
     say(meal, 'composite');
@@ -366,7 +460,8 @@ function build(ctx: LevelContext<E>): Level {
   function refresh(): void {
     const s = state();
     tagItems.forEach((it, i) => (it.enabled = s === 'port_start' && !f.tags[i]));
-    const jaffa = s === 'port_start' || s === 'loaded';
+    marketItems.forEach((it, i) => (it.enabled = s === 'market' && !f.talks[i]));
+    const jaffa = s === 'port_start' || s === 'market' || s === 'loaded';
     vendor.enabled = jaffa && !f.vendor;
     lanternClerk.enabled = jaffa && !heard.has('clerk');
     planDesk.enabled = s === 'loaded' && !f.planned;
@@ -374,7 +469,11 @@ function build(ctx: LevelContext<E>): Level {
     loadParcel.enabled = s === 'loaded' && f.planned && !f.parcel;
     loadLetter.enabled = s === 'loaded' && f.planned && !f.letter;
     const colonyZone = s === 'road_colony' || s === 'road_mid' || s === 'colony_delivered';
-    debora.enabled = s === 'road_colony' || s === 'road_mid';
+    const onRoad = s === 'road_colony' || s === 'road_mid';
+    debora.enabled = onRoad && !f.tea;
+    debora.promptKey = f.colonyGiven ? k('prompt.tea') : k('prompt.deliver');
+    roadWell.enabled = onRoad && !f.watered;
+    wayfarer.enabled = onRoad && !f.wayfarer;
     wellSign.enabled = colonyZone && !f.wellRead;
     lanternColony.enabled = colonyZone && !heard.has('colony');
     const village = s === 'village_arrival' || s === 'village_delivered';
@@ -398,6 +497,8 @@ function build(ctx: LevelContext<E>): Level {
   function syncObjectives(): void {
     const o = ctx.objectives;
     o.progress('tags', f.tags.filter(Boolean).length);
+    o.progress('market', f.talks.filter(Boolean).length);
+    o.progress('colony', (f.watered ? 1 : 0) + (f.colonyGiven ? 1 : 0) + (f.tea ? 1 : 0));
     o.progress('cargo', (f.planned ? 1 : 0) + (f.parts ? 1 : 0) + (f.parcel ? 1 : 0) + (f.letter ? 1 : 0));
     o.progress('village', (f.villageDelivered ? 1 : 0) + (f.coffee ? 1 : 0));
     o.progress('station', (f.ticket ? 1 : 0) + (state() === 'jerusalem_delivered' ? 1 : 0));
@@ -416,9 +517,16 @@ function build(ctx: LevelContext<E>): Level {
     const s = state();
     wp = 0;
     switch (s) {
-      case 'loaded':
-        say([line(k('line.habib.briefed'), speakerKey('habib'))], 'composite');
+      case 'market':
+        say([line(k('line.habib.market'), speakerKey('habib'))], 'composite');
         break;
+      case 'loaded': {
+        const briefed = line(k('line.habib.briefed'), speakerKey('habib'));
+        if (habibWaitS > 0) later(habibWaitS, () => say([briefed], 'composite'));
+        else say([briefed], 'composite');
+        habibWaitS = 0;
+        break;
+      }
       case 'road_colony':
         say(checkpointLines('road_colony'));
         break;
@@ -462,6 +570,89 @@ function build(ctx: LevelContext<E>): Level {
     later(delay, () => ctx.say(lens, 'documented'));
   }
 
+  // ---- riding the cart on the open road (no dead walking) ------------------------------------------------------
+  interface CarRide {
+    readonly stretch: string;
+    readonly pts: L.Pt[];
+    readonly cum: number[];
+    done: number;
+    said: number;
+  }
+  const RIDE_SPEED = 11;
+  const dist2 = (a: L.Pt, b: L.Pt): number => Math.hypot(a.x - b.x, a.z - b.z);
+
+  /** The open stretch the player could ride right now, or null (near a place, or almost there). */
+  function openStretch(): { id: string; pts: L.Pt[] } | null {
+    const s = state();
+    let id: string;
+    let pts: L.Pt[];
+    if (s === 'road_colony' || s === 'road_mid') {
+      if (!f.watered) {
+        id = 'a1';
+        pts = [...L.WAY_TO_COLONY.slice(0, 3), L.ROAD_WELL_SIGN];
+      } else if (!f.colonyGiven) {
+        id = 'a2';
+        pts = [...L.WAY_TO_COLONY.slice(3)];
+      } else return null;
+    } else if (s === 'colony_delivered' || s === 'path_mid') {
+      id = 'b';
+      pts = [L.WAY_TO_COLONY[6] as L.Pt, ...L.WAY_TO_VILLAGE, L.VILLAGE_GATE];
+    } else if (s === 'village_delivered') {
+      id = 'c';
+      pts = [...L.WAY_TO_STATION];
+    } else return null;
+    const here: L.Pt = { x: player.x, z: player.z };
+    for (const kp of L.KEY_POINTS) if (dist2(kp, here) < 7) return null;
+    const end = pts[pts.length - 1] as L.Pt;
+    const left = dist2(here, end);
+    if (left < 18) return null;
+    return { id, pts: pts.filter((p) => dist2(p, end) < left - 3) };
+  }
+
+  function startCarRide(): void {
+    const o = openStretch();
+    if (!o || carRide || riding) return;
+    const pts: L.Pt[] = [{ x: player.x, z: player.z }, ...o.pts];
+    const cum: number[] = [0];
+    for (let i = 1; i < pts.length; i++) cum.push((cum[i - 1] as number) + dist2(pts[i - 1] as L.Pt, pts[i] as L.Pt));
+    carRide = { stretch: o.id, pts, cum, done: 0, said: 0 };
+    player.controllable = false;
+    cheer();
+    refresh();
+  }
+
+  function carRideStep(dt: number): void {
+    const r = carRide;
+    if (!r) return;
+    const total = r.cum[r.cum.length - 1] as number;
+    r.done = Math.min(total, r.done + RIDE_SPEED * dt);
+    let i = 1;
+    while (i < r.cum.length - 1 && (r.cum[i] as number) < r.done) i++;
+    const a = r.pts[i - 1] as L.Pt;
+    const b = r.pts[i] as L.Pt;
+    const segLen = Math.max(1e-6, (r.cum[i] as number) - (r.cum[i - 1] as number));
+    const u = Math.min(1, Math.max(0, (r.done - (r.cum[i - 1] as number)) / segLen));
+    const x = a.x + (b.x - a.x) * u;
+    const z = a.z + (b.z - a.z) * u;
+    const h = Math.atan2(b.x - a.x, b.z - a.z);
+    player.motor.place(x, z, h);
+    cart.place(x - Math.sin(h) * 3.4, z - Math.cos(h) * 3.4, h);
+    // One small thing per stretch, at a third and two thirds of the way.
+    const frac = r.done / Math.max(1, total);
+    const due = frac >= 0.66 ? 2 : frac >= 0.3 ? 1 : 0;
+    while (r.said < due) {
+      r.said++;
+      const speaker = r.said === 1 ? k('speaker.passer') : null;
+      say([line(k('line.ride.' + r.stretch + '.' + String(r.said)), speaker)], speaker ? 'composite' : undefined);
+    }
+    if (r.done >= total) {
+      carRide = null;
+      player.controllable = true;
+      cheer();
+      refresh();
+    }
+  }
+
   function startRide(): void {
     riding = true;
     rideT = 0;
@@ -483,6 +674,9 @@ function build(ctx: LevelContext<E>): Level {
 
   function enterCheckpoint(checkpoint: string, data: unknown): void {
     timers.length = 0;
+    carRide = null;
+    rideCheckT = 0;
+    rideHinted.clear();
     f = freshFlags();
     riding = false;
     rideT = 0;
@@ -505,7 +699,9 @@ function build(ctx: LevelContext<E>): Level {
 
     const full = (): void => {
       f.tags = [true, true, true, true];
+      f.talks = [true, true, true];
       f.planned = true;
+      f.planMain = true;
       f.parts = true;
       f.parcel = true;
       f.letter = true;
@@ -514,6 +710,9 @@ function build(ctx: LevelContext<E>): Level {
       full();
       f.parts = false;
       f.letter = false;
+      f.watered = true;
+      f.colonyGiven = true;
+      f.tea = true;
     };
     const afterVillage = (): void => {
       afterColony();
@@ -522,8 +721,13 @@ function build(ctx: LevelContext<E>): Level {
       f.coffee = true;
     };
     switch (checkpoint) {
+      case 'market':
+        f.tags = [true, true, true, true];
+        spawnAt(L.SPAWN_MARKET, false);
+        break;
       case 'loaded':
         f.tags = [true, true, true, true];
+        f.talks = [true, true, true];
         spawnAt(SPAWN_LOADED);
         cart.place(L.CART_START.x, L.CART_START.z, PI / 2);
         break;
@@ -567,7 +771,7 @@ function build(ctx: LevelContext<E>): Level {
         break;
     }
     if (isSaved(data)) {
-      f = { ...freshFlags(), ...data.flags, tags: [...data.flags.tags] };
+      f = { ...freshFlags(), ...data.flags, tags: [...data.flags.tags], talks: Array.isArray(data.flags.talks) ? [...data.flags.talks] : [false, false, false] };
       f.listening = false;
       f.ticket = f.ticket && checkpoint === 'station';
       player.spawn(data.x, data.z, player.motor.heading);
@@ -580,6 +784,7 @@ function build(ctx: LevelContext<E>): Level {
     syncObjectives();
     refresh();
     if (!isSaved(data)) {
+      if (checkpoint === 'market') say([line(k('line.habib.market'), speakerKey('habib'))], 'composite');
       if (checkpoint === 'port_start' || checkpoint === 'loaded' || checkpoint === 'road_colony' || checkpoint === 'village_arrival') say(checkpointLines(checkpoint));
       if (checkpoint === 'station') say([line(k('line.station.arrive'), NARRATOR)]);
       if (checkpoint === 'jerusalem_delivered') say([line(k('line.jerusalem.arrive'), NARRATOR)]);
@@ -607,6 +812,10 @@ function build(ctx: LevelContext<E>): Level {
         const i = f.tags.indexOf(false);
         return i >= 0 ? (L.TAGS[i] as L.Pt) : L.HABIB;
       }
+      case 'market': {
+        const i = f.talks.indexOf(false);
+        return i >= 0 ? (L.MARKET_TALKS[i] as L.Pt) : L.PLAN_DESK;
+      }
       case 'loaded':
         if (!f.planned) return L.PLAN_DESK;
         if (!f.parts) return L.LOAD_PARTS;
@@ -615,6 +824,7 @@ function build(ctx: LevelContext<E>): Level {
         return L.GATE_ROAD;
       case 'road_colony':
       case 'road_mid':
+        if (!f.watered) return L.ROAD_WELL_SIGN;
         return nextOnRoute(L.WAY_TO_COLONY, L.DEBORA);
       case 'colony_delivered':
       case 'path_mid':
@@ -642,8 +852,22 @@ function build(ctx: LevelContext<E>): Level {
       }
     }
     if (riding) rideStep(dt);
+    carRideStep(dt);
     player.update(dt);
-    if (!riding) cart.update(dt, player.x, player.z);
+    if (!riding && !carRide) cart.update(dt, player.x, player.z);
+    // The offer to ride: checked a few times a second, and the prompt follows the player.
+    rideCheckT -= dt;
+    if (rideCheckT <= 0) {
+      rideCheckT = 0.25;
+      const o = carRide || riding ? null : openStretch();
+      rideSeat.enabled = o !== null;
+      if (o && !rideHinted.has(o.id)) {
+        rideHinted.add(o.id);
+        nudge([line(k('line.ride.offer'), NARRATOR)]);
+      }
+    }
+    rideSeat.x = player.x;
+    rideSeat.z = player.z;
     const s = state();
     if (s === 'complete' || s === 'failed') return;
     const px = player.x;
@@ -681,7 +905,7 @@ function build(ctx: LevelContext<E>): Level {
 
     // Fields: a warning of at least the telegraph time before anything counts.
     let danger = 0;
-    if (!riding && s !== 'jerusalem_delivered') {
+    if (!riding && !carRide && s !== 'jerusalem_delivered') {
       const exposed = scenery.inField(px, pz) || scenery.inField(cart.x, cart.z);
       if (fieldTelegraph.update(dt, exposed)) {
         fieldTelegraph.reset();
@@ -728,7 +952,7 @@ function build(ctx: LevelContext<E>): Level {
   };
 
   function hintFor(s: string): string | undefined {
-    const own: Record<string, string> = { colony_delivered: k('hint.colonyDelivered'), path_mid: k('hint.colonyDelivered'), village_delivered: k('hint.villageDelivered') };
+    const own: Record<string, string> = { market: k('hint.market'), road_mid: k('hint.roadMid'), colony_delivered: k('hint.colonyDelivered'), path_mid: k('hint.colonyDelivered'), village_delivered: k('hint.villageDelivered') };
     return HINT_KEYS[MISSION_ID]?.[s] ?? own[s];
   }
 
@@ -774,11 +998,22 @@ const interact: BotStep = { kind: 'press', action: 'interact' };
 const pause = (seconds: number): BotStep => ({ kind: 'wait', seconds });
 const at = (p: L.Pt, dz: number): L.Pt => ({ x: p.x, z: p.z + dz });
 
-const toColony = (from = 0): BotStep[] => [...route(L.WAY_TO_COLONY.slice(from)), walk(L.DEBORA, 1.5), interact];
+const toColony = (from = 0): BotStep[] => [
+  ...route(L.WAY_TO_COLONY.slice(from, 3)),
+  walk(L.ROAD_WELL_SIGN, 1.2),
+  interact,
+  pause(0.3),
+  ...route(L.WAY_TO_COLONY.slice(Math.max(from, 3))),
+  walk(L.DEBORA, 1.5),
+  interact,
+  pause(0.4),
+  interact,
+];
 const toVillage = (from = 0): BotStep[] => [...route(L.WAY_TO_VILLAGE.slice(from)), walk(L.VILLAGE_GATE, 1.5), { kind: 'waitFor', state: 'village_arrival', timeout: 20 }];
 
 const botScript: Record<S, readonly BotStep[]> = {
   port_start: L.TAGS.flatMap((t) => [walk(at(t, 1.0), 0.6), interact, pause(0.15)]),
+  market: L.MARKET_TALKS.flatMap((t) => [walk(at(t, 1.0), 0.8), interact, pause(0.15)]),
   loaded: [
     walk(at(L.PLAN_DESK, 1.2), 0.9),
     interact,
@@ -810,12 +1045,13 @@ export default defineLevel<S, E>({
     id: MISSION_ID,
     chapterId: CH00_ID,
     gameplayType: 'LOG',
-    checkpoints: ['port_start', 'loaded', 'road_colony', 'colony_delivered', 'village_arrival', 'village_delivered', 'station', 'jerusalem_delivered'],
+    checkpoints: ['port_start', 'market', 'loaded', 'road_colony', 'colony_delivered', 'village_arrival', 'village_delivered', 'station', 'jerusalem_delivered'],
     machine: {
       initial: 'port_start',
       final: ['complete'],
       transitions: {
-        port_start: { briefed: 'loaded' },
+        port_start: { briefed: 'market' },
+        market: { marketDone: 'loaded' },
         loaded: { cartReady: 'road_colony' },
         road_colony: { halfway: 'road_mid', colonyDone: 'colony_delivered' },
         road_mid: { colonyDone: 'colony_delivered' },
@@ -832,8 +1068,9 @@ export default defineLevel<S, E>({
   },
   objectives: [
     { id: 'tags', textKey: 'ch00.obj.jaffa.1', states: ['port_start'], steps: 4 },
+    { id: 'market', textKey: k('obj.market'), states: ['market'], steps: 3 },
     { id: 'cargo', textKey: 'ch00.obj.jaffa.2', states: ['loaded'], steps: 4 },
-    { id: 'colony', textKey: 'ch00.obj.jaffa.3', states: ['road_colony', 'road_mid'] },
+    { id: 'colony', textKey: 'ch00.obj.jaffa.3', states: ['road_colony', 'road_mid'], steps: 3 },
     { id: 'toVillage', textKey: k('obj.village'), states: ['colony_delivered', 'path_mid'] },
     { id: 'village', textKey: 'ch00.obj.jaffa.4', states: ['village_arrival'], steps: 2 },
     { id: 'toStation', textKey: k('obj.station'), states: ['village_delivered'] },
@@ -843,6 +1080,7 @@ export default defineLevel<S, E>({
   failures,
   botScript,
   extraCheckpoints: ['road_mid', 'path_mid'],
+  briefingContextKey: k('briefing.context'),
   briefingMap: {
     size: L.WORLD_SIZE,
     points: [

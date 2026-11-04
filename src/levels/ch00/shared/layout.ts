@@ -1,9 +1,9 @@
 /** Layout, states and pure tutorial logic of "The Archive at Night" (meters, +z is forward at yaw 0). */
 
-export type ArchiveState = 'arrival' | 'reading_room' | 'codex_ledger' | 'first_document' | 'lenses' | 'labels_table' | 'document_opens';
-export type ArchiveEvent = 'entered' | 'warmed' | 'codex_read' | 'document_read' | 'lenses_seen' | 'sorted' | 'glowed';
+export type ArchiveState = 'arrival' | 'reading_room' | 'codex_ledger' | 'first_document' | 'shelf_tour' | 'lenses' | 'labels_table' | 'document_opens';
+export type ArchiveEvent = 'entered' | 'warmed' | 'codex_read' | 'document_read' | 'tour_done' | 'lenses_seen' | 'sorted' | 'glowed';
 
-export const STATE_ORDER: readonly ArchiveState[] = ['arrival', 'reading_room', 'codex_ledger', 'first_document', 'lenses', 'labels_table', 'document_opens'];
+export const STATE_ORDER: readonly ArchiveState[] = ['arrival', 'reading_room', 'codex_ledger', 'first_document', 'shelf_tour', 'lenses', 'labels_table', 'document_opens'];
 
 export const ROOM = { minX: -9, maxX: 9, minZ: -6, maxZ: 16, height: 5, doorHalf: 1.3, wall: 0.4 } as const;
 
@@ -17,6 +17,7 @@ export const SPAWNS: Readonly<Record<ArchiveState, Spot & { readonly heading: nu
   reading_room: { x: 0, z: -3.2, heading: 0 },
   codex_ledger: { x: 3, z: 4.8, heading: 0 },
   first_document: { x: 4, z: 9.4, heading: 0 },
+  shelf_tour: { x: -4.6, z: 11.2, heading: 0 },
   lenses: { x: -5, z: 10.2, heading: 0 },
   labels_table: { x: -1, z: 9.2, heading: 0 },
   document_opens: { x: 2, z: 9.8, heading: 0 },
@@ -29,6 +30,10 @@ export const SPOTS = {
   drawer: { x: -6.5, z: 1.5 },
   ledger: { x: 6.2, z: 7.4 },
   cabinet: { x: -7, z: 12.9 },
+  caseA: { x: -6.6, z: 5.6 },
+  caseB: { x: -6.6, z: 8.2 },
+  caseC: { x: -6.6, z: 10.6 },
+  nook: { x: 7.2, z: 5.0 },
   lensA: { x: -3.4, z: 8.2 },
   lensB: { x: -1.6, z: 8.2 },
   table: { x: 2, z: 11.2 },
@@ -41,6 +46,10 @@ export const FURNITURE = {
   lensStand: { x: -2.5, z: 9.4, hw: 1.4, hd: 0.4 },
   docCabinet: { x: -7, z: 14.8, hw: 1.2, hd: 0.5 },
   labelsTable: { x: 2, z: 13.5, hw: 2.2, hd: 1.2 },
+  caseA: { x: -8.3, z: 5.6, hw: 0.4, hd: 0.4 },
+  caseB: { x: -8.3, z: 8.2, hw: 0.4, hd: 0.4 },
+  caseC: { x: -8.3, z: 10.6, hw: 0.4, hd: 0.4 },
+  nook: { x: 8.4, z: 5.0, hw: 0.4, hd: 0.4 },
   noa: { x: -3.2, z: 5 },
   samir: { x: 4.6, z: 12.4 },
 } as const;
@@ -57,6 +66,11 @@ export interface Progress {
   ledger: boolean;
   codexOpened: boolean;
   documentRead: boolean;
+  caseA: boolean;
+  caseB: boolean;
+  caseC: boolean;
+  /** Optional discovery (never gates progress). */
+  nook: boolean;
   lensA: boolean;
   lensB: boolean;
   paused: boolean;
@@ -66,7 +80,7 @@ export interface Progress {
 }
 
 export function freshProgress(): Progress {
-  return { moved: false, looked: false, lamp: false, drawer: false, ledger: false, codexOpened: false, documentRead: false, lensA: false, lensB: false, paused: false, saved: false, placed: [] };
+  return { moved: false, looked: false, lamp: false, drawer: false, ledger: false, codexOpened: false, documentRead: false, caseA: false, caseB: false, caseC: false, nook: false, lensA: false, lensB: false, paused: false, saved: false, placed: [] };
 }
 
 /** Progress implied by being at a state: everything before it is done. */
@@ -80,9 +94,12 @@ export function progressFor(state: ArchiveState, previous: Progress | null): Pro
   p.ledger = i >= 3;
   p.codexOpened = i >= 3;
   p.documentRead = i >= 4;
-  p.lensA = i >= 5;
-  p.lensB = i >= 5;
-  if (i >= 6) {
+  p.caseA = i >= 5;
+  p.caseB = i >= 5;
+  p.caseC = i >= 5;
+  p.lensA = i >= 6;
+  p.lensB = i >= 6;
+  if (i >= 7) {
     p.paused = true;
     p.saved = true;
     p.placed = ['basel', 'guides', 'jaffa'];
@@ -107,6 +124,7 @@ const INTERACT = P('ch00.tut.interact', 'interact');
 const DRAWER = P('levels.ch00.archive.tut.drawer', 'interact');
 const CODEX = P('ch00.tut.codex', 'map');
 const ARCHIVE = P('ch00.tut.archive', 'interact');
+const CASES = P('levels.ch00.archive.tut.cases', 'interact');
 const LENSES = P('levels.ch00.archive.tut.lenses', 'interact');
 const PAUSE = P('ch00.tut.pause', 'pause');
 const LABELS = P('ch00.tut.labels', 'interact');
@@ -125,6 +143,8 @@ export function promptFor(state: string, p: Readonly<Progress>): PromptSpec | nu
       return p.ledger ? CODEX : INTERACT;
     case 'first_document':
       return ARCHIVE;
+    case 'shelf_tour':
+      return CASES;
     case 'lenses':
       return LENSES;
     case 'labels_table':

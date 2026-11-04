@@ -116,6 +116,14 @@ export const GATE_YARD = p(-30, 14);
 export const GATE_ROAD = p(-25, 28);
 export const CART_START = p(-36, 8);
 
+// ---- the quay market (three short talks before the planning desk) ------------------------------------
+
+export const SPAWN_MARKET = { x: -58, z: 1, heading: Math.PI / 2 };
+export const MARKET_PORTER = p(-72, 14);
+export const MARKET_WATER = p(-58, 24);
+export const MARKET_RUNNER = p(-66, -6);
+export const MARKET_TALKS: readonly Pt[] = [MARKET_PORTER, MARKET_WATER, MARKET_RUNNER];
+
 // ---- Rishon LeZion ------------------------------------------------------------------------------------
 
 export const SPAWN_COLONY = { x: 74, z: 146, heading: 0.9 };
@@ -188,6 +196,10 @@ export const BELL_SECONDS = 45;
 // ---- extra (assist) checkpoints: a point halfway along each long walk ---------------------------------
 
 export const ROAD_MID = p(-8, 82);
+/** The roadside well where the courier rests (stone head); the sign is where the courier stands. */
+export const ROAD_WELL = p(-14.5, 85.5);
+export const ROAD_WELL_SIGN = p(-11.4, 84.4);
+export const ROAD_WAYFARER = p(-17, 88.6);
 export const PATH_MID = p(28, 86);
 export const MID_RADIUS = 6;
 export const SPAWN_ROAD_MID = { x: -9, z: 80, heading: 0.5 };
@@ -206,6 +218,10 @@ export const KEY_POINTS: readonly Pt[] = [
   LOAD_LETTER,
   GATE_YARD,
   GATE_ROAD,
+  ...MARKET_TALKS,
+  ROAD_WELL,
+  ROAD_WELL_SIGN,
+  ROAD_WAYFARER,
   DEBORA,
   WELL_SIGN,
   LANTERN_COLONY,

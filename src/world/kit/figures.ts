@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { rgb, type RGB } from '../color';
 import type { EraId } from '../eraLook';
 import { Rng } from '../rng';
 import { kitBuilder } from './buildings';
@@ -72,7 +73,22 @@ export const ERA_OUTFITS: Readonly<Record<EraId, readonly Outfit[]>> = {
 const SKIN = ['#e3b896', '#c99772', '#a8754f', '#8a5c3d', '#f0c9a8'];
 const HAIR = ['#2a2420', '#4a3426', '#6b4a2e', '#8a8580', '#1d1a18'];
 
-/** One civilian figure (about 1.75 m, facing +z) with aLimb for the procedural rig. */
+/** Darkens or lightens a hex color (k < 1 darker), for seams, collars and soles. */
+function shade(hex: string, k: number): RGB {
+  const c = rgb(hex);
+  return [c[0] * k, c[1] * k, c[2] * k];
+}
+
+/** Oval-ready prism with a flat front face (torsos, hips, skirts); scale z for the oval. */
+function ovalGeo(rTop: number, rBottom: number, h: number, seg = 8): THREE.BufferGeometry {
+  return new THREE.CylinderGeometry(rTop, rBottom, h, seg, 1, false, Math.PI / seg);
+}
+
+/**
+ * One civilian figure (about 1.75 m, facing +z) with aLimb for the procedural rig. Stylized and
+ * calm: tapered limbs, rounded shoulders and hands, a faceted head with a quiet face (brow, eyes,
+ * nose, ears) so close-ups read as a person rather than a mannequin. Under 1,200 triangles.
+ */
 export function figureGeometry(o: { era?: EraId; variant?: number; seed?: number | string } = {}): THREE.BufferGeometry {
   const era = o.era ?? 'modern';
   const outfits = ERA_OUTFITS[era];
@@ -81,50 +97,96 @@ export function figureGeometry(o: { era?: EraId; variant?: number; seed?: number
   const r = new Rng(o.seed ?? 'figure-' + era + String(o.variant ?? 0));
   const skin = r.pick(SKIN);
   const hair = r.pick(HAIR);
-  const b = kitBuilder({ era, seed: o.seed ?? 1 }, 0.06, true);
+  const b = kitBuilder({ era, seed: o.seed ?? 1 }, 0.035, true);
   const shoe = '#3a2e26';
+  const sole = '#231c17';
+  const seam = shade(outfit.top, 0.72);
+  const eye = '#1c1714';
 
-  b.limb = LIMB.leftLeg;
-  b.box(0.15, 0.82, 0.17, outfit.bottom, 0.1, 0.49, 0);
-  b.box(0.16, 0.09, 0.26, shoe, 0.1, 0.045, 0.04);
-  b.limb = LIMB.rightLeg;
-  b.box(0.15, 0.82, 0.17, outfit.bottom, -0.1, 0.49, 0);
-  b.box(0.16, 0.09, 0.26, shoe, -0.1, 0.045, 0.04);
+  // Legs: tapered trouser legs with rounded shoes (pivot at the hip).
+  for (const [limb, x] of [
+    [LIMB.leftLeg, 0.1],
+    [LIMB.rightLeg, -0.1],
+  ] as const) {
+    b.limb = limb;
+    b.add(new THREE.CylinderGeometry(0.085, 0.068, 0.8, 7, 1), outfit.bottom, x, 0.5, 0);
+    b.add(new THREE.CylinderGeometry(0.072, 0.072, 0.05, 7, 1), shade(outfit.bottom, 0.8), x, 0.125, 0);
+    b.blob(0.085, shoe, x, 0.07, 0.05, 0.95, 0.62, 1.55);
+    b.box(0.15, 0.025, 0.25, sole, x, 0.0125, 0.045);
+  }
 
   b.limb = LIMB.body;
-  b.box(0.42, 0.6, 0.24, outfit.top, 0, 1.18, 0);
-  if (outfit.long) b.cone(0.36, 0.75, 7, outfit.bottom, 0, 0.62, 0, Math.PI);
-  b.box(0.12, 0.08, 0.12, skin, 0, 1.52, 0);
-  b.blob(0.13, skin, 0, 1.66, 0.01, 1, 1.15, 1);
+  // Hips and belt, then a torso that tapers from rounded shoulders to the waist.
+  b.add(ovalGeo(0.175, 0.19, 0.16), outfit.bottom, 0, 0.93, 0, 0, 0, 0, 1, 1, 0.66);
+  if (!outfit.long) b.add(ovalGeo(0.178, 0.178, 0.045), '#2e2620', 0, 1.0, 0, 0, 0, 0, 1, 1, 0.68);
+  b.add(ovalGeo(0.215, 0.17, 0.46), outfit.top, 0, 1.24, 0, 0, 0, 0, 1, 1, 0.62);
+  for (const x of [-0.19, 0.19]) b.blob(0.085, outfit.top, x, 1.42, 0, 1.05, 0.8, 1.1);
+  b.add(ovalGeo(0.16, 0.215, 0.07), outfit.top, 0, 1.5, 0, 0, 0, 0, 1, 1, 0.62);
+  // Placket and collar give the shirt a front.
+  b.box(0.035, 0.36, 0.012, seam, 0, 1.24, 0.128);
+  b.box(0.17, 0.05, 0.1, seam, 0, 1.53, 0.05, 0, 0.35);
+  if (outfit.long) {
+    // Robe or skirt: a flared panel skirt from the waist with a darker hem.
+    b.add(ovalGeo(0.2, 0.34, 0.78, 9), outfit.bottom, 0, 0.6, 0, 0, 0, 0, 1, 1, 0.8);
+    b.add(ovalGeo(0.342, 0.342, 0.035, 9), shade(outfit.bottom, 0.75), 0, 0.225, 0, 0, 0, 0, 1, 1, 0.8);
+    b.add(ovalGeo(0.2, 0.2, 0.05, 8), shade(outfit.bottom, 0.7), 0, 1.0, 0, 0, 0, 0, 1, 1, 0.66);
+  }
+
+  // Neck and head (faceted icosahedron) with a quiet face.
+  b.cyl(0.05, 0.058, 0.12, 6, skin, 0, 1.56, 0.005);
+  const hy = 1.665;
+  b.blob(0.118, skin, 0, hy, 0.01, 0.94, 1.12, 1.0, 1);
+  b.blob(0.075, skin, 0, hy - 0.06, 0.035, 0.95, 0.75, 1.0); // jaw and chin
+  for (const x of [-0.112, 0.112]) b.blob(0.03, skin, x, hy, -0.005, 0.5, 1.0, 0.8);
+  b.cone(0.022, 0.055, 4, shade(skin, 0.94), 0, hy - 0.012, 0.125, Math.PI / 2 + 0.25);
+  for (const x of [-0.042, 0.042]) {
+    b.box(0.026, 0.018, 0.02, eye, x, hy + 0.018, 0.102);
+    b.box(0.05, 0.014, 0.024, hair, x, hy + 0.05, 0.1, 0, 0, x > 0 ? -0.12 : 0.12);
+  }
+  const hairBack = (): void => {
+    b.blob(0.127, hair, 0, hy + 0.05, -0.022, 1.0, 0.78, 1.04, 1);
+    b.blob(0.11, hair, 0, hy - 0.01, -0.045, 1.0, 0.9, 0.85);
+  };
   switch (outfit.hat) {
     case 'tembel':
-      b.cone(0.15, 0.2, 6, outfit.hatColor, 0, 1.83, 0);
+      hairBack();
+      b.add(new THREE.CylinderGeometry(0.02, 0.148, 0.2, 8, 1), outfit.hatColor, 0, hy + 0.17, -0.01, -0.08);
       break;
     case 'fez':
-      b.cyl(0.09, 0.11, 0.16, 7, outfit.hatColor, 0, 1.82, 0);
+      hairBack();
+      b.cyl(0.092, 0.118, 0.15, 8, outfit.hatColor, 0, hy + 0.15, -0.01);
+      b.blob(0.025, '#1d1a18', 0.07, hy + 0.17, -0.06, 0.6, 1.6, 0.6);
       break;
     case 'scarf':
-      b.blob(0.16, outfit.hatColor, 0, 1.69, -0.03, 1, 1.15, 1.05);
-      b.box(0.3, 0.35, 0.05, outfit.hatColor, 0, 1.5, -0.12);
+      b.blob(0.152, outfit.hatColor, 0, hy + 0.03, -0.035, 1, 1.12, 1.02, 1);
+      b.add(new THREE.CylinderGeometry(0.15, 0.2, 0.3, 8, 1), outfit.hatColor, 0, hy - 0.16, -0.06, 0, 0, 0, 1, 1, 0.75);
       break;
     case 'cap':
-      b.cyl(0.14, 0.14, 0.07, 7, outfit.hatColor, 0, 1.79, 0);
-      b.box(0.18, 0.02, 0.1, outfit.hatColor, 0, 1.76, 0.14);
+      hairBack();
+      b.add(new THREE.CylinderGeometry(0.13, 0.135, 0.07, 9, 1), outfit.hatColor, 0, hy + 0.11, 0.0, -0.12);
+      b.add(new THREE.CylinderGeometry(0.09, 0.09, 0.015, 8, 1, false, -Math.PI / 2, Math.PI), shade(outfit.hatColor, 0.85), 0, hy + 0.085, 0.12, -0.1);
       break;
     case 'kerchief':
-      b.blob(0.145, outfit.hatColor, 0, 1.72, -0.02, 1, 0.8, 1.05);
+      b.blob(0.135, outfit.hatColor, 0, hy + 0.055, -0.025, 1.04, 0.78, 1.06, 1);
+      b.blob(0.06, outfit.hatColor, 0, hy - 0.02, -0.13, 1.0, 0.8, 0.8);
       break;
     case 'none':
-      b.blob(0.135, hair, 0, 1.72, -0.02, 1, 0.75, 1.05);
+      hairBack();
+      if (outfit.long) b.blob(0.065, hair, 0, hy, -0.14, 1, 0.9, 0.9); // bun
       break;
   }
 
-  b.limb = LIMB.leftArm;
-  b.box(0.11, 0.56, 0.13, outfit.top, 0.27, 1.13, 0);
-  b.box(0.09, 0.1, 0.1, skin, 0.27, 0.8, 0);
-  b.limb = LIMB.rightArm;
-  b.box(0.11, 0.56, 0.13, outfit.top, -0.27, 1.13, 0);
-  b.box(0.09, 0.1, 0.1, skin, -0.27, 0.8, 0);
+  // Arms: sleeve, cuff and a rounded hand (pivot at the shoulder).
+  for (const [limb, x] of [
+    [LIMB.leftArm, 0.265],
+    [LIMB.rightArm, -0.265],
+  ] as const) {
+    b.limb = limb;
+    const out = x > 0 ? 1 : -1;
+    b.add(new THREE.CylinderGeometry(0.066, 0.052, 0.54, 7, 1), outfit.top, x, 1.14, 0, 0, 0, out * 0.05);
+    b.add(new THREE.CylinderGeometry(0.056, 0.056, 0.04, 7, 1), seam, x + out * 0.012, 0.885, 0);
+    b.blob(0.05, skin, x + out * 0.014, 0.82, 0.008, 0.78, 1.18, 0.95);
+  }
   return b.build();
 }
 

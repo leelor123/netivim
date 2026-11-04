@@ -47,6 +47,8 @@ export interface PlaceDef {
   readonly id: PlaceId;
   readonly speakerKey: string;
   readonly greetKey: string;
+  /** Composite person's closing words after the advice is logged (feelings only, no facts). */
+  readonly farewellKey: string;
   readonly questions: readonly QuestionDef[];
   readonly adviceId: string;
   readonly listenOptionId: PlaceId;
@@ -64,6 +66,7 @@ export const PLACE_DEFS: Readonly<Record<PlaceId, PlaceDef>> = {
     id: 'yishuv',
     speakerKey: L('speaker.yishuv'),
     greetKey: L('greet.yishuv'),
+    farewellKey: L('farewell.yishuv'),
     questions: [q('yishuv', 1, 'ch01.lens.partition.zionist'), q('yishuv', 2, 'ch01.vote.s.yishuv'), q('yishuv', 3, 'ch01.vote.map3')],
     adviceId: 'the-vote-advice-yishuv',
     listenOptionId: 'yishuv',
@@ -72,6 +75,7 @@ export const PLACE_DEFS: Readonly<Record<PlaceId, PlaceDef>> = {
     id: 'palestinians',
     speakerKey: L('speaker.palestinians'),
     greetKey: L('greet.palestinians'),
+    farewellKey: L('farewell.palestinians'),
     questions: [q('palestinians', 1, 'ch01.vote.s.palestinians'), q('palestinians', 2, 'ch01.vote.map2'), q('palestinians', 3, 'ch01.vote.s.arabstates')],
     adviceId: 'the-vote-advice-palestinians',
     listenOptionId: 'palestinians',
@@ -80,6 +84,7 @@ export const PLACE_DEFS: Readonly<Record<PlaceId, PlaceDef>> = {
     id: 'britain',
     speakerKey: L('speaker.britain'),
     greetKey: L('greet.britain'),
+    farewellKey: L('farewell.britain'),
     questions: [
       q('britain', 1, 'ch01.vote.s.britain'),
       q('britain', 2, 'ch01.fact.uk-abstained', { kind: 'fact', id: 'uk-abstained' }),
@@ -181,6 +186,8 @@ export const SQUARE = { x: 0, z: 2 };
 export const SIGN = { x: 0, z: -9 };
 export const RADIO = { x: 0, z: 4.2 };
 export const NOTE_DESK = { x: -7, z: -4, jerusalem: { x: -8.4, z: -3.2 }, typewriter: { x: -5.7, z: -3.2 } };
+/** Four slips on the note desk, one per party (PARTIES order); the page and typewriter keep their spots. */
+export const NOTE_POINTS: readonly { readonly x: number; readonly z: number }[] = [-10.0, -9.3, -7.7, -7.0].map((x) => ({ x, z: -3.0 }));
 export const TALLY = { x: 4.6, z: 5.4 };
 export const NEIGHBOR = { x: -2.4, z: 2.2 };
 
@@ -221,5 +228,6 @@ export const ROUTE_PLACE: Readonly<Record<PlaceId, readonly (readonly [number, n
   ],
 };
 
+export const POINT_RADIUS = 0.62;
 export const ASK_RADIUS = 0.75;
 export const SPEAK_MS = 5200;

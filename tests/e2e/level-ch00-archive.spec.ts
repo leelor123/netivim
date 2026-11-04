@@ -208,6 +208,18 @@ test('controller only: the whole Archive at Night tutorial, to the debrief', asy
   await shot(page, '4-viewer');
   if (process.env.NETIVIM_STOP === 'viewer') return;
   await press(page, A);
+  await expect.poll(() => missionState(page), { timeout: 30000 }).toBe('shelf_tour');
+
+  // Label tour: three display cases (documented, composite, reconstructed), then the reflection.
+  await walkTo(page, -5.2, 6.4, 0.8);
+  for (const [x, z, flag] of [[-6.6, 5.6, 'caseA'], [-6.6, 8.2, 'caseB'], [-6.6, 10.6, 'caseC']] as const) {
+    await walkTo(page, x, z, 0.4);
+    await interact(page, () => visible(page, '.an-sheet'));
+    await press(page, A);
+    await expect.poll(() => progressFlag(page, flag), { timeout: 30000 }).toBe(true);
+  }
+  await expect(page.locator('.an-sheet')).toContainText('רגע של מחשבה', { timeout: 30000 });
+  await press(page, A);
   await expect.poll(() => missionState(page), { timeout: 30000 }).toBe('lenses');
 
   // Two Lenses.

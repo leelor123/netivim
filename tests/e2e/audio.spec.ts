@@ -44,7 +44,8 @@ test('cues, beds and mood changes cause no console errors', async ({ page }) => 
       'ui.move', 'ui.confirm', 'ui.back', 'ui.toggle', 'ui.save', 'ui.error', 'wind', 'sea', 'engine.truck', 'engine.ship',
       'footsteps.sand', 'footsteps.stone', 'crowd.murmur', 'birds', 'crickets', 'siren.alert', 'distant.rumble', 'radio.static',
       'typewriter', 'paper.rustle', 'interception.whoosh', 'ambience.desert', 'ambience.sea', 'ambience.city', 'ambience.village',
-      'ambience.interior', 'ambience.night', 'music.title',
+      'ambience.interior', 'ambience.night', 'music.title', 'surf', 'radio.hum', 'gull', 'hammer', 'cart.creak', 'rigging', 'owl',
+      'horn.far', 'room.settle', 'footsteps.distant', 'ambience.harbor', 'ambience.dusk', 'ambience.beach', 'ambience.town-night',
     ];
     for (const cue of cues) g.bus.emit('audio:cue', { cue, intensity: 0.7 });
     for (const mood of ['calm', 'tense', 'reflective', 'hopeful'] as const) g.bus.emit('audio:mood', { mood, era: 1948 });
@@ -67,6 +68,38 @@ test('cues, beds and mood changes cause no console errors', async ({ page }) => 
   expect(sys.master).toBeGreaterThan(0);
   expect(sys.voices).toBeLessThanOrEqual(20);
   expect(await audioState(page)).toBe('running');
+  expect(problems).toEqual([]);
+});
+
+test('the mix of a busy scene stays below full scale before the safety limiter', async ({ page }) => {
+  const problems = watchConsole(page);
+  await boot(page);
+  await page.keyboard.press('Space');
+  await expect.poll(() => audioState(page)).toBe('running');
+  const peak = await page.evaluate(async () => {
+    const sys = window.__netivimAudio;
+    const g = window.__netivim;
+    const ctx = sys?.engine.context;
+    const master = sys?.engine.buses?.master;
+    if (!sys || !g || !ctx || !master) throw new Error('no audio');
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 2048;
+    master.connect(analyser);
+    g.bus.emit('audio:mood', { mood: 'hopeful', era: 1895 });
+    g.bus.emit('audio:cue', { cue: 'ambience.harbor' });
+    g.bus.emit('audio:cue', { cue: 'ui.confirm' });
+    g.bus.emit('subtitle:show', { textKey: 'app.title', speakerKey: null, durationMs: 4000, voice: false });
+    const buf = new Float32Array(analyser.fftSize);
+    let max = 0;
+    const end = performance.now() + 7000;
+    while (performance.now() < end) {
+      await new Promise((r) => setTimeout(r, 40));
+      analyser.getFloatTimeDomainData(buf);
+      for (const v of buf) max = Math.max(max, Math.abs(v));
+    }
+    return max;
+  });
+  expect(peak).toBeLessThan(1);
   expect(problems).toEqual([]);
 });
 
