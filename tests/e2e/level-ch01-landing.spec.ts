@@ -259,7 +259,7 @@ test('Night Landing: the beach scene stays inside the Ultra render budget', asyn
   await pressConfirm(page);
   await expect.poll(() => missionState(page), { timeout: 60000 }).toBe('sea');
   // Fast-forward to the beach (shore checkpoint reached by the bot), then let frames render.
-  await drive(page, { until: 'shore', maxSeconds: 400 });
+  await drive(page, { until: 'shore', maxSeconds: 700 });
   expect(await missionState(page)).toBe('shore');
   await expect.poll(() => page.evaluate(() => window.__netivimGraphics?.pipeline.ready), { timeout: 60000 }).toBe(true);
   await page.waitForTimeout(1500);

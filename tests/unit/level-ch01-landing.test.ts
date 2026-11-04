@@ -263,7 +263,10 @@ describe('rescue logic', () => {
 });
 
 describe('level definition', () => {
-  it('has five checkpoints with bot scripts, an extra checkpoint, and an objective for every state', () => {
+  it('has nine checkpoints (two boat loads), a briefing context text, an extra checkpoint, bot scripts and an objective for every state', () => {
+    expect(CHECKPOINTS).toEqual(['sea', 'patrols', 'lights', 'drop', 'return', 'crossing', 'lights2', 'landing', 'shore']);
+    expect(landing.briefingContextKey).toBeTruthy();
+    expect(Object.hasOwn(HEBREW, landing.briefingContextKey ?? '')).toBe(true);
     expect(landing.id).toBe('night-landing');
     expect(landing.mission.checkpoints).toEqual([...CHECKPOINTS]);
     expect(landing.extraCheckpoints).toEqual(['hide']);
@@ -299,7 +302,7 @@ describe('level play (headless)', { timeout: 60_000 }, () => {
       const r = runBot(landing, { difficulty, maxSeconds: 900 });
       expect(r.failures, difficulty + ': ' + r.log.join(' | ')).toEqual([]);
       expect(r.completed).toBe(true);
-      expect(r.log.filter((l) => l.startsWith('checkpoint'))).toEqual(['checkpoint: patrols', 'checkpoint: lights', 'checkpoint: landing', 'checkpoint: shore']);
+      expect(r.log.filter((l) => l.startsWith('checkpoint'))).toEqual(CHECKPOINTS.slice(1).map((c) => 'checkpoint: ' + c));
     }
   });
 
@@ -357,7 +360,7 @@ describe('level play (headless)', { timeout: 60_000 }, () => {
   }
 
   it('an exact manual save restores the place on the water and on the beach', () => {
-    for (const cp of ['patrols', 'shore'] as const) {
+    for (const cp of ['patrols', 'drop', 'return', 'crossing', 'landing', 'shore', 'hide'] as const) {
       const a = makeHost({ missionId: landing.missionId, state: cp, checkpoint: cp, data: null });
       a.host.start();
       for (let i = 0; i < 60; i++) {

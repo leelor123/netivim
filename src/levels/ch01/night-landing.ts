@@ -521,7 +521,7 @@ function build(ctx: LevelContext<E>): Level {
       } else if (s === 'crossing') rescue.boardTrip(1);
       carryOnBoat();
       emit('ambience.sea');
-      if (!ctx.headless) ctx.bus.emit('audio:mood', { mood: 'tense', era: 1 });
+      if (!ctx.headless) ctx.bus.emit('audio:mood', { mood: 'tense', era: 1946 });
       if (s === 'sea') {
         unlockOnce('codex', 'aliyah-bet');
         say(LINES.steer);
@@ -577,9 +577,9 @@ function build(ctx: LevelContext<E>): Level {
         markers.hollow?.setVisible(true);
         say(LINES.volunteers);
       }
-      emit('ambience.night');
+      emit('ambience.beach');
       emit('engine.ship', 0);
-      if (!ctx.headless) ctx.bus.emit('audio:mood', { mood: s === 'hide' ? 'hopeful' : 'tense', era: 1 });
+      if (!ctx.headless) ctx.bus.emit('audio:mood', { mood: s === 'hide' ? 'hopeful' : 'tense', era: 1946 });
     }
     setObjectivesFor(s);
     lastState = s;
@@ -730,6 +730,12 @@ function build(ctx: LevelContext<E>): Level {
         if (inTrucks && rescue.everyoneWithYou(player.x, player.z, WITH_YOU_RADIUS, true)) {
           rescue.handOff();
           ctx.objectives.progress('drop', 2);
+          // A small reward each time a group reaches safety: a soft chime, a pulse, a hopeful swell.
+          emit('ui.confirm', 0.8);
+          if (!ctx.headless) {
+            ctx.bus.emit('haptics:pulse', { strength: 'light', durationMs: 160 });
+            ctx.bus.emit('audio:mood', { mood: 'hopeful', era: 1946 });
+          }
           say(LINES.handoff);
           ctx.mission.send('dropped');
         } else if (inTrucks && idle > 9) say(LINES.gather);
@@ -779,6 +785,8 @@ function build(ctx: LevelContext<E>): Level {
         // A closing breath: everyone is hidden, the dawn timer stops mattering, and Samir's
         // line on the Arab concern (multi-perspective) is heard in full before the mission ends.
         restLeft = REST_SECONDS;
+        emit('ui.confirm', 0.9);
+        if (!ctx.headless) ctx.bus.emit('haptics:pulse', { strength: 'light', durationMs: 220 });
         say(LINES.arab);
         unlockOnce('fact', 'intercepted');
       }
