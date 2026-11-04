@@ -215,8 +215,15 @@ test('controller only: the whole Archive at Night tutorial, to the debrief', asy
   for (const [x, z, flag] of [[-6.6, 5.6, 'caseA'], [-6.6, 8.2, 'caseB'], [-6.6, 10.6, 'caseC']] as const) {
     await walkTo(page, x, z, 0.4);
     await interact(page, () => visible(page, '.an-sheet'));
-    await press(page, A);
-    await expect.poll(() => progressFlag(page, flag), { timeout: 30000 }).toBe(true);
+    // A closes the case sheet and marks the case seen. On a slow frame the press can land before
+    // the sheet takes input; A only ever closes here, so pressing again until the flag is set is safe.
+    for (let tries = 0; tries < 5 && !(await progressFlag(page, flag)); tries++) {
+      await press(page, A);
+      await expect.poll(() => progressFlag(page, flag), { timeout: 6000 }).toBe(true).catch(() => undefined);
+    }
+    expect(await progressFlag(page, flag)).toBe(true);
+    // The next case's interact check looks for a visible sheet: wait until this one is gone.
+    if (flag !== 'caseC') await expect(page.locator('.an-sheet')).toBeHidden({ timeout: 30000 });
   }
   await expect(page.locator('.an-sheet')).toContainText('רגע של מחשבה', { timeout: 30000 });
   await press(page, A);
