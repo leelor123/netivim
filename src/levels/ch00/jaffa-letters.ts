@@ -198,6 +198,11 @@ function build(ctx: LevelContext<E>): Level {
     queuedUntil = at + seconds(lines) + 0.3;
     later(at - elapsed + 0.2, () => ctx.say(lines, label));
   };
+  /** Reward moment for a finished step: a confirm tone and a light buzz (a bigger one for a delivery). */
+  const cheer = (big = false): void => {
+    ctx.bus.emit('audio:cue', { cue: big ? 'ui.save' : 'ui.confirm' });
+    ctx.bus.emit('haptics:pulse', { strength: big ? 'medium' : 'light', durationMs: big ? 140 : 60 });
+  };
   const once = (kind: Parameters<LevelContext['unlock']>[0], id: string): void => {
     const key = kind + ':' + id;
     if (unlocked.has(key)) return;
@@ -226,6 +231,7 @@ function build(ctx: LevelContext<E>): Level {
     add('tag-' + String(i), 'pickup', { x: at.x, z: at.z + 0.3 }, 2.1, k('prompt.tag'), () => {
       if (f.tags[i]) return;
       f.tags[i] = true;
+      cheer();
       say([line(k('line.tag.' + String(i + 1)), NARRATOR)]);
       const n = f.tags.filter(Boolean).length;
       ctx.objectives.progress('tags', n);
@@ -243,6 +249,7 @@ function build(ctx: LevelContext<E>): Level {
     add('market-' + String(i), 'generic', at, 2.2, k('prompt.talk'), () => {
       if (f.talks[i]) return;
       f.talks[i] = true;
+      cheer();
       const [name, speaker] = MARKET_LINES[i] as readonly [string, string];
       const talk = [line(k('line.market.' + name + '.1'), k(speaker)), line(k('line.market.' + name + '.2'), k(speaker))];
       say(talk, 'composite');
@@ -264,6 +271,7 @@ function build(ctx: LevelContext<E>): Level {
     const model = createPlan(ctx.params().resourceScale);
     ctx.plan(model, () => {
       f.planned = true;
+      cheer(true);
       f.planMain = model.vehiclesOn(ROUTE_MAIN) > 0;
       syncObjectives();
       say([line(k('line.habib.planned'), speakerKey('habib')), ...checkpointLines('loaded')], 'composite');
@@ -277,6 +285,7 @@ function build(ctx: LevelContext<E>): Level {
         return;
       }
       f[id] = true;
+      cheer();
       cart.set(f.parts, f.parcel, f.letter);
       syncObjectives();
       refresh();
@@ -289,6 +298,7 @@ function build(ctx: LevelContext<E>): Level {
     if (f.colonyGiven) {
       // A quiet stop: cold tea at the new well before the walk back (the second press).
       f.tea = true;
+      cheer();
       ctx.objectives.progress('colony', 3);
       const cup = [
         line(k('line.debora.tea.1'), speakerKey('debora')),
@@ -318,6 +328,7 @@ function build(ctx: LevelContext<E>): Level {
     f.parts = false;
     f.letter = false;
     f.colonyGiven = true;
+    cheer(true);
     cart.set(f.parts, f.parcel, f.letter);
     const lines = [...checkpointLines('colony_delivered'), line(k('line.debora.take'), speakerKey('debora')), line(k('line.debora.reply'), speakerKey('debora')), line(k('line.debora.offer'), speakerKey('debora'))];
     say(lines, 'composite');
@@ -330,6 +341,7 @@ function build(ctx: LevelContext<E>): Level {
   });
   const roadWell = add('road-well', 'generic', L.ROAD_WELL_SIGN, 2.4, k('prompt.rest'), () => {
     f.watered = true;
+    cheer();
     const lines = [
       line(k(f.planMain ? 'line.roadwell.main' : 'line.roadwell.other'), NARRATOR),
       line(k('line.roadwell.rest'), NARRATOR),
@@ -367,6 +379,7 @@ function build(ctx: LevelContext<E>): Level {
         return;
       }
       f.villageDelivered = true;
+      cheer(true);
       f.parcel = false;
       cart.set(f.parts, f.parcel, f.letter);
       say(checkpointLines('village_delivered'), 'composite');
@@ -375,6 +388,7 @@ function build(ctx: LevelContext<E>): Level {
       return;
     }
     f.coffee = true;
+    cheer();
     ctx.objectives.progress('village', 2);
     const cup = [line(k('line.jamila.coffee'), speakerKey('jamila')), line(k('line.jamila.reply'), speakerKey('jamila'))];
     say(cup, 'composite');
@@ -397,6 +411,7 @@ function build(ctx: LevelContext<E>): Level {
   });
   const ticketWindow = add('ticket', 'generic', L.TICKET_WINDOW, 2, k('prompt.ticket'), () => {
     f.ticket = true;
+    cheer();
     ctx.objectives.progress('station', 1);
     say([...checkpointLines('station'), line(k('line.stationmaster.ticket'), k('speaker.stationmaster'))], 'composite');
     bell.reset();
@@ -416,6 +431,7 @@ function build(ctx: LevelContext<E>): Level {
   const eliyahu = add('eliyahu', 'generic', L.ELIYAHU, 2.2, k('prompt.deliver'), () => {
     if (!f.jerusalemDelivered) {
       f.jerusalemDelivered = true;
+      cheer(true);
       say(checkpointLines('jerusalem_delivered'), 'composite');
       once('codex', 'old-yishuv-halukka');
       ctx.objectives.progress('jerusalem', 1);
@@ -423,6 +439,7 @@ function build(ctx: LevelContext<E>): Level {
       return;
     }
     f.sat = true;
+    cheer();
     ctx.objectives.progress('jerusalem', 2);
     const meal = [line(k('line.eliyahu.bread'), speakerKey('eliyahu')), line(k('line.eliyahu.thanks'), speakerKey('eliyahu'))];
     say(meal, 'composite');
