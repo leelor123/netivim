@@ -68,8 +68,7 @@ Root causes found (evidence: phone-ratio captures via scripts/hudshot.mjs):
   (touch/mouse drag look via InputManager.addLookDelta; one screen-layout owner src/ui/layout.ts with
   non-intersecting regions; one caption component with speaker + label chip + paging; touch buttons
   interact (contextual) + alt only; sheets with sticky action footers). Contract: docs/CONTRACTS.md 14.
-  Left: ch01 tower planning panel (bottom, own overlay) is not yet region-placed and its
-  confirm/back/tab/clear controls have no touch path.
+  Follow-up: every level action has a touch path (planning-table touch bar, see CONTRACTS 14).
 Next: a bug-hunt agent on phone viewport; then release v0.2.2.
 
 ## Next: M3 (Act 1 = Prologue + Ch1-4) exact next steps
