@@ -8,7 +8,7 @@ import { bauhausBlock, stoneVillageHouse } from '../../../world/kit/buildings';
 import { cypressTree, oliveTree } from '../../../world/kit/nature';
 import type { WorldQuality } from '../../../world/quality';
 import type { RoadSpec } from '../../../world/roads';
-import { CARD_SPOTS, CARD_TABLE, COURT, HALL, HOME, NOTE_DESK, OFFICE, PARTIES, RADIO, ROOMS, SIGN, STATION_X_OF_PARTY, TABLE, TALLY, type RoomSpec } from './data';
+import { CARD_SPOTS, CARD_TABLE, COURT, HALL, HOME, NOTE_DESK, NOTE_POINTS, OFFICE, PARTIES, RADIO, ROOMS, SIGN, STATION_X_OF_PARTY, TABLE, TALLY, type RoomSpec } from './data';
 
 /**
  * The 3D set of "The Vote": a late-1940s night with a secretariat hall (map table, statement
@@ -57,6 +57,8 @@ export interface VoteStage {
   readonly layerGroups: THREE.Group[];
   readonly cards: THREE.Mesh[];
   readonly page: THREE.Mesh;
+  /** Party-position slips on the note desk (PARTIES order). */
+  readonly points: THREE.Mesh[];
   readonly colliders: Collider[];
   floorY(room: RoomSpec): number;
   /** Radio glow level 0..1 (broadcast on). */
@@ -346,6 +348,14 @@ export function buildVoteStage(quality: WorldQuality): VoteStage {
   const page = new THREE.Mesh(bag.geometry(new THREE.BoxGeometry(0.7, 0.04, 0.5)), pageMat);
   page.position.set(NOTE_DESK.jerusalem.x, sy + 0.87, NOTE_DESK.z);
   world.scene.add(page);
+  const points: THREE.Mesh[] = NOTE_POINTS.map((p, i) => {
+    const m = bag.material(new THREE.MeshStandardMaterial({ color: CARD_COLORS[i] ?? '#ddd', roughness: 0.9 }));
+    const mesh = new THREE.Mesh(bag.geometry(new THREE.BoxGeometry(0.4, 0.03, 0.34)), m);
+    mesh.position.set(p.x, sy + 0.86, NOTE_DESK.z);
+    mesh.rotation.y = (i - 1.5) * 0.1;
+    world.scene.add(mesh);
+    return mesh;
+  });
 
   // ---- Light: warm points in each interior and at the radio --------------------------------
   const lights: THREE.PointLight[] = [];
@@ -384,6 +394,7 @@ export function buildVoteStage(quality: WorldQuality): VoteStage {
     layerGroups,
     cards,
     page,
+    points,
     colliders,
     floorY: fy,
     setRadio(level: number): void {

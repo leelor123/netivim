@@ -6,6 +6,7 @@ import {
   CARD_SPOTS,
   NEIGHBOR,
   NOTE_DESK,
+  NOTE_POINTS,
   PARTIES,
   PLACES,
   PLACE_SPOTS,
@@ -211,6 +212,10 @@ test('The Vote: hall, statements, three visits, note and radio, ending in the Ch
   await expect.poll(() => missionState(page), { timeout: 30000 }).toBe('note');
 
   // cp4: the Jerusalem page and the note.
+  for (let i = 0; i < PARTIES.length; i++) {
+    const p = NOTE_POINTS[i] as { x: number; z: number };
+    await use(page, 'vote-point-' + String(PARTIES[i]), p.x, p.z + 0.35);
+  }
   await use(page, 'vote-page', NOTE_DESK.jerusalem.x, NOTE_DESK.jerusalem.z + 0.35);
   await use(page, 'vote-submit', NOTE_DESK.typewriter.x, NOTE_DESK.typewriter.z + 0.35);
   await expect.poll(() => missionState(page), { timeout: 30000 }).toBe('vote');
