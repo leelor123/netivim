@@ -29,7 +29,7 @@ import { buildArchiveRoom } from './shared/room';
 import { createViewerSheet } from './shared/sheet';
 
 /**
- * Prologue mission 1, "The Archive at Night" (EXP tutorial, about 12 minutes). Teaches move, look,
+ * Prologue mission 1, "The Archive at Night" (EXP tutorial, about 12 minutes: arrival, room, ledger, document, label tour with a reflective pause, lenses, sorting, finale). Teaches move, look,
  * interact, codex, the 3D archive viewer with its provenance card, pause and save, Two Lenses and
  * the three content labels, guided by Noa and Dr. Samir Haddad (fictional composites, labeled).
  * No clocks, no way to lose; the only soft fail is a first mislabeled card, which explains itself.
@@ -53,11 +53,15 @@ export const TOUCH_ALTERNATIVES: Partial<Record<Action, string>> = {
 };
 const BASEL_ID = 'basel-program';
 const LEDGER_CODEX_ID = 'jaffa-jerusalem-railway';
+const CONGRESS_CODEX_ID = 'herzl-first-congress';
+const NEWSPAPER_CODEX_ID = 'filastin-newspaper';
+const COMPOSITE_TESTIMONY_ID = 'composite-colony';
 const p = (k: string): string => 'levels.ch00.archive.' + k;
 
 type S = ArchiveState;
 type E = ArchiveEvent;
-type Modal = 'none' | 'codex' | 'lens' | 'viewer' | 'sorter';
+type Modal = 'none' | 'codex' | 'lens' | 'viewer' | 'sorter' | 'case' | 'reflect';
+type CaseId = 'caseA' | 'caseB' | 'caseC' | 'nook';
 
 /** Test / QA access to a built level. */
 export interface ArchiveLevel extends Level {
@@ -126,6 +130,7 @@ function build(ctx: LevelContext<E>): ArchiveLevel {
   const mistakes = new Set<CardId>();
   let sorterMessage = '';
   let finale = -1;
+  let activeCase: CaseId | null = null;
   let inside = false;
   let stepTimer = 0;
   const view = { time: 0, rot: 0, blend: 0, yaw: 0, pitch: 0, open: false, ready: false };
@@ -173,6 +178,7 @@ function build(ctx: LevelContext<E>): ArchiveLevel {
     const src = MISSION_LINES[MISSION_ID]?.[state] ?? [];
     if (src.length > 0) say(src.map((l) => [l.key, l.speaker] as const));
   };
+  const tourLines = (): void => say([[p('line.tour.noa'), 'noa'], [p('line.tour.samir'), 'samir']]);
   const cue = (name: string, intensity?: number): void => ctx.bus.emit('audio:cue', intensity === undefined ? { cue: name } : { cue: name, intensity });
 
   // ---- interactables ----
@@ -218,6 +224,7 @@ function build(ctx: LevelContext<E>): ArchiveLevel {
     const s = stateNow();
     if (s === 'lenses') say([[p('line.lens.samir'), 'samir'], [p('line.lens.noa'), 'noa']]);
     else if (s === 'document_opens') say([[p('line.sorted.noa'), 'noa']]);
+    else if (s === 'shelf_tour') tourLines();
     else missionLines(s);
     refresh();
   };
@@ -245,6 +252,14 @@ function build(ctx: LevelContext<E>): ArchiveLevel {
     refresh();
   });
   addSpot('cabinet', SPOTS.cabinet, p('prompt.cabinet'), '#f2c14e', () => stateNow() === 'first_document' && !progress.documentRead, () => openViewer());
+  const allCases = (): boolean => progress.caseA && progress.caseB && progress.caseC;
+  const caseSpot = (id: 'caseA' | 'caseB' | 'caseC', color: string): void =>
+    addSpot(id, SPOTS[id], p('prompt.' + id), color, () => stateNow() === 'shelf_tour' && !progress[id], () => openCase(id));
+  caseSpot('caseA', '#f2c14e');
+  caseSpot('caseB', '#c58bf0');
+  caseSpot('caseC', '#5aa8f0');
+  // Optional discovery: never required, available from the tour until the labels table.
+  addSpot('nook', SPOTS.nook, p('prompt.nook'), '#7fd6ff', () => ['shelf_tour', 'lenses', 'labels_table'].includes(stateNow()) && !progress.nook, () => openCase('nook'));
   addSpot('lensA', SPOTS.lensA, p('prompt.lensA'), '#f0a63a', () => stateNow() === 'lenses', () => openLens('a'));
   addSpot('lensB', SPOTS.lensB, p('prompt.lensB'), '#5aa8f0', () => stateNow() === 'lenses', () => openLens('b'));
   addSpot('table', SPOTS.table, p('prompt.labels'), '#f2c14e', () => stateNow() === 'labels_table', () => openSorter());
@@ -272,6 +287,36 @@ function build(ctx: LevelContext<E>): ArchiveLevel {
       paragraphs: [t(entry.bodyKey), t('gameplay.sources', { ids: entry.sources.join(', ') })],
       footer: closeHint(),
     });
+  }
+  function openCase(id: CaseId): void {
+    cue('paper.rustle');
+    activeCase = id;
+    open('case');
+    const sources = (ids: readonly string[]): string => t('gameplay.sources', { ids: ids.join(', ') });
+    const codexSheet = (codexId: string, kicker: string): void => {
+      const entry = CH00_CHAPTER.codex.find((c) => c.id === codexId);
+      if (!entry) return;
+      ctx.unlock('codex', codexId);
+      overlay?.showSheet({ title: t(entry.titleKey), kicker: kicker + ' · ' + String(entry.year), label: entry.label, paragraphs: [t(entry.bodyKey), sources(entry.sources)], footer: closeHint() });
+    };
+    if (id === 'caseA') {
+      codexSheet(CONGRESS_CODEX_ID, t(p('case.a.kicker')));
+      say([[p('line.caseA.samir'), 'samir']]);
+    } else if (id === 'caseB') {
+      const tm = CH00_CHAPTER.testimonies.find((x) => x.id === COMPOSITE_TESTIMONY_ID);
+      if (tm) overlay?.showSheet({ title: t(tm.speakerKey), kicker: t(p('case.b.kicker')), label: tm.label, paragraphs: [t(tm.bodyKey), sources(tm.sources)], footer: closeHint() });
+      say([[p('line.caseB.noa'), 'noa']]);
+    } else if (id === 'caseC') {
+      overlay?.showSheet({ title: t('ch00.mission.jaffa.title'), kicker: t(p('case.c.kicker')), label: 'reconstructed', paragraphs: [t('ch00.mission.jaffa.summary'), t(p('case.c.note'))], footer: closeHint() });
+      say([[p('line.caseC.samir'), 'samir']]);
+    } else {
+      codexSheet(NEWSPAPER_CODEX_ID, t(p('case.nook.kicker')));
+      say([[p('line.nook.noa'), 'noa'], [p('line.nook.samir'), 'samir']]);
+    }
+  }
+  function openReflect(): void {
+    open('reflect');
+    overlay?.showSheet({ title: t(p('reflect.title')), label: 'composite', paragraphs: [t(p('reflect.p1')), t(p('reflect.p2')), t(p('reflect.p3'))], footer: closeHint() });
   }
   function openLens(which: 'a' | 'b'): void {
     if (which === 'a') progress.lensA = true;
@@ -333,7 +378,13 @@ function build(ctx: LevelContext<E>): ArchiveLevel {
     overlay?.hideSheet();
     overlay?.hideSorter();
     overlayPrompt();
-    if (m === 'codex') {
+    if (m === 'case' && activeCase) {
+      progress[activeCase] = true;
+      activeCase = null;
+      refresh();
+    } else if (m === 'reflect') {
+      send('tour_done');
+    } else if (m === 'codex') {
       progress.codexOpened = true;
       send('codex_read');
     } else if (m === 'lens') {
@@ -488,6 +539,7 @@ function build(ctx: LevelContext<E>): ArchiveLevel {
       const fresh = justOpened;
       justOpened = false;
       if (modal !== 'none') modalInput(fresh);
+      else if (finale < 0 && stateNow() === 'shelf_tour' && allCases()) openReflect();
       else if (finale < 0 && (ctx.input.justPressed('map') || tappedCodex) && stateNow() === 'codex_ledger' && progress.ledger) openCodex();
       tappedCodex = false;
       player.controllable = modal === 'none' && finale < 0;
@@ -567,7 +619,9 @@ function build(ctx: LevelContext<E>): ArchiveLevel {
       vis.flicker = 0;
       cue(inside ? 'ambience.interior' : 'ambience.night');
       ctx.bus.emit('audio:mood', { mood: 'reflective', era: 0 });
-      missionLines(state);
+      activeCase = null;
+      if (state === 'shelf_tour') tourLines();
+      else missionLines(state);
       refresh();
     },
     snapshotData: () => ({ x: player.x, z: player.z, progress: { ...progress, placed: [...progress.placed] } }),
@@ -607,7 +661,7 @@ function build(ctx: LevelContext<E>): ArchiveLevel {
   return level;
 }
 
-const STATE_SET: ReadonlySet<string> = new Set<S>(['arrival', 'reading_room', 'codex_ledger', 'first_document', 'lenses', 'labels_table', 'document_opens']);
+const STATE_SET: ReadonlySet<string> = new Set<S>(['arrival', 'reading_room', 'codex_ledger', 'first_document', 'shelf_tour', 'lenses', 'labels_table', 'document_opens']);
 
 const walk = (x: number, z: number, within = 0.5): BotStep => ({ kind: 'walkTo', x, z, within, timeout: 60 });
 const press = (action: 'interact' | 'confirm' | 'map' | 'left' | 'right' | 'up' | 'down' | 'back'): BotStep => ({ kind: 'press', action });
@@ -625,7 +679,7 @@ export default defineLevel<S, E>({
     id: MISSION_ID,
     chapterId: CH00_CHAPTER.id,
     gameplayType: 'EXP',
-    checkpoints: ['arrival', 'reading_room', 'codex_ledger', 'first_document', 'labels_table', 'document_opens'],
+    checkpoints: ['arrival', 'reading_room', 'codex_ledger', 'first_document', 'shelf_tour', 'labels_table', 'document_opens'],
     machine: {
       initial: 'arrival',
       final: ['complete'],
@@ -633,7 +687,8 @@ export default defineLevel<S, E>({
         arrival: { entered: 'reading_room' },
         reading_room: { warmed: 'codex_ledger' },
         codex_ledger: { codex_read: 'first_document' },
-        first_document: { document_read: 'lenses' },
+        first_document: { document_read: 'shelf_tour' },
+        shelf_tour: { tour_done: 'lenses' },
         lenses: { lenses_seen: 'labels_table' },
         labels_table: { sorted: 'document_opens' },
         document_opens: { glowed: 'complete' },
@@ -647,20 +702,33 @@ export default defineLevel<S, E>({
     { id: 'room', textKey: p('obj.room'), states: ['reading_room'] },
     { id: 'ledger', textKey: okey(2), states: ['codex_ledger'] },
     { id: 'document', textKey: okey(3), states: ['first_document'] },
+    { id: 'tour', textKey: p('obj.tour'), states: ['shelf_tour'] },
     { id: 'lenses', textKey: p('obj.lenses'), states: ['lenses'] },
     { id: 'labels', textKey: okey(4), states: ['labels_table'] },
     { id: 'glow', textKey: okey(5), states: ['document_opens'] },
   ],
+  briefingContextKey: p('context'),
   failures: FAILURES,
   botScript: {
     arrival: [walk(0, -4.2, 0.8)],
     reading_room: [walk(SPOTS.lamp.x, SPOTS.lamp.z), press('interact'), wait(0.3), walk(SPOTS.drawer.x, SPOTS.drawer.z), press('interact')],
     codex_ledger: [walk(3, 4.8), walk(SPOTS.ledger.x, SPOTS.ledger.z), press('interact'), wait(0.3), press('map'), wait(0.3), press('confirm')],
-    first_document: [
-      walk(0, 10.8, 0.8),
-      walk(SPOTS.cabinet.x, SPOTS.cabinet.z),
+    first_document: [walk(0, 10.8, 0.8), walk(SPOTS.cabinet.x, SPOTS.cabinet.z), press('interact'), wait(7), press('confirm')],
+    shelf_tour: [
+      walk(-5.2, 6.4, 0.8),
+      walk(SPOTS.caseA.x, SPOTS.caseA.z, 0.4),
       press('interact'),
-      wait(7),
+      wait(0.3),
+      press('confirm'),
+      walk(SPOTS.caseB.x, SPOTS.caseB.z, 0.4),
+      press('interact'),
+      wait(0.3),
+      press('confirm'),
+      walk(SPOTS.caseC.x, SPOTS.caseC.z, 0.4),
+      press('interact'),
+      wait(0.3),
+      press('confirm'),
+      wait(0.5),
       press('confirm'),
       walk(-5.2, 8.2, 0.6),
       walk(SPOTS.lensA.x, SPOTS.lensA.z, 0.4),

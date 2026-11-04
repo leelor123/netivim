@@ -71,7 +71,7 @@ describe('archive-night level', () => {
     const r = runBot(archive, { difficulty: 'normal' });
     expect(r.completed).toBe(true);
     const cps = r.log.filter((l) => l.startsWith('checkpoint: ')).map((l) => l.slice(12));
-    expect(cps).toEqual(['reading_room', 'codex_ledger', 'first_document', 'labels_table', 'document_opens']);
+    expect(cps).toEqual(['reading_room', 'codex_ledger', 'first_document', 'shelf_tour', 'labels_table', 'document_opens']);
     expect(r.seconds).toBeLessThan(400);
   });
 
@@ -80,7 +80,7 @@ describe('archive-night level', () => {
     const bus = new EventBus<GameEvents>();
     bus.on('unlock:item', ({ kind, id }) => seen.push(kind + ':' + id));
     runBot(archive, { difficulty: 'normal', bus });
-    expect(seen).toEqual(['codex:jaffa-jerusalem-railway', 'archive:basel-program']);
+    expect(seen).toEqual(['codex:jaffa-jerusalem-railway', 'archive:basel-program', 'codex:herzl-first-congress']);
   });
 
   it('stays at the door until the player actually walks in', () => {
@@ -211,6 +211,27 @@ describe('tutorial logic', () => {
     expect(progressFor('reading_room', null).lamp).toBe(false);
     expect(progressFor('codex_ledger', null).drawer).toBe(true);
     for (const s of STATE_ORDER) expect(SPAWNS[s].z).toBeLessThan(16);
+  });
+});
+
+describe('shelf tour and optional discovery', () => {
+  it('teaches the tour prompt and resets the cases per checkpoint', () => {
+    expect(promptFor('shelf_tour', freshProgress())?.key).toBe('levels.ch00.archive.tut.cases');
+    expect(progressFor('shelf_tour', null).documentRead).toBe(true);
+    expect(progressFor('shelf_tour', null).caseA).toBe(false);
+    expect(progressFor('lenses', null).caseC).toBe(true);
+    expect(progressFor('labels_table', null).nook).toBe(false);
+  });
+
+  it('keeps the newspaper nook optional and sets its own briefing context', () => {
+    const seen: string[] = [];
+    const bus = new EventBus<GameEvents>();
+    bus.on('unlock:item', ({ kind, id }) => seen.push(kind + ':' + id));
+    const r = runBot(archive, { difficulty: 'normal', bus, fromCheckpoint: 'shelf_tour' });
+    expect(r.completed).toBe(true);
+    expect(seen).not.toContain('codex:filastin-newspaper');
+    expect(archive.briefingContextKey).toBe('levels.ch00.archive.context');
+    expect(HEBREW['levels.ch00.archive.context']).toBeTruthy();
   });
 });
 
