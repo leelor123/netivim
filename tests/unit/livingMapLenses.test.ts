@@ -6,8 +6,9 @@ import { MARKERS } from '../../src/features/livingMap/markers';
 
 function registerIds(): Set<string> {
   const ids = new Set<string>();
-  for (const n of ['00', '01', '02']) {
-    const text = readFileSync(join(__dirname, '../../research/sources-ch' + n + '.md'), 'utf8');
+  const files = ['SOURCES.md', ...['00', '01', '02'].map((n) => 'research/sources-ch' + n + '.md')];
+  for (const f of files) {
+    const text = readFileSync(join(__dirname, '../..', f), 'utf8');
     for (const m of text.matchAll(/^`?((?:P|C1|C2)-\d{3})`?\s*\|/gm)) ids.add(m[1] as string);
   }
   return ids;
