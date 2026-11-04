@@ -33,6 +33,8 @@
 /* Top layer for subtitles and toasts: above cutscene bars (30), gameplay sheets (30), level
    overlays (45) and the tower lenses, below only the graphics fatal-error screens. */
 .nv-top { z-index: 55; }
+/* Above the touch controls (20) so the HUD icons stay tappable over the touch look area. */
+.nv-root { z-index: 22; }
 .nv-sub-wrap { display: contents; }
 .nv-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .nv-layer { position: absolute; inset: 0; }
@@ -400,100 +402,140 @@
 .nv-chapter__state { font-size: 14px; color: var(--nv-ink-2); }
 .nv-chapter.is-locked { background: transparent; border-style: dashed; cursor: default; }
 
-/* ---------- HUD ---------- */
+/* ---------- HUD (screen region "system", see src/ui/layout.ts) ---------- */
 .nv-hud { position: absolute; inset: 0; pointer-events: none; }
 .nv-hud__bar {
-  position: absolute;
-  top: var(--nv-pad-t);
-  inset-inline-end: var(--nv-pad-l);
+  position: fixed;
+  left: var(--rg-system-x, 12px);
+  top: var(--rg-system-y, 12px);
+  width: var(--rg-system-w, 96px);
+  height: var(--rg-system-h, 44px);
   display: flex;
   align-items: center;
   gap: 8px;
 }
 .nv-hud__bar[hidden] { display: none; }
-.nv-chip, .nv-hudbtn {
+.nv-hudbtn {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
   font: inherit;
-  font-size: 14px;
-  min-height: 36px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
   color: var(--nv-cream);
-  background: rgb(20 17 13 / 0.78);
-  border: 1px solid rgb(217 183 122 / 0.45);
-  border-radius: 18px;
+  background: rgb(20 17 13 / 0.55);
+  border: 1px solid rgb(217 183 122 / 0.35);
+  border-radius: 50%;
+  pointer-events: auto;
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
 }
-.nv-chip[hidden], .nv-hudbtn[hidden] { display: none; }
-.nv-chip--unsaved::before {
-  content: '';
-  width: 8px;
-  height: 8px;
+.nv-hudbtn[hidden] { display: none; }
+.nv-hudbtn:active { background: rgb(217 183 122 / 0.35); }
+.nv-pauseicon { width: 12px; height: 14px; border-inline: 4px solid var(--nv-cream); }
+.nv-hudicon { width: 20px; height: 20px; fill: none; stroke: var(--nv-cream); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+/* Unsaved progress (BRIEF 8.E): a dot on the save icon. */
+.nv-hud__dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   background: #e0644f;
-  animation: nv-blink 1.6s ease-in-out infinite;
+  box-shadow: 0 0 0 2px rgb(20 17 13 / 0.9);
 }
-@keyframes nv-blink { 50% { opacity: 0.35; } }
-.nv-hudbtn { pointer-events: auto; min-height: 48px; min-width: 48px; border-radius: 24px; cursor: pointer; justify-content: center; }
-.nv-pauseicon { width: 14px; height: 16px; border-inline: 4px solid var(--nv-cream); }
+.nv-hud__dot[hidden] { display: none; }
+/* On a controller the save icon is only a quiet indicator, shown while progress is unsaved. */
+:root[data-input='gamepad'] .nv-hudbtn--save { pointer-events: none; }
+:root[data-input='gamepad'] .nv-hudbtn--save:not(.is-dirty) { display: none; }
 
-/* Toast */
+/* Toast: screen region "toast" during play; while a menu is open it moves to the top. */
 .nv-toast {
   position: absolute;
-  inset-inline: 0;
-  bottom: calc(var(--nv-pad-b) + var(--cine-bar-offset, 0px) + 8px);
-  margin-inline: auto;
-  width: max-content;
-  max-width: min(90vw, 480px);
-  padding: 10px 18px;
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--nv-ink);
-  background: var(--nv-paper);
-  border-inline-start: 5px solid var(--nv-umber);
-  border-radius: 4px;
-  box-shadow: 0 10px 30px rgb(0 0 0 / 0.4);
-  opacity: 0;
-  transform: translateY(10px);
-  transition: opacity 180ms ease, transform 220ms var(--nv-ease);
-}
-.nv-toast[data-place='top'] { bottom: auto; top: calc(var(--nv-pad-t, 0px) + 12px); transform: translateY(-10px); }
-.nv-toast[data-place='top'].is-shown { transform: none; }
-.nv-toast:empty { padding: 0; border: 0; }
-.nv-toast.is-shown { opacity: 1; transform: none; }
-.nv-toast[data-tone='warn'] { border-inline-start-color: var(--nv-stamp); color: var(--nv-stamp); }
-
-/* ---------- Subtitles ---------- */
-.nv-sub {
-  position: absolute;
-  inset-inline: var(--nv-pad-r);
-  /* html[data-letterbox] (set by the cutscene overlay) lifts captions above the black bars. */
-  bottom: calc(var(--nv-pad-b) + var(--cine-bar-offset, 0px) + 12px);
+  left: var(--rg-toast-x, 25vw);
+  width: var(--rg-toast-w, 50vw);
+  top: var(--rg-toast-y, 112px);
   display: flex;
   justify-content: center;
   pointer-events: none;
-  --nv-sub-size: 20px;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 180ms ease, transform 220ms var(--nv-ease);
+}
+.nv-toast__text {
+  max-width: 100%;
+  padding: 7px 16px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--nv-ink);
+  background: var(--nv-paper);
+  border-inline-start: 4px solid var(--nv-umber);
+  border-radius: 4px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+}
+.nv-toast__text:empty { display: none; }
+.nv-toast[data-place='top'] { top: calc(var(--nv-pad-t, 0px) + 12px); left: 0; width: 100%; }
+.nv-toast.is-shown { opacity: 1; transform: none; }
+.nv-toast[data-tone='warn'] .nv-toast__text { border-inline-start-color: var(--nv-stamp); color: var(--nv-stamp); }
+
+/* ---------- Captions (screen region "captions"): speaker + label chip + text, one box ---------- */
+.nv-sub {
+  position: absolute;
+  left: var(--rg-captions-x, 15vw);
+  width: var(--rg-captions-w, 70vw);
+  /* html[data-letterbox] (set by the cutscene overlay) lifts captions above the black bars. */
+  bottom: calc(var(--rg-captions-b, 12px) + var(--cine-bar-offset, 0px));
+  max-height: var(--rg-captions-h, 30vh);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  pointer-events: none;
+  --nv-sub-size: 18px;
 }
 :root[data-letterbox] { --cine-bar-offset: var(--cine-bar, 12vh); }
 .nv-sub[hidden] { display: none; }
 /* While a menu is open the captions dock at the top so they never cover menu content. */
-.nv-top.has-screen .nv-sub { bottom: auto; top: calc(var(--nv-pad-t) + 64px); }
-.nv-sub[data-size='small'] { --nv-sub-size: 16px; }
-.nv-sub[data-size='large'] { --nv-sub-size: 26px; }
-.nv-sub[data-size='xlarge'] { --nv-sub-size: 32px; }
+.nv-top.has-screen .nv-sub { bottom: auto; top: calc(var(--nv-pad-t) + 64px); left: 10vw; width: 80vw; }
+.nv-sub[data-size='small'] { --nv-sub-size: 15px; }
+.nv-sub[data-size='large'] { --nv-sub-size: 23px; }
+.nv-sub[data-size='xlarge'] { --nv-sub-size: 28px; }
 .nv-sub__box {
   margin: 0;
-  max-width: min(44ch, 100%);
-  padding: 0.4em 0.8em 0.5em;
+  max-width: min(46ch, 100%);
+  max-height: 100%;
+  overflow: hidden;
+  padding: 0.35em 0.8em 0.45em;
   font-size: var(--nv-sub-size);
-  line-height: 1.45;
+  line-height: 1.4;
   text-align: center;
   color: #fffaf0;
-  background: rgb(12 10 8 / 0.86);
-  border-radius: 6px;
+  background: rgb(12 10 8 / 0.8);
+  border-radius: 8px;
 }
-.nv-sub__speaker { display: block; font-size: 0.75em; font-weight: 700; color: var(--nv-sand); }
-.nv-sub__speaker[hidden] { display: none; }
+.nv-sub__head { display: flex; justify-content: center; align-items: center; gap: 8px; margin-block-end: 2px; font-size: 0.72em; }
+.nv-sub__head[hidden] { display: none; }
+.nv-sub__speaker { font-weight: 700; color: var(--nv-sand); }
+.nv-sub__speaker:empty { display: none; }
+.nv-sub__label {
+  padding: 0 8px;
+  border-radius: 99px;
+  border: 1px solid currentColor;
+  font-size: 0.9em;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.nv-sub__label[hidden] { display: none; }
+.nv-sub__label[data-label='documented'] { color: #a8d5b0; }
+.nv-sub__label[data-label='reconstructed'] { color: #e9c98a; }
+.nv-sub__label[data-label='composite'] { color: #cdb3e6; }
+.nv-sub__line { display: block; }
 
 /* ---------- Small and landscape phone layouts ---------- */
 @media (max-height: 460px) {

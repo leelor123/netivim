@@ -40,6 +40,16 @@ export function applyLook(s: OrbitState, lookX: number, lookY: number, dt: numbe
 }
 
 /**
+ * Applies a touch / mouse look drag that was already converted to radians (input lookDrag; see
+ * core/input/lookDrag.ts). A drag is a distance, not a rate: no dt here, so it is frame-rate
+ * independent. Same signs as the stick: drag right turns the view right, drag up looks up.
+ */
+export function applyLookDrag(s: OrbitState, yawRad: number, pitchRad: number, p: OrbitParams = DEFAULT_ORBIT): void {
+  s.yaw -= yawRad;
+  s.pitch = Math.min(p.maxPitch, Math.max(p.minPitch, s.pitch + pitchRad));
+}
+
+/**
  * Longest distance (<= desired) at which the camera, seen from the target along the orbit
  * direction, does not go under the terrain or into a collider. Marches in fixed steps.
  */

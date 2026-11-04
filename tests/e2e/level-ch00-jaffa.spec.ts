@@ -157,7 +157,9 @@ test('plays Letters from Jaffa from the port to Jerusalem with the controller, z
   await teleport(page, { x: L.JAMILA.x - 1.2, z: L.JAMILA.z });
   await page.waitForTimeout(300);
   await press(page, X);
-  await expect(page.locator('.gp-hud__testimony')).toBeVisible({ timeout: 60000 });
+  // Delivered: the village objective counts the parcel, and the labeled testimony is captioned.
+  await expect(page.locator('.gp-hud__steps')).toHaveText(/1/, { timeout: 60000 });
+  await expect(page.locator('.nv-sub__label')).toBeVisible({ timeout: 60000 });
   await press(page, X);
   await expect.poll(() => missionState(page), { timeout: 60000 }).toBe('village_delivered');
 

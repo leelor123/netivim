@@ -389,7 +389,6 @@ export class Director {
         },
         onComplete: () => this.onMissionComplete(),
         onHint: (k) => hud.showHint(k),
-        onSay: (_lines, label) => hud.showTestimony(label),
         onAlert: (v) => hud.setAlert(v),
       },
     });

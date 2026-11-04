@@ -40,7 +40,7 @@ test('touch controls are hidden in menus and shown during a mission', async ({ p
   await expect(page.locator(root)).toBeHidden();
   await enterMission(page);
   await expect(page.locator(root)).toBeVisible();
-  await expect(page.locator('.touch-btn')).toHaveCount(4);
+  await expect(page.locator('.touch-btn')).toHaveCount(2);
   await page.evaluate(() => window.__netivim?.flow.setPaused(true));
   await expect(page.locator(root)).toBeHidden();
   await page.evaluate(() => window.__netivim?.flow.setPaused(false));

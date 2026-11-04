@@ -7,6 +7,7 @@ import { resolveGraphics } from '../../render/presets';
 import { buttonLabel } from '../glyphs';
 import { captureNextGamepadButton } from '../remap';
 import type { UiScreen } from '../uiScreen';
+import { LOOK_SENSITIVITY_MAX, LOOK_SENSITIVITY_MIN } from '../../core/input/lookDrag';
 import { button, choiceRow, customRow, heading, sliderRow, toggleRow } from '../widgets';
 
 export const SETTINGS_TABS = ['graphics', 'audio', 'accessibility', 'gameplay', 'controls'] as const;
@@ -193,6 +194,7 @@ export function settingsScreen(ctx: UiContext, initialTab: SettingsTab = 'graphi
       const rows: HTMLElement[] = [
         toggleRow({ label: t('ui.controls.vibration'), key: 'controls-vibration', ...onOff, get: () => s().controls.vibration, set: (v) => update('controls', { vibration: v }) }),
         sliderRow({ label: t('ui.controls.touchSize'), key: 'controls-touchSize', min: 0.75, max: 1.5, step: 0.05, rtl, format: pct, get: () => s().controls.touchSize, set: (v) => update('controls', { touchSize: v }) }),
+        sliderRow({ label: t('ui.controls.lookSensitivity'), key: 'controls-lookSensitivity', min: LOOK_SENSITIVITY_MIN, max: LOOK_SENSITIVITY_MAX, step: 0.1, rtl, format: pct, get: () => s().controls.lookSensitivity, set: (v) => update('controls', { lookSensitivity: v }) }),
         sliderRow({ label: t('ui.controls.touchOpacity'), key: 'controls-touchOpacity', min: 0.3, max: 1, step: 0.05, rtl, format: pct, get: () => s().controls.touchOpacity, set: (v) => update('controls', { touchOpacity: v }) }),
         choiceRow({
           ...common,

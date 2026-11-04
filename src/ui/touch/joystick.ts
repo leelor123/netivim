@@ -1,4 +1,4 @@
-import type { Vec2 } from '../../core/input/types';
+import type { Action, Vec2 } from '../../core/input/types';
 
 export type TouchLayout = 'right-handed' | 'left-handed';
 export type Side = 'left' | 'right';
@@ -50,4 +50,21 @@ export function clampToRing(dx: number, dy: number, radius: number, out: Vec2): 
 /** True when an x coordinate lies on the half of the screen where the stick may start. */
 export function inStickHalf(x: number, viewportWidth: number, layout: TouchLayout): boolean {
   return stickSide(layout) === 'left' ? x < viewportWidth / 2 : x >= viewportWidth / 2;
+}
+
+/**
+ * The on-screen buttons during play: only what play needs. Pause is the HUD icon, the codex and
+ * the map live in the pause menu, movement is the stick and the camera is the look area.
+ */
+export const TOUCH_BUTTONS: readonly Action[] = ['interact', 'alt'];
+
+export type TouchButtonState = 'ready' | 'dimmed';
+
+/**
+ * Interact is contextual: lit when an interaction is in reach, dimmed (still pressable, some
+ * levels use it without a focused object) otherwise. Alt is always ready.
+ */
+export function touchButtonState(action: Action, interactAvailable: boolean): TouchButtonState {
+  if (action === 'interact') return interactAvailable ? 'ready' : 'dimmed';
+  return 'ready';
 }

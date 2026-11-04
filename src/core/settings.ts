@@ -3,6 +3,7 @@ import type { GameEvents } from './gameEvents';
 import { DEFAULT_BINDINGS, sanitizeBindings, type Bindings } from './input/bindings';
 import type { DifficultyLevel } from './difficulty';
 import { readSlot, writeSlot } from './save/slots';
+import { LOOK_SENSITIVITY_MAX, LOOK_SENSITIVITY_MIN } from './input/lookDrag';
 import type { SyncStore } from './save/stores';
 
 export const SETTINGS_SLOT = 'settings';
@@ -69,6 +70,8 @@ export interface Settings {
     readonly touchSize: number;
     readonly touchOpacity: number;
     readonly touchLayout: 'right-handed' | 'left-handed';
+    /** Touch / mouse drag look speed multiplier (core/input/lookDrag.ts). */
+    readonly lookSensitivity: number;
   };
 }
 
@@ -97,7 +100,7 @@ export const DEFAULT_SETTINGS: Settings = {
   audio: { master: 0.9, music: 0.7, sfx: 0.8, narration: 1, voice: true },
   accessibility: { subtitleSize: 'medium', reducedMotion: false, contentIntensity: 'standard' },
   gameplay: { difficulty: 'normal' },
-  controls: { bindings: DEFAULT_BINDINGS, vibration: true, touchSize: 1, touchOpacity: 0.7, touchLayout: 'right-handed' },
+  controls: { bindings: DEFAULT_BINDINGS, vibration: true, touchSize: 1, touchOpacity: 0.7, touchLayout: 'right-handed', lookSensitivity: 1 },
 };
 
 type Obj = Record<string, unknown>;
@@ -171,6 +174,7 @@ export function sanitizeSettings(v: unknown): Settings {
       touchSize: num(c.touchSize, 0.75, 1.5, D.controls.touchSize),
       touchOpacity: num(c.touchOpacity, 0.3, 1, D.controls.touchOpacity),
       touchLayout: pick(c.touchLayout, ['right-handed', 'left-handed'] as const, D.controls.touchLayout),
+      lookSensitivity: num(c.lookSensitivity, LOOK_SENSITIVITY_MIN, LOOK_SENSITIVITY_MAX, D.controls.lookSensitivity),
     },
   };
 }

@@ -1,6 +1,6 @@
 import { chromium } from '@playwright/test';
 import { spawn } from 'node:child_process';
-const PORT = 4590;
+const PORT = Number(process.env.HUDSHOT_PORT ?? 4590);
 const out = process.argv[2];
 const server = spawn('npx vite preview --outDir dist-test --port ' + PORT + ' --strictPort', { shell: true, stdio: 'ignore' });
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));

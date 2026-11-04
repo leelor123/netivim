@@ -14,6 +14,7 @@ import { MissionHost, type FailureReport } from './missionHost';
 export class BotInput implements LevelInput {
   readonly move: Vec2 = { x: 0, y: 0 };
   readonly look: Vec2 = { x: 0, y: 0 };
+  readonly lookDrag: Vec2 = { x: 0, y: 0 };
   scroll = 0;
   private readonly tapped = new Set<Action>();
   private readonly next = new Set<Action>();

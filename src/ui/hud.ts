@@ -16,31 +16,55 @@ export interface Hud {
   dispose(): void;
 }
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/** Small line icon built with DOM APIs (no innerHTML). */
+function icon(paths: readonly string[]): SVGSVGElement {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('class', 'nv-hudicon');
+  for (const d of paths) {
+    const p = document.createElementNS(SVG_NS, 'path');
+    p.setAttribute('d', d);
+    svg.append(p);
+  }
+  return svg;
+}
+
 /**
- * HUD layer: "unsaved progress" chip (save:dirty-changed), manual Save during missions
- * (BRIEF 8.C), a touch pause button, and the toast status region (save:written / save:failed).
+ * HUD layer in the "system" screen region (src/ui/layout.ts): one small pause icon and, during
+ * missions, a manual Save icon (BRIEF 8.C) whose dot is the "unsaved progress" indicator
+ * (BRIEF 8.E, save:dirty-changed). Plus the toast status region (save:written / save:failed).
  */
 export function createHud(game: Game, onSave: () => void, onPause: () => void): Hud {
   const { t } = game.i18n;
-  const unsaved = h('span', { class: 'nv-chip nv-chip--unsaved', text: t('ui.hud.unsaved') });
-  unsaved.hidden = !game.save.dirty;
-  const save = h('button', { class: 'nv-hudbtn', text: t('ui.hud.save'), attrs: { type: 'button' } });
-  save.dataset.touchUi = '';
+  const dot = h('span', { class: 'nv-hud__dot', attrs: { 'aria-hidden': 'true' } });
+  const save = h('button', { class: 'nv-hudbtn nv-hudbtn--save', attrs: { type: 'button' } }, icon(['M5 4h11l3 3v13H5z', 'M8 4v5h7V4', 'M8 20v-6h8v6']), dot);
+  // Not touch-only: on a controller it stays as a quiet indicator while progress is unsaved.
   save.addEventListener('click', onSave);
+  const syncDirty = (dirty: boolean): void => {
+    dot.hidden = !dirty;
+    save.classList.toggle('is-dirty', dirty);
+    save.setAttribute('aria-label', dirty ? t('ui.hud.save') + ' · ' + t('ui.hud.unsaved') : t('ui.hud.save'));
+  };
+  syncDirty(game.save.dirty);
   const pause = h('button', { class: 'nv-hudbtn nv-hudbtn--icon', attrs: { type: 'button', 'aria-label': t('ui.hud.pause') } }, h('span', { class: 'nv-pauseicon', attrs: { 'aria-hidden': 'true' } }));
   pause.dataset.touchUi = '';
   pause.addEventListener('click', onPause);
-  const bar = h('div', { class: 'nv-hud__bar' }, unsaved, save, pause);
+  // Physical order (pause at the screen corner) regardless of the text direction.
+  const bar = h('div', { class: 'nv-hud__bar', attrs: { dir: 'ltr' } }, pause, save);
   bar.hidden = true;
 
-  const toastEl = h('div', { class: 'nv-toast', attrs: { role: 'status', 'aria-live': 'polite' } });
+  const toastText = h('span', { class: 'nv-toast__text' });
+  const toastEl = h('div', { class: 'nv-toast', attrs: { role: 'status', 'aria-live': 'polite' } }, toastText);
   const el = h('div', { class: 'nv-hud' }, bar);
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
   const gate = new ToastGate(({ text, tone }) => hud.toast(text, tone));
 
   const offs = [
     game.bus.on('save:dirty-changed', ({ dirty }) => {
-      unsaved.hidden = !dirty;
+      syncDirty(dirty);
     }),
     game.bus.on('save:written', ({ reason }) => {
       if (reason.startsWith('exit:')) return;
@@ -60,13 +84,13 @@ export function createHud(game: Game, onSave: () => void, onPause: () => void): 
     toastEl,
     toast(text, tone = 'ok') {
       clearTimeout(toastTimer);
-      toastEl.textContent = text;
+      toastText.textContent = text;
       toastEl.dataset.tone = tone;
       toastEl.dataset.place = toastPlacement(gate.isMenuOpen);
       toastEl.classList.add('is-shown');
       toastTimer = setTimeout(() => {
         toastEl.classList.remove('is-shown');
-        toastEl.textContent = '';
+        toastText.textContent = '';
       }, TOAST_MS);
     },
     setMenuOpen(open) {

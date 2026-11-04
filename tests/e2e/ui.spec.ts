@@ -159,7 +159,7 @@ test('pause menu: save to slot 2, then the exit prompt mid-mission', async ({ pa
     if (!g) throw new Error('no test hook');
     for (const e of ['openHub', 'openBriefing', 'startMission'] as const) g.flow.send(e);
   });
-  await expect(page.locator('.nv-chip--unsaved')).toBeVisible();
+  await expect(page.locator('.nv-hud__dot')).toBeVisible();
   await connectPad(page);
 
   await pad(page, BTN.start);

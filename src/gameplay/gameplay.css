@@ -13,7 +13,7 @@
   inset: 0;
   display: grid;
   place-items: center;
-  padding: max(16px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+  padding: max(8px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
   background: linear-gradient(180deg, rgb(10 9 7 / 0.35), rgb(10 9 7 / 0.7));
 }
 .gp-sheet {
@@ -28,8 +28,12 @@
   border: 1px solid #c9b48d;
 }
 .gp-sheet--wide, .gp-sheet--briefing, .gp-sheet--debrief { inline-size: min(980px, 96vw); }
-.gp-sheet__title { margin: 0; padding: 16px 24px 8px; font-family: 'Frank Ruhl Libre', serif; font-size: clamp(22px, 3vw, 32px); }
-.gp-sheet__body { overflow-y: auto; padding: 4px 24px 20px; line-height: 1.55; font-size: 17px; }
+.gp-sheet__title { flex: none; margin: 0; padding: 16px 24px 8px; font-family: 'Frank Ruhl Libre', serif; font-size: clamp(22px, 3vw, 32px); }
+/* The body scrolls; the footer (main actions) is always visible below it. */
+.gp-sheet__body { flex: 1 1 auto; min-block-size: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 24px 16px; line-height: 1.55; font-size: 17px; }
+.gp-sheet__foot { flex: none; padding: 10px 24px 14px; border-block-start: 1px solid #d6c39b; background: #e9dcbc; border-end-start-radius: 10px; border-end-end-radius: 10px; }
+.gp-sheet__foot:empty { display: none; }
+.gp-sheet__foot .gp-actions { margin-block-start: 0; }
 .gp-lead { font-size: 19px; font-weight: 600; }
 .gp-kicker { color: #6b4a2e; font-size: 15px; margin: 0 0 4px; }
 .gp-subtitle { margin: 12px 0 6px; font-size: 20px; }
@@ -114,45 +118,79 @@
 /* HUD */
 .gp-hud { position: fixed; inset: 0; z-index: 25; pointer-events: none; font-family: Heebo, system-ui, sans-serif; color: #f3ede2; }
 .gp-hud[hidden] { display: none; }
+/* Every HUD part sits in its screen region (src/ui/layout.ts) and stays inside it. */
+.gp-hud__side {
+  position: absolute;
+  right: var(--rg-objective-r, 12px);
+  top: var(--rg-objective-y, 12px);
+  width: var(--rg-objective-w, 300px);
+  max-height: var(--rg-objective-h, 40vh);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  /* RTL: hug the right edge; the panel is only as wide as its text. */
+  align-items: flex-start;
+  gap: 6px;
+}
 .gp-hud__panel {
-  position: absolute;
-  inset-block-start: max(14px, env(safe-area-inset-top));
-  inset-inline-start: max(18px, env(safe-area-inset-right));
-  max-inline-size: min(420px, 60vw);
-  background: rgb(14 12 9 / 0.62);
-  border-inline-start: 4px solid #d9b77a;
-  padding: 8px 14px;
-  border-radius: 6px;
+  max-inline-size: 100%;
+  background: rgb(14 12 9 / 0.55);
+  border-inline-start: 3px solid #d9b77a;
+  padding: 6px 12px 7px;
+  border-radius: 8px;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
 }
-.gp-hud__label { margin: 0; font-size: 14px; letter-spacing: 0.05em; color: #d9b77a; }
-.gp-hud__objective { margin: 2px 0 0; font-size: 18px; font-weight: 600; }
-.gp-hud__steps { font-size: 14px; color: #d9d2c5; }
-.gp-hud__prompt {
+.gp-hud__label { margin: 0; font-size: 12px; letter-spacing: 0.05em; color: #d9b77a; }
+.gp-hud__objective { margin: 1px 0 0; font-size: 16px; font-weight: 600; line-height: 1.3; }
+.gp-hud__steps { font-size: 13px; color: #d9d2c5; }
+.gp-hud__steps:empty { display: none; }
+/* Centred pills inside a centre region: left edge at the region centre, then shifted back. */
+.gp-hud__prompt, .gp-hud__hint {
   position: absolute;
-  inset-block-end: 22%;
-  inset-inline: 0;
-  margin: auto;
-  inline-size: max-content;
-  background: rgb(14 12 9 / 0.75);
-  padding: 8px 16px;
-  border-radius: 99px;
-  font-size: 18px;
-}
-.gp-hud__prompt[hidden] { display: none; }
-.gp-hud__glyph { display: inline-block; min-inline-size: 1.8em; text-align: center; background: #f3ede2; color: #14110d; border-radius: 6px; padding: 0 6px; font-weight: 700; font-family: inherit; }
-.gp-hud__hint, .gp-hud__testimony {
-  position: absolute;
-  inset-block-start: calc(max(14px, env(safe-area-inset-top)) + 90px);
-  inset-inline-start: max(18px, env(safe-area-inset-right));
-  max-inline-size: min(420px, 60vw);
-  background: rgb(14 12 9 / 0.62);
-  padding: 6px 12px;
-  border-radius: 6px;
   margin: 0;
+  width: max-content;
+  transform: translateX(-50%);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  background: rgb(14 12 9 / 0.72);
+  border-radius: 99px;
 }
-.gp-hud__testimony { inset-block-start: calc(max(14px, env(safe-area-inset-top)) + 140px); }
-.gp-hud__hint[hidden], .gp-hud__testimony[hidden], .gp-hud__meter[hidden] { display: none; }
-.gp-hud__meter { position: absolute; inset-block-start: max(18px, env(safe-area-inset-top)); inset-inline: 0; margin: auto; inline-size: min(240px, 40vw); block-size: 10px; background: rgb(255 255 255 / 0.2); border-radius: 99px; overflow: hidden; }
+.gp-hud__prompt {
+  left: calc(var(--rg-prompt-x, 25vw) + var(--rg-prompt-w, 50vw) / 2);
+  max-width: var(--rg-prompt-w, 50vw);
+  bottom: var(--rg-prompt-b, 30vh);
+  max-height: var(--rg-prompt-h, 44px);
+  padding: 6px 16px 6px 8px;
+  font-size: 16px;
+}
+.gp-hud__hint {
+  left: calc(var(--rg-hint-x, 25vw) + var(--rg-hint-w, 50vw) / 2);
+  max-width: var(--rg-hint-w, 50vw);
+  top: var(--rg-hint-y, 62px);
+  max-height: var(--rg-hint-h, 40px);
+  padding: 7px 16px;
+  font-size: 14px;
+}
+.gp-hud__prompt[hidden], .gp-hud__hint[hidden], .gp-hud__meter[hidden] { display: none; }
+/* On touch the interact button is the prompt's action; the glyph chip would be redundant. */
+:root[data-input='touch'] .gp-hud__prompt .gp-hud__glyph { display: none; }
+.gp-hud__glyph { display: inline-block; min-inline-size: 1.8em; text-align: center; background: #f3ede2; color: #14110d; border-radius: 6px; padding: 0 6px; font-weight: 700; font-family: inherit; }
+.gp-hud__meter { flex: none; align-self: stretch; inline-size: 100%; block-size: 8px; background: rgb(255 255 255 / 0.2); border-radius: 99px; overflow: hidden; }
 .gp-hud__meterfill { display: block; block-size: 100%; inline-size: 0; background: #e8b04a; transition: inline-size 0.15s linear; }
 .gp-hud__meter.is-high .gp-hud__meterfill { background: #e07a5f; }
 :root[data-motion='reduced'] .gp-hud__meterfill { transition: none; }
+
+/* Short landscape phones: compact sheets (the footer keeps the actions visible). */
+@media (max-height: 600px) {
+  .gp-sheet { max-block-size: calc(100vh - 16px); }
+  .gp-sheet__title { padding: 8px 20px 2px; font-size: 22px; }
+  .gp-sheet__body { padding: 2px 20px 10px; font-size: 15px; line-height: 1.45; }
+  .gp-sheet__body p { margin-block: 6px; }
+  .gp-sheet__foot { padding: 8px 20px 10px; }
+  .gp-lead { font-size: 16px; }
+  .gp-subtitle { margin: 4px 0; font-size: 17px; }
+  .gp-map { inline-size: min(200px, 26vw); }
+  .gp-btn { min-block-size: 44px; padding-block: 4px; }
+}

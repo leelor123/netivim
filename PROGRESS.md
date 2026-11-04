@@ -64,7 +64,9 @@ Root causes found (evidence: phone-ratio captures via scripts/hudshot.mjs):
   pills, tutorial banner mid-screen, four big touch buttons (map and pause duplicate the HUD), and the
   subtitle box overlaps the testimony/label panel at the bottom (bug). Briefing at phone size pushes
   the Start button below the fold.
-Running (worktrees): phone UX agent (touch/mouse look, single screen-layout owner, one caption box,
+MERGED: phone UX (touch/mouse look, src/ui/layout.ts regions, one caption, two touch buttons, sticky
+sheet footers; CONTRACTS 14). Follow-up running: touch paths for every level action (Tower planning
+table had none: touch softlock risk). Previously running (worktrees): phone UX agent (touch/mouse look, single screen-layout owner, one caption box,
 fewer touch buttons, sticky sheet footers) and a bug hunter (all 5 missions, non-UI fixes; reports
 UI bugs). Then: merge both, fix reported UI bugs, full CI, release v0.2.2 with a Hebrew update.
 

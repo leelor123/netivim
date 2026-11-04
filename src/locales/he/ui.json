@@ -110,6 +110,7 @@
   "ui.controls.vibration": "רטט",
   "ui.controls.touchSize": "גודל כפתורי מגע",
   "ui.controls.touchOpacity": "אטימות כפתורי מגע",
+  "ui.controls.lookSensitivity": "מהירות סיבוב המבט (גרירה)",
   "ui.controls.touchLayout": "פריסת מגע",
   "ui.controls.layout.right": "יד ימין",
   "ui.controls.layout.left": "יד שמאל",

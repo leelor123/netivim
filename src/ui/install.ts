@@ -5,6 +5,8 @@ import { h } from './dom';
 import { FocusManager } from './focusManager';
 import { installFonts } from './fonts';
 import { createHud } from './hud';
+import { installScreenLayout } from './layout';
+import { stickSide } from './touch/joystick';
 import { canPauseIn, exitPath, pausePressResumes } from './logic';
 import { ScreenManager } from './screenManager';
 import { pauseScreen, slotsScreen } from './screens/pause';
@@ -25,6 +27,16 @@ export function installUI(game: Game): () => void {
   installFonts();
   const root = document.getElementById('ui') ?? document.body.appendChild(h('main', { attrs: { id: 'ui' } }));
   root.classList.add('nv-root');
+  // One owner of the in-game screen regions (src/ui/layout.ts); every overlay positions by it.
+  const layout = installScreenLayout();
+  const syncLayout = (): void => {
+    const c = game.settings.value.controls;
+    layout.setTouch(c.touchSize, stickSide(c.touchLayout));
+  };
+  syncLayout();
+  const offLayout = game.bus.on('settings:changed', ({ key }) => {
+    if (key === 'controls') syncLayout();
+  });
   const layer = h('div', { class: 'nv-layer' });
   const rtl = game.i18n.dir === 'rtl';
   const html = document.documentElement;
@@ -219,6 +231,8 @@ export function installUI(game: Game): () => void {
     motionQuery?.removeEventListener('change', onMotion);
     screens.clear();
     hud.dispose();
+    offLayout();
+    layout.dispose();
     subtitles.dispose();
     top.remove();
     layer.remove();
