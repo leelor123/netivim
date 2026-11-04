@@ -316,7 +316,7 @@ function build(ctx: LevelContext<E>): ArchiveLevel {
   }
   function openReflect(): void {
     open('reflect');
-    overlay?.showSheet({ title: t(p('reflect.title')), label: 'composite', paragraphs: [t(p('reflect.p1')), t(p('reflect.p2')), t(p('reflect.p3'))], footer: closeHint() });
+    overlay?.showSheet({ title: t(p('reflect.title')), paragraphs: [t(p('reflect.p1')), t(p('reflect.p2')), t(p('reflect.p3'))], footer: closeHint() });
   }
   function openLens(which: 'a' | 'b'): void {
     if (which === 'a') progress.lensA = true;
