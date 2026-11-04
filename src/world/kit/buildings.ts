@@ -65,8 +65,26 @@ export function stoneVillageHouse(o: KitOptions & { dome?: boolean; stories?: 1 
   const dome = o.dome ?? r.chance(0.4);
   if (dome) b.dome(Math.min(w, d) * 0.32, stone, 0, h, 0, 8);
   // Arched door and small windows.
-  b.box(1.0, 2.0, 0.1, DARK, -w * 0.18, 1.0, d / 2);
-  b.cyl(0.5, 0.5, 0.1, 6, DARK, -w * 0.18, 2.0, d / 2, Math.PI / 2);
+  const dx = -w * 0.18;
+  const trimStone = '#e6dac0';
+  b.box(1.3, 0.16, 0.16, trimStone, dx, 0.08, d / 2 + 0.04);
+  b.box(0.16, 2.0, 0.14, trimStone, dx - 0.58, 1.0, d / 2 + 0.03);
+  b.box(0.16, 2.0, 0.14, trimStone, dx + 0.58, 1.0, d / 2 + 0.03);
+  b.cyl(0.66, 0.66, 0.12, 8, trimStone, dx, 2.0, d / 2 + 0.02, Math.PI / 2);
+  b.box(1.0, 2.0, 0.1, DARK, dx, 1.0, d / 2 + 0.03);
+  b.cyl(0.5, 0.5, 0.1, 8, DARK, dx, 2.0, d / 2 + 0.03, Math.PI / 2);
+  b.box(0.86, 1.9, 0.06, r.pick([WOOD, SHUTTER_BLUE, SHUTTER_GREEN]), dx, 0.98, d / 2 + 0.07);
+  for (let s = 0; s < stories; s++) {
+    for (const [x, z] of [
+      [-w * 0.25, -d / 2 - 0.06],
+      [w * 0.25, -d / 2 - 0.06],
+      [w * 0.25, d / 2 + 0.06],
+    ] as const) {
+      b.box(0.75, 0.08, 0.14, trimStone, x, 1.48 + s * 3.1, z);
+      b.box(0.75, 0.12, 0.12, trimStone, x, 2.33 + s * 3.1, z);
+    }
+  }
+  for (const x of [-w / 2 + 0.6, w / 2 - 0.6]) b.box(0.12, 0.12, 0.5, '#a8957a', x, h + 0.15, d / 2 + 0.25);
   for (let s = 0; s < stories; s++) {
     windowRow(b, 2, w * 0.5, 1.9 + s * 3.1, 0.55, 0.75, { x: 0, z: -d / 2 - 0.01, alongX: true }, null);
     windowRow(b, 1, 0, 1.9 + s * 3.1, 0.55, 0.75, { x: w * 0.25, z: d / 2 + 0.01, alongX: true }, r.chance(0.5) ? SHUTTER_BLUE : null);
@@ -87,6 +105,8 @@ export function ottomanBuilding(o: KitOptions = {}): THREE.BufferGeometry {
   const d = r.range(7.5, 9);
   const stone = r.pick(['#dcc8a2', '#e2d2b0', '#d2bc94']);
   b.block(w, 7.4, d, stone, 0, 0, 0);
+  b.block(w + 0.2, 0.55, d + 0.2, '#bfa983', 0, 0, 0);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) b.block(0.7, 7.4, 0.7, '#cdb892', (sx * (w - 0.5)) / 2, 0, (sz * (d - 0.5)) / 2);
   b.block(w + 0.3, 0.3, d + 0.3, '#c9b48d', 0, 3.6, 0);
   b.block(w + 0.4, 0.35, d + 0.4, '#c9b48d', 0, 7.4, 0);
   b.pyramid(w + 0.6, 2.4, d + 0.6, TILE, 0, 7.75, 0);
@@ -98,6 +118,11 @@ export function ottomanBuilding(o: KitOptions = {}): THREE.BufferGeometry {
         b.box(0.8, 1.5, 0.08, DARK, x, fy, z);
         b.cyl(0.4, 0.4, 0.08, 6, DARK, x, fy + 0.75, z, Math.PI / 2);
         b.box(1.0, 0.1, 0.2, '#c9b48d', x, fy - 0.8, z);
+        b.box(1.06, 0.12, 0.14, '#c9b48d', x, fy + 1.2, z);
+        if (fy > 3 && side > 0) {
+          b.box(0.42, 1.5, 0.05, SHUTTER_GREEN, x - 0.62, fy, z + 0.04);
+          b.box(0.42, 1.5, 0.05, SHUTTER_GREEN, x + 0.62, fy, z + 0.04);
+        }
       }
     }
   }
@@ -105,6 +130,10 @@ export function ottomanBuilding(o: KitOptions = {}): THREE.BufferGeometry {
   b.block(2.6, 0.18, 1.0, '#c9b48d', 0, 3.7, d / 2 + 0.5);
   for (let i = 0; i < 6; i++) b.block(0.06, 0.9, 0.06, '#3d3a36', -1.25 + i * 0.5, 3.88, d / 2 + 0.98);
   b.box(1.4, 2.4, 0.1, '#4a3324', 0, 1.2, d / 2 + 0.02);
+  b.box(0.2, 2.6, 0.18, '#e2d2b0', -0.8, 1.3, d / 2 + 0.06);
+  b.box(0.2, 2.6, 0.18, '#e2d2b0', 0.8, 1.3, d / 2 + 0.06);
+  b.box(1.8, 0.26, 0.2, '#e2d2b0', 0, 2.6, d / 2 + 0.07);
+  for (let i = 0; i < 2; i++) b.block(2.2 - i * 0.4, 0.15, 0.5 - i * 0.2, '#bfa983', 0, i * 0.15, d / 2 + 0.25 - i * 0.05);
   return b.build();
 }
 
@@ -260,10 +289,23 @@ export function tent(o: KitOptions & { kind?: 'ridge' | 'bell' } = {}): THREE.Bu
     b.cone(2.4, 3.0, 8, canvas, 0, 1.5, 0);
     b.cyl(0.04, 0.04, 3.4, 4, WOOD, 0, 1.7, 0);
     b.box(0.8, 1.3, 0.05, '#3a3226', 0, 0.65, 2.0, 0, -0.3);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + 0.4;
+      b.beam(Math.cos(a) * 1.0, 1.75, Math.sin(a) * 1.0, Math.cos(a) * 3.0, 0.02, Math.sin(a) * 3.0, 0.02, 0.02, '#cfc3a4');
+      b.block(0.06, 0.15, 0.06, WOOD, Math.cos(a) * 3.0, 0, Math.sin(a) * 3.0);
+    }
   } else {
     b.gable(3.0, 2.2, 4.0, canvas, 0, 0, 0);
     b.box(1.0, 1.4, 0.04, '#3a3226', 0, 0.7, 2.01);
-    for (const z of [-2.05, 2.05]) b.cyl(0.04, 0.04, 2.3, 4, WOOD, 0, 1.15, z);
+    for (const z of [-2.05, 2.05]) {
+      b.cyl(0.04, 0.04, 2.3, 4, WOOD, 0, 1.15, z);
+      b.beam(0, 2.25, z, 0, 0.02, z + Math.sign(z) * 1.2, 0.02, 0.02, '#cfc3a4');
+      b.block(0.06, 0.18, 0.06, WOOD, 0, 0, z + Math.sign(z) * 1.2);
+    }
+    for (const side of [-1, 1]) for (const z of [-1.5, 0, 1.5]) {
+      b.beam(side * 1.1, 0.8, z, side * 2.1, 0.02, z, 0.02, 0.02, '#cfc3a4');
+      b.block(0.06, 0.15, 0.06, WOOD, side * 2.1, 0, z);
+    }
   }
   return b.build();
 }

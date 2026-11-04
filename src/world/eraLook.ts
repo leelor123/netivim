@@ -35,17 +35,17 @@ export interface EraLook {
 export const ERA_LOOKS: Readonly<Record<EraId, EraLook>> = {
   ottoman1890: {
     id: 'ottoman1890', nameKey: 'world.era.ottoman1890',
-    skyTop: '#7fa6c9', skyHorizon: '#f1d9b0', skyBottom: '#c9a77c',
+    skyTop: '#6e9cc9', skyHorizon: '#f3d8aa', skyBottom: '#c9a77c',
     sunElevation: 28, sunAzimuth: 235, sunColor: '#ffd59a', sunIntensity: 2.6,
     hemiSky: '#f3dcb6', hemiGround: '#6b5238', hemiIntensity: 1.25,
-    fogColor: '#e6cfa6', fogNear: 90, fogFar: 320, tint: '#fff0d6', saturation: 0.82,
+    fogColor: '#e8cfa2', fogNear: 90, fogFar: 320, tint: '#fff0d6', saturation: 0.88,
   },
   mandate1940: {
     id: 'mandate1940', nameKey: 'world.era.mandate1940',
     skyTop: '#6f9cc4', skyHorizon: '#e8dcc0', skyBottom: '#b7a07e',
     sunElevation: 42, sunAzimuth: 210, sunColor: '#fff0cf', sunIntensity: 2.9,
     hemiSky: '#e6e0cc', hemiGround: '#5d4a36', hemiIntensity: 1.2,
-    fogColor: '#dcd2b8', fogNear: 110, fogFar: 360, tint: '#fbf3e2', saturation: 0.86,
+    fogColor: '#dfd2b4', fogNear: 110, fogFar: 360, tint: '#fbf3e2', saturation: 0.9,
   },
   war1948: {
     id: 'war1948', nameKey: 'world.era.war1948',
