@@ -11,7 +11,8 @@ import { MissionHost } from '../../src/gameplay/runtime/missionHost';
 import type { BotStep } from '../../src/gameplay/types';
 import landing, { CHECKPOINTS, FAIL, landingLocaleKeys } from '../../src/levels/ch01/night-landing';
 import { BOAT_SPAWN, LIGHTS, PATROLS, SEA_GOAL, SURVIVOR_GROUPS, WATCHERS } from '../../src/levels/ch01/landing/layout';
-import { RescueModel, SURVIVOR_SPEED, voiceSide } from '../../src/levels/ch01/landing/rescue';
+import { RescueModel, SURVIVOR_SPEED, voiceSide, type RescueSnapshot } from '../../src/levels/ch01/landing/rescue';
+import type { MissionSnapshot } from '../../src/core/mission';
 import { SweepLight } from '../../src/levels/ch01/landing/sweep';
 import { HEBREW } from '../../src/locales';
 import { DEFAULT_WORLD_QUALITY } from '../../src/world/quality';
@@ -378,6 +379,35 @@ describe('level play (headless)', { timeout: 60_000 }, () => {
       expect(b.host.level?.player?.z).toBeCloseTo(pz, 3);
       b.host.dispose();
     }
+  });
+
+  it('a save taken after the elders land but before the escort begins restores into a winnable drop', () => {
+    // The window: both first-trip waves are ashore (landed >= 2), someone is still walking up the
+    // sand ('ashore') and nobody follows yet. Restoring there must not skip the escort start.
+    type Data = { level: { rescue: RescueSnapshot } | null };
+    let caught: { snap: MissionSnapshot; qi: number } | null = null;
+    const base = runBot(landing, {
+      difficulty: 'story',
+      fromCheckpoint: 'drop',
+      maxSeconds: 200,
+      onStep: (host, _step, qi) => {
+        if (caught || host.phase !== 'running' || host.state !== 'drop') return;
+        const snap = host.snapshot();
+        const rs = (snap.data as Data | null)?.level?.rescue;
+        if (!rs || rs.landed < 2) return;
+        if (rs.survivors.some((v) => v.state === 'ashore') && !rs.survivors.some((v) => v.state === 'following')) {
+          caught = { snap: JSON.parse(JSON.stringify(snap)) as MissionSnapshot, qi };
+        }
+      },
+    });
+    expect(base.completed || base.finalState !== 'drop').toBe(true);
+    const at = caught as { snap: MissionSnapshot; qi: number } | null;
+    expect(at, 'no snapshot in the ashore-before-escort window').not.toBeNull();
+    if (!at) return;
+    const r = runBot(landing, { difficulty: 'story', snapshot: at.snap, startQueueIndex: at.qi, maxSeconds: 900 });
+    expect(r.failures, r.log.join(' | ')).toEqual([]);
+    expect(r.log).toContain('checkpoint: return');
+    expect(r.completed, r.log.join(' | ')).toBe(true);
   });
 
   it('disposing twice is safe and frees the scene once', () => {

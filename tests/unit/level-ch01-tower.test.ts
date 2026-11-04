@@ -6,6 +6,8 @@ import type { GameEvents } from '../../src/core/gameEvents';
 import { FIXED_DT } from '../../src/core/loop';
 import { HEBREW } from '../../src/locales';
 import { analyzeMission } from '../../src/core/mission';
+import { createNewSave } from '../../src/core/save/schema';
+import { recordChoice } from '../../src/gameplay/core/ledger';
 import { loadChapter, loadLevel } from '../../src/gameplay/registry';
 import { BotInput, runBot } from '../../src/gameplay/runtime/bot';
 import { MissionHost } from '../../src/gameplay/runtime/missionHost';
@@ -286,6 +288,39 @@ describe('the day', () => {
     expect(parseSnapshot({ sim: { stage: 'nope' } })).toBeNull();
     expect(parseSnapshot({ x: 1 })).toBeNull();
   });
+
+  it('a snapshot with wrong array lengths or element types is rejected', () => {
+    const sim = new TowerSim();
+    sim.resetTo('fence', 0.6);
+    const good = sim.snapshot();
+    const bad = (patch: Record<string, unknown>): unknown => ({ sim: { ...good, ...patch } });
+    expect(parseSnapshot({ sim: good })).not.toBeNull();
+    // Older saves without the optional fields still load.
+    const { staked: _s, signRead: _r, neighbor: _n, rested: _t, ...old } = good;
+    void [_s, _r, _n, _t];
+    expect(parseSnapshot({ sim: old })).not.toBeNull();
+    for (const patch of [
+      { unloaded: [true] },
+      { unloaded: good.unloaded.map(() => 1) },
+      { filled: [...good.filled, true] },
+      { filled: good.filled.map(() => 'yes') },
+      { staked: [true, true] },
+      { staked: [1, 0, 1, 0] },
+      { placed: { [PIECES[0]?.id ?? 'x']: { x: 'a', y: 0, rot: 0 } } },
+      { placed: { nope: { x: 0, y: 0, rot: 0 } } },
+      { placed: [] },
+      { clock: Number.NaN },
+      { loads: '2' },
+      { sections: -1 },
+      { fence: 1.5 },
+      { carry: 'bucket' },
+      { lit: 'true' },
+      { water: 1 },
+      { neighbor: 'no' },
+    ]) {
+      expect(parseSnapshot(bad(patch)), JSON.stringify(patch)).toBeNull();
+    }
+  });
 });
 
 describe('level definition', () => {
@@ -466,6 +501,82 @@ describe('playing the level headless', { timeout: 120000 }, () => {
     expect(h.level.sim.clock).toBeCloseTo(STAGE_START.tower, 5);
     h.host.dispose();
     expect(() => h.level.dispose()).not.toThrow();
+  });
+
+  it('a decide that does not open leaves the field-edge neighbour available', async () => {
+    const h = await makeHost('dusk');
+    h.step(0.1);
+    const neighbour = h.host.interactions.get('neighbor');
+    expect(neighbour?.enabled).toBe(true);
+    // MissionHost.decide is a silent no-op outside 'running' (e.g. a decision already open).
+    h.host.phase = 'decision';
+    neighbour?.onInteract();
+    h.host.phase = 'running';
+    h.step(0.5);
+    expect(h.host.interactions.get('neighbor')?.enabled).toBe(true);
+    h.host.dispose();
+  });
+
+  it('replaying the decisions after reloading an earlier save replaces the ledger entries, never duplicates them', async () => {
+    const def = await loadLevel('tower-stockade');
+    let save = createNewSave(0);
+    const calls: string[] = [];
+    const play = (from: string | undefined, pick: (id: string) => string): void => {
+      const bus = new EventBus<GameEvents>();
+      const input = new BotInput();
+      let pending: { id: string; choose: (o: string) => void } | null = null;
+      const host = new MissionHost({
+        def,
+        bus,
+        input,
+        difficulty: () => 'normal',
+        headless: true,
+        quality: { ...DEFAULT_WORLD_QUALITY, shadows: false },
+        reducedMotion: () => false,
+        t: (k) => k,
+        glyph: (a) => a,
+        recordChoice: (d, opt) => {
+          calls.push(d.id);
+          save = recordChoice(save, d, opt);
+        },
+        snapshot: from ? { missionId: def.missionId, state: from, checkpoint: from, data: null } : null,
+        hooks: { onFailed: () => undefined, onDecision: (d, choose) => (pending = { id: d.id, choose }), onComplete: () => undefined, onPlan: () => undefined },
+      });
+      host.start();
+      const level = host.level as TowerLevel;
+      const teleport = (x: number, z: number): void => (level.player as unknown as PlayerController).spawn(x, z, Math.PI);
+      const use = (id: string): void => {
+        const it = host.interactions.get(id);
+        if (!it) throw new Error('no ' + id);
+        teleport(it.x, it.z);
+        input.beginStep();
+        host.update(FIXED_DT);
+        it.onInteract();
+        const p = pending as { id: string; choose: (o: string) => void } | null;
+        pending = null;
+        p?.choose(pick(p.id));
+        for (let t = 0; t < 0.2; t += FIXED_DT) host.update(FIXED_DT);
+      };
+      if (level.sim.stage !== 'dusk') {
+        level.sim.water = false;
+        use('water-jug');
+        level.sim.resetTo('dusk', STAGE_START.dusk);
+      }
+      level.sim.neighbor = false;
+      use('neighbor');
+      host.dispose();
+    };
+    const first = (id: string): string => (DECISIONS.find((d) => d.id === id)?.options[0]?.id ?? '');
+    const last = (id: string): string => {
+      const o = DECISIONS.find((d) => d.id === id)?.options ?? [];
+      return o[o.length - 1]?.id ?? '';
+    };
+    play('fence', first);
+    // Reloading the earlier checkpoint re-asks both decisions; the ledger keeps one entry each.
+    play('fence', last);
+    expect(calls.filter((c) => c === 'tower-field-edge').length).toBe(2);
+    expect(Object.keys(save.choices).sort()).toEqual(DECISIONS.map((d) => d.id).sort());
+    for (const d of DECISIONS) expect(save.choices[d.id]).toBe(last(d.id));
   });
 
   it('the bot clears the whole day on every difficulty within the sun budget', async () => {

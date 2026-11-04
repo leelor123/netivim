@@ -283,10 +283,10 @@ export class MissionHost {
     return { ...def, checkpoints: [...def.checkpoints, ...extra] };
   }
 
-  private decide(id: string, onChosen: (optionId: string) => void): void {
+  private decide(id: string, onChosen: (optionId: string) => void): boolean {
     const def = this.o.def.decisions?.find((d) => d.id === id);
     if (!def) throw new Error('Unknown decision ' + id + ' in ' + this.o.def.id);
-    if (this.phase !== 'running') return;
+    if (this.phase !== 'running') return false;
     this.phase = 'decision';
     this.o.hooks.onDecision(def, (optionId) => {
       if (this.phase !== 'decision') return;
@@ -294,6 +294,7 @@ export class MissionHost {
       this.phase = 'running';
       onChosen(optionId);
     });
+    return true;
   }
 
   private plan(model: LogisticsModel, onConfirm: () => void): void {

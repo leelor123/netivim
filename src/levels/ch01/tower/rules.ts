@@ -558,12 +558,35 @@ export class TowerSim {
   }
 }
 
-/** Defensive parse of a manual-save payload; null when it is not a snapshot. */
+const CARRIES: readonly string[] = ['none', 'gravel', 'section', 'light'];
+const PIECE_IDS: ReadonlySet<string> = new Set(PIECES.map((p) => p.id));
+
+const isBoolArray = (v: unknown, length: number): boolean => Array.isArray(v) && v.length === length && v.every((b) => typeof b === 'boolean');
+const isCount = (v: unknown, max: number): boolean => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= max;
+const isOptBool = (v: unknown): boolean => v === undefined || typeof v === 'boolean';
+const isPlacement = (v: unknown): boolean => {
+  if (typeof v !== 'object' || v === null) return false;
+  const p = v as Partial<Placement>;
+  return Number.isInteger(p.x) && Number.isInteger(p.y) && Number.isInteger(p.rot);
+};
+
+/**
+ * Defensive parse of a manual-save payload; null when it is not a snapshot. Checks every field's
+ * type and the array lengths, so a damaged or foreign save starts the checkpoint fresh instead.
+ */
 export function parseSnapshot(data: unknown): SimSnapshot | null {
   if (typeof data !== 'object' || data === null) return null;
   const d = data as Partial<SimSnapshot> & { sim?: unknown };
-  const s = (d.sim ?? null) as Partial<SimSnapshot> | null;
+  const s = (d.sim ?? null) as Partial<Record<keyof SimSnapshot, unknown>> | null;
   if (!s || typeof s !== 'object') return null;
-  if (!STAGES.includes(s.stage as Stage) || typeof s.clock !== 'number' || !Array.isArray(s.unloaded) || !Array.isArray(s.filled) || typeof s.placed !== 'object' || s.placed === null) return null;
-  return s as SimSnapshot;
+  if (!STAGES.includes(s.stage as Stage) || typeof s.clock !== 'number' || !Number.isFinite(s.clock)) return null;
+  if (!isBoolArray(s.unloaded, CART_COUNT) || !isBoolArray(s.filled, STATION_COUNT)) return null;
+  if (s.staked !== undefined && !isBoolArray(s.staked, STAKE_COUNT)) return null;
+  if (typeof s.placed !== 'object' || s.placed === null || Array.isArray(s.placed)) return null;
+  for (const [id, p] of Object.entries(s.placed)) if (!PIECE_IDS.has(id) || !isPlacement(p)) return null;
+  if (!isCount(s.loads, Number.MAX_SAFE_INTEGER) || !isCount(s.sections, SECTION_COUNT) || !isCount(s.fence, FENCE_LEGS)) return null;
+  if (typeof s.carry !== 'string' || !CARRIES.includes(s.carry)) return null;
+  for (const k of ['lightMounted', 'lit', 'warned', 'water', 'meal'] as const) if (typeof s[k] !== 'boolean') return null;
+  for (const k of ['signRead', 'neighbor', 'rested'] as const) if (!isOptBool(s[k])) return null;
+  return s as unknown as SimSnapshot;
 }

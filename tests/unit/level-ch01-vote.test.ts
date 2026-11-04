@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { ledgerRows, validateDecision } from '../../src/gameplay/core/ledger';
-import { runBot } from '../../src/gameplay/runtime/bot';
+import { EventBus } from '../../src/core/events';
+import type { GameEvents } from '../../src/core/gameEvents';
+import { FIXED_DT } from '../../src/core/loop';
+import type { MissionSnapshot } from '../../src/core/mission';
+import { BotInput, runBot } from '../../src/gameplay/runtime/bot';
+import { MissionHost } from '../../src/gameplay/runtime/missionHost';
+import { DEFAULT_WORLD_QUALITY } from '../../src/world/quality';
 import type { BotStep } from '../../src/gameplay/types';
 import { HEBREW } from '../../src/locales';
 import def from '../../src/levels/ch01/the-vote';
@@ -18,6 +24,7 @@ import {
   RADIO,
   STATION_X_OF_PARTY,
   TALLY,
+  statementKey,
 } from '../../src/levels/ch01/vote/data';
 import { partyOfSlot, VoteModel } from '../../src/levels/ch01/vote/model';
 
@@ -175,6 +182,55 @@ describe('The Vote: defined failures', () => {
     const twice = runBot({ ...def, botScript: { ...def.botScript, vote: [...base, { kind: 'wait', seconds: 0.1 }, tap] } }, { difficulty: 'normal', fromCheckpoint: 'vote' });
     expect(twice.failures.map((f) => f.reasonKey)).toEqual(['result-change']);
     expect(twice.failures[0]?.info?.whatHappenedKey).toBe('ch01.vote.f2');
+  });
+
+  it('a save taken mid-broadcast restores a speaking radio: static cue, the line in progress, o5 set', () => {
+    // Capture a save 20 s into the broadcast (announce 6.2 + Yishuv 6.4 + Palestinians 7.2 = 19.8 s,
+    // so the Arab states' line is in progress).
+    let snap: MissionSnapshot | null = null;
+    let radioOn = -1;
+    runBot(def, {
+      difficulty: 'normal',
+      fromCheckpoint: 'vote',
+      onStep: (host, step) => {
+        if (snap || host.phase !== 'running') return;
+        const lvl = (host.snapshot().data as { level?: { finale?: number } } | null)?.level;
+        if (radioOn < 0 && typeof lvl?.finale === 'number' && lvl.finale > 0) radioOn = step;
+        if (radioOn >= 0 && step - radioOn >= Math.round(20 / FIXED_DT)) snap = JSON.parse(JSON.stringify(host.snapshot())) as MissionSnapshot;
+      },
+    });
+    expect(snap).not.toBeNull();
+    const saved = snap as unknown as MissionSnapshot;
+    const bus = new EventBus<GameEvents>();
+    const cues: string[] = [];
+    const shown: string[] = [];
+    bus.on('audio:cue', ({ cue }) => cues.push(cue));
+    bus.on('subtitle:show', ({ textKey }) => shown.push(textKey));
+    let done = false;
+    const host = new MissionHost({
+      def,
+      bus,
+      input: new BotInput(),
+      difficulty: () => 'normal',
+      headless: true,
+      quality: { ...DEFAULT_WORLD_QUALITY, shadows: false },
+      reducedMotion: () => false,
+      t: (k) => k,
+      glyph: (a) => a,
+      recordChoice: () => undefined,
+      snapshot: { ...saved, data: { ...(saved.data as object), objectives: {} } },
+      hooks: { onFailed: () => undefined, onDecision: () => undefined, onComplete: () => (done = true), onPlan: () => undefined },
+    });
+    host.start();
+    host.update(FIXED_DT);
+    expect(cues).toContain('radio.static');
+    expect(shown[0]).toBe(statementKey('arabstates'));
+    expect(host.objectives.progressSnapshot()['o5']).toBe(1);
+    // The rest of the broadcast still plays to the end, then the mission completes.
+    for (let i = 0; i < Math.round(40 / FIXED_DT) && !done; i++) host.update(FIXED_DT);
+    expect(shown).toContain('ch01.vote.moment');
+    expect(done).toBe(true);
+    host.dispose();
   });
 
   it('every failure has a hint and sources', () => {
