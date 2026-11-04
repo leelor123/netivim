@@ -39,7 +39,7 @@ import {
   WATER_LEVEL,
   WITH_YOU_RADIUS,
 } from './landing/layout';
-import { RescueModel, voiceSide } from './landing/rescue';
+import { RescueModel, voiceSide, type RescueSnapshot } from './landing/rescue';
 import { SweepLight } from './landing/sweep';
 import { applyNight, BoatVisual, ConeFan, DawnBlend, placeAt, SurvivorViews, WatcherViews } from './landing/visuals';
 
@@ -138,6 +138,14 @@ interface LandingSave {
   readonly carried: number;
   readonly delivered: number;
   readonly bundlesTaken: readonly boolean[];
+  /** Where the survivors are (absent in saves from older versions). */
+  readonly rescue?: RescueSnapshot;
+}
+
+function isRescueSnapshot(v: unknown): v is RescueSnapshot {
+  if (typeof v !== 'object' || v === null) return false;
+  const o = v as Record<string, unknown>;
+  return typeof o.landed === 'number' && Array.isArray(o.survivors) && o.survivors.every((e: unknown) => typeof e === 'object' && e !== null && typeof (e as Record<string, unknown>).x === 'number' && typeof (e as Record<string, unknown>).z === 'number' && typeof (e as Record<string, unknown>).state === 'string');
 }
 
 function isSave(v: unknown): v is LandingSave {
@@ -777,6 +785,9 @@ function build(ctx: LevelContext<E>): Level {
         }
         carried = saved.carried;
         delivered = saved.delivered;
+        if (isRescueSnapshot(saved.rescue) && rescue.restore(saved.rescue) && s === 'shore') {
+          childItem.enabled = rescue.lostChild !== null;
+        }
         if (carried > 0) player.motor.params = LOADED_MOTOR;
         saved.bundlesTaken.forEach((taken, i) => {
           bundleTaken[i] = taken;
@@ -796,6 +807,7 @@ function build(ctx: LevelContext<E>): Level {
         carried,
         delivered,
         bundlesTaken: [...bundleTaken],
+        rescue: rescue.snapshot(),
       };
     },
     dispose() {

@@ -3,6 +3,7 @@ import { EventBus } from '../../core/events';
 import type { GameEvents } from '../../core/gameEvents';
 import type { Action, Vec2 } from '../../core/input/types';
 import { FIXED_DT } from '../../core/loop';
+import type { MissionSnapshot } from '../../core/mission';
 import { DEFAULT_WORLD_QUALITY } from '../../world/quality';
 import type { DecisionDef } from '../core/ledger';
 import type { LogisticsModel } from '../modules/logistics';
@@ -48,6 +49,12 @@ export interface BotOptions {
   /** Retry automatically after a failure (default false: a failure ends the run). */
   readonly retryOnFail?: boolean;
   readonly bus?: EventBus<GameEvents>;
+  /** Start from an exact manual-save snapshot (wins over fromCheckpoint). */
+  readonly snapshot?: MissionSnapshot;
+  /** Called before every step (tests: take a snapshot, force a retry, ...). */
+  readonly onStep?: (host: MissionHost, step: number, queueIndex: number) => void;
+  /** Skip this many script steps of the first checkpoint (resume a script after a restored save). */
+  readonly startQueueIndex?: number;
 }
 
 export interface BotResult {
@@ -74,6 +81,7 @@ export function runBot(def: AnyLevelDefinition, o: BotOptions): BotResult {
   const pending: { current: { def: DecisionDef; choose: (id: string) => void } | null } = { current: null };
   let stop = false;
   let restartQueue = true;
+  let firstQueue = true;
 
   const host = new MissionHost({
     def,
@@ -88,7 +96,7 @@ export function runBot(def: AnyLevelDefinition, o: BotOptions): BotResult {
     recordChoice: (d, opt) => {
       choices[d.id] = opt;
     },
-    snapshot: o.fromCheckpoint ? { missionId: def.missionId, state: o.fromCheckpoint, checkpoint: o.fromCheckpoint, data: null } : null,
+    snapshot: o.snapshot ?? (o.fromCheckpoint ? { missionId: def.missionId, state: o.fromCheckpoint, checkpoint: o.fromCheckpoint, data: null } : null),
     hooks: {
       onFailed: (r) => {
         failures.push(r);
@@ -124,8 +132,11 @@ export function runBot(def: AnyLevelDefinition, o: BotOptions): BotResult {
       if (restartQueue) {
         restartQueue = false;
         queue = [...(script[host.checkpoint] ?? [])];
+        if (firstQueue) queue.splice(0, o.startQueueIndex ?? 0);
+        firstQueue = false;
         stepTime = 0;
       }
+      o.onStep?.(host, steps, (script[host.checkpoint]?.length ?? 0) - queue.length);
       input.beginStep();
       input.move.x = 0;
       input.move.y = 0;

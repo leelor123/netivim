@@ -264,11 +264,10 @@ function build(ctx: LevelContext<E>): Level {
     say(lines, 'composite');
     once('codex', 'rishon-lezion');
     once('codex', 'edmond-de-rothschild');
+    // Unlocked now, not inside the delayed tip: a timer is lost when the player restores a save or retries.
+    once('codex', 'petah-tikva');
     const tip = line(k('line.colony.petah'), NARRATOR);
-    later(seconds(lines) + 0.5, () => {
-      once('codex', 'petah-tikva');
-      say([tip]);
-    });
+    later(seconds(lines) + 0.5, () => say([tip]));
     advance('colonyDone');
   });
   const wellSign = add('well-sign', 'generic', L.WELL_SIGN, 2.4, 'gameplay.prompt.read', () => {
@@ -573,6 +572,8 @@ function build(ctx: LevelContext<E>): Level {
       f.ticket = f.ticket && checkpoint === 'station';
       player.spawn(data.x, data.z, player.motor.heading);
       if (checkpoint !== 'jerusalem_delivered') cart.place(data.x - 4, data.z, 0);
+      // The closing timer is not part of the save: a save taken during the meal must still finish the mission.
+      if (checkpoint === 'jerusalem_delivered' && f.sat) later(0.8, finish);
     }
     cart.set(f.parts, f.parcel, f.letter);
     wp = 0;
@@ -749,7 +750,8 @@ function build(ctx: LevelContext<E>): Level {
     }
   }
 
-  const scene = world.gameScene();
+  // Leaving the level (exit to the hub, title) must not leave its environment bed playing.
+  const scene = world.gameScene(() => ctx.bus.emit('audio:cue', { cue: 'ambience.none' }));
   return {
     scene,
     player,

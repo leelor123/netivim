@@ -34,6 +34,12 @@ export interface RescueSpec {
   readonly lostChild: { readonly x: number; readonly z: number };
 }
 
+/** Serializable survivors for an exact manual save. */
+export interface RescueSnapshot {
+  readonly landed: number;
+  readonly survivors: readonly { readonly state: SurvivorState; readonly x: number; readonly z: number }[];
+}
+
 export class RescueModel {
   readonly survivors: Survivor[] = [];
   /** Waves already ashore (0-3). */
@@ -52,6 +58,24 @@ export class RescueModel {
       }
     });
     this.survivors.push({ kind: 'child', group: -1, x: spec.lostChild.x, z: spec.lostChild.z, heading: 0, walk: 0, state: 'lost', homeX: spec.lostChild.x, homeZ: spec.lostChild.z });
+  }
+
+  snapshot(): RescueSnapshot {
+    return { landed: this.landed, survivors: this.survivors.map((s) => ({ state: s.state, x: s.x, z: s.z })) };
+  }
+
+  /** Restores a snapshot; ignored when it does not match this group (older save). */
+  restore(snap: RescueSnapshot): boolean {
+    if (snap.survivors.length !== this.survivors.length) return false;
+    this.landed = Math.max(0, Math.min(this.waveCount, snap.landed));
+    snap.survivors.forEach((v, i) => {
+      const s = this.survivors[i] as Survivor;
+      s.state = v.state;
+      s.x = v.x;
+      s.z = v.z;
+      s.walk = 0;
+    });
+    return true;
   }
 
   /** Everyone back aboard, the lost child hiding again (checkpoint start). */

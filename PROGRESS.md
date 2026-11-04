@@ -69,6 +69,7 @@ sheet footers; CONTRACTS 14). Follow-up running: touch paths for every level act
 table had none: touch softlock risk). Previously running (worktrees): phone UX agent (touch/mouse look, single screen-layout owner, one caption box,
 fewer touch buttons, sticky sheet footers) and a bug hunter (all 5 missions, non-UI fixes; reports
 UI bugs). Then: merge both, fix reported UI bugs, full CI, release v0.2.2 with a Hebrew update.
+MERGED: bug hunt (docs/BUG_HUNT_M2.md, 7 root-cause fixes).
 
 ## Next: M3 (Act 1 = Prologue + Ch1-4) exact next steps
 1. Get the user's on-device feedback on v0.2.1 (Ultra fps, controllers in the WebView, subtitles, focus).

@@ -444,6 +444,8 @@ function build(ctx: LevelContext<E>): ArchiveLevel {
     offFocus();
     for (const off of offs) off();
     overlay?.dispose();
+    // Leaving the level (exit to the hub, title) must not leave its room bed playing.
+    cue('ambience.none');
     if (!headless) document.querySelector('.nv-hudbtn--icon')?.classList.remove('an-pause-glow');
   });
 
