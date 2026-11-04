@@ -375,6 +375,13 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
     });
   }
   function onRadio(): void {
+    startBroadcast(-1);
+  }
+  /**
+   * Turns the radio on and reads the result. `remaining` < 0 starts the broadcast from its first
+   * line; otherwise (a restored save) it resumes at the line in progress at that remaining time.
+   */
+  function startBroadcast(remaining: number): void {
     ctx.objectives.progress('o5', 1);
     stage.setRadio(1);
     ctx.bus.emit('audio:cue', { cue: 'radio.static', intensity: 0.8 });
@@ -390,8 +397,20 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
       line(reaction, L('speaker.neighbor'), 5600),
       line('ch01.vote.moment', SPEAKER_NARRATOR, 7000),
     ];
-    finale = lines.reduce((sum, l) => sum + l.durationMs, 0) / 1000;
-    speak(lines, 'reconstructed');
+    const total = lines.reduce((sum, l) => sum + l.durationMs, 0) / 1000;
+    let from = 0;
+    if (remaining >= 0) {
+      // Skip the lines that finished before the save; the one in progress is read again in full.
+      const elapsed = total - Math.min(total, remaining);
+      let end = 0;
+      while (from < lines.length - 1 && end + (lines[from] as Line).durationMs / 1000 <= elapsed) {
+        end += (lines[from] as Line).durationMs / 1000;
+        from++;
+      }
+    }
+    const rest = lines.slice(from);
+    finale = rest.reduce((sum, l) => sum + l.durationMs, 0) / 1000;
+    speak(rest, 'reconstructed');
     refresh();
   }
   function onTally(): void {
@@ -493,12 +512,10 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
         model.restore(saved.model);
         carried = saved.carried ?? -1;
         neighborChoice = saved.neighbor ?? '';
-        // A save taken while the radio plays resumes the broadcast's remaining time, not a dead radio.
-        if (st === 'vote' && typeof saved.finale === 'number' && saved.finale >= 0) {
-          finale = saved.finale;
-          stage.setRadio(1);
-        }
       }
+      // A save taken while the radio plays resumes the broadcast (cues, o5, the line in progress
+      // and the rest), not a silent radio. Started after the ambience/mood resets below.
+      const resume = st === 'vote' && saved?.model && typeof saved.finale === 'number' && saved.finale >= 0 ? saved.finale : -1;
       if (saved && typeof saved.x === 'number' && typeof saved.z === 'number') player.spawn(saved.x, saved.z, typeof saved.yaw === 'number' ? saved.yaw : CHECKPOINT_SPAWN[st].heading);
       else {
         const sp = CHECKPOINT_SPAWN[st];
@@ -507,7 +524,8 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
       ctx.bus.emit('audio:cue', { cue: 'ambience.town-night' });
       ctx.bus.emit('audio:cue', { cue: 'crowd.murmur', intensity: 0 });
       mood(st === 'vote' ? 'tense' : st === 'visits' ? 'reflective' : 'calm');
-      refresh();
+      if (resume >= 0) startBroadcast(resume);
+      else refresh();
     },
     warp: (x, z) => player.spawn(x, z, 0),
     snapshotData: () => ({ model: model.snapshot(), x: player.x, z: player.z, neighbor: neighborChoice, carried, finale, yaw: player.rig.orbit.yaw }),
