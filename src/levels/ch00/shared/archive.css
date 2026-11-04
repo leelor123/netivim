@@ -48,7 +48,8 @@
 .an-stage[hidden], .an-viewer[hidden] { display: none; }
 .an-sheet { inline-size: min(640px, 94vw); }
 .an-viewer { position: absolute; inset: 0; display: flex; align-items: center; justify-content: flex-start; padding: 24px; }
-.an-viewer .gp-viewer { position: static; padding: 0; }
+/* Stretch so the card's max-block-size: 100% resolves against the viewer, not its own content. */
+.an-viewer .gp-viewer { position: static; padding: 0; align-self: stretch; min-block-size: 0; }
 .an-viewer .gp-provenance { pointer-events: auto; }
 .an-viewerhint {
   position: absolute;

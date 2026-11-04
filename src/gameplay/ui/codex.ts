@@ -112,21 +112,29 @@ export function archiveListScreen(t: T, chapters: readonly ChapterDefinition[], 
   return { id: 'archive', el, back: onBack };
 }
 
-/** Provenance card over the 3D viewer: who made it, when, why it may be shown, labels. */
+/**
+ * Provenance card over the 3D viewer: who made it, when, why it may be shown, labels.
+ * Title, scrolling body, fixed footer: the card never grows past the viewer, and Back stays on
+ * screen however long the text or large the UI text size (gameplay.css .gp-provenance).
+ */
 export function provenanceScreen(t: T, e: ArchiveEntry, onBack: () => void): GpScreen {
   const it = e.item;
   const card = h(
     'aside',
-    { class: 'gp-provenance', attrs: { role: 'dialog', 'aria-label': t(it.titleKey), tabindex: '0' } },
+    { class: 'gp-provenance', attrs: { role: 'dialog', 'aria-label': t(it.titleKey) } },
     h('h2', { class: 'gp-sheet__title', text: t(it.titleKey) }),
-    h('p', { class: 'gp-kicker' }, document.createTextNode(t(e.chapterTitleKey) + ' · ' + String(it.year) + ' · '), labelChip(t, it.label)),
-    h('p', { text: t(it.descriptionKey) }),
-    h('h3', { class: 'gp-subtitle', text: t('gameplay.archive.provenance') }),
-    h('p', { text: t(it.provenanceKey) }),
-    h('p', { class: 'gp-license', text: t('gameplay.license.' + it.license) }),
-    sourcesLine(t, it.sources),
-    h('p', { class: 'gp-dim', text: t('gameplay.archive.rotate') }),
-    h('div', { class: 'gp-actions' }, gpButton(t('gameplay.common.back'), onBack, { key: 'viewer-back', primary: true })),
+    h(
+      'div',
+      { class: 'gp-provenance__body', attrs: scrollableAttrs(t(it.titleKey)) },
+      h('p', { class: 'gp-kicker' }, document.createTextNode(t(e.chapterTitleKey) + ' · ' + String(it.year) + ' · '), labelChip(t, it.label)),
+      h('p', { text: t(it.descriptionKey) }),
+      h('h3', { class: 'gp-subtitle', text: t('gameplay.archive.provenance') }),
+      h('p', { text: t(it.provenanceKey) }),
+      h('p', { class: 'gp-license', text: t('gameplay.license.' + it.license) }),
+      sourcesLine(t, it.sources),
+      h('p', { class: 'gp-dim', text: t('gameplay.archive.rotate') }),
+    ),
+    h('div', { class: 'gp-provenance__foot' }, h('div', { class: 'gp-actions' }, gpButton(t('gameplay.common.back'), onBack, { key: 'viewer-back', primary: true }))),
   );
   return { id: 'archive-viewer', el: h('div', { class: 'gp-viewer' }, card), back: onBack };
 }

@@ -148,3 +148,64 @@ test('phone: extra large UI text keeps the briefing actions on screen and the mi
   }
   expect(problems).toEqual([]);
 });
+
+interface ViewerFit {
+  readonly cardTop: number;
+  readonly cardBottom: number;
+  readonly back: { readonly top: number; readonly bottom: number; readonly left: number; readonly right: number };
+  readonly bodyScrolls: boolean;
+}
+
+/** The provenance card and its Back button, measured against the viewport. */
+const viewerFit = (page: Page): Promise<ViewerFit> =>
+  page.evaluate(() => {
+    const card = document.querySelector<HTMLElement>('.gp-provenance');
+    const back = document.querySelector<HTMLElement>('[data-key="viewer-back"]');
+    const body = document.querySelector<HTMLElement>('.gp-provenance__body');
+    if (!card || !back || !body) throw new Error('viewer card not found');
+    const c = card.getBoundingClientRect();
+    const b = back.getBoundingClientRect();
+    return { cardTop: c.top, cardBottom: c.bottom, back: { top: b.top, bottom: b.bottom, left: b.left, right: b.right }, bodyScrolls: body.scrollHeight > body.clientHeight + 1 };
+  });
+
+// CQA-2: the archive viewer card used to grow past a 540 px tall screen and hide its Back button.
+for (const size of ['normal', 'xlarge'] as const) {
+  test('phone: archive viewer card fits and keeps Back on screen (UI text ' + size + ')', async ({ page }) => {
+    test.setTimeout(180000);
+    const problems = watchConsole(page);
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await expect.poll(() => page.evaluate(() => window.__netivim?.flow.state), { timeout: 60000 }).toBe('title');
+    await expect.poll(() => page.evaluate(() => !!window.__netivimGameplay), { timeout: 45000 }).toBe(true);
+    await page.evaluate((s) => window.__netivim?.settings.update('accessibility', { uiTextSize: s }), size);
+    await page.evaluate(() => {
+      const g = window.__netivim;
+      if (!g) return;
+      const st = g.getState();
+      g.setState({ ...st, unlocks: { ...st.unlocks, archive: ['basel-program'] } });
+      g.flow.send('openHub');
+    });
+    await expect(page.locator('[data-screen="gp-hub"]')).toBeVisible({ timeout: 60000 });
+    await page.locator('[data-screen="gp-hub"] [data-key="archive"]').tap();
+    await expect(page.locator('[data-screen="gp-archive"]')).toBeVisible({ timeout: 30000 });
+    await page.locator('[data-key="archive-basel-program"]').tap();
+    await expect(page.locator('.gp-provenance')).toBeVisible({ timeout: 30000 });
+    const fit = await viewerFit(page);
+    expect(fit.cardTop).toBeGreaterThanOrEqual(0);
+    expect(fit.cardBottom).toBeLessThanOrEqual(540);
+    expect(fit.back.top).toBeGreaterThanOrEqual(fit.cardTop);
+    expect(fit.back.bottom).toBeLessThanOrEqual(fit.cardBottom);
+    expect(fit.back.left).toBeGreaterThanOrEqual(0);
+    expect(fit.back.right).toBeLessThanOrEqual(1170);
+    // Long text scrolls inside the card; Back stays put.
+    if (fit.bodyScrolls) {
+      await page.evaluate(() => {
+        const body = document.querySelector<HTMLElement>('.gp-provenance__body');
+        if (body) body.scrollTop = body.scrollHeight;
+      });
+      expect((await viewerFit(page)).back.top).toBeCloseTo(fit.back.top, 0);
+    }
+    await page.locator('[data-key="viewer-back"]').tap();
+    await expect(page.locator('[data-screen="gp-archive"]')).toBeVisible({ timeout: 30000 });
+    expect(problems).toEqual([]);
+  });
+}
