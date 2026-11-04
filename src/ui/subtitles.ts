@@ -1,5 +1,5 @@
 import type { Game } from '../game';
-import { captionCapacity, captionHead, pageDurations, paginateCaption } from './captions';
+import { captionCapacity, captionHead, planCaption } from './captions';
 import { h } from './dom';
 import { activeLayout } from './layout';
 import { SubtitleTimer } from './subtitleTimer';
@@ -64,9 +64,12 @@ export function createSubtitles(game: Game): { el: HTMLElement; dispose(): void 
       }
       const region = activeLayout()?.regions.captions;
       const cap = region ? captionCapacity(region.w, region.h, SIZE_PX[game.settings.value.accessibility.subtitleSize], hd.visible) : Infinity;
-      pages = paginateCaption(text, cap);
-      durations = pageDurations(pages, durationMs);
+      const plan = planCaption(text, cap, durationMs);
+      pages = plan.pages;
+      durations = plan.durations;
       page = 0;
+      // Paging needs longer than the line was given: ask its owner to hold the queue (no page lost).
+      if (durationMs > 0 && plan.holdMs > durationMs) game.bus.emit('subtitle:extend', { textKey, durationMs: plan.holdMs });
       const announced = hd.label && hd.speaker ? hd.speaker + ' (' + t('gameplay.label.' + hd.label) + ')' : hd.speaker;
       live.textContent = announced ? announced + ': ' + text : text;
       visual.hidden = false;

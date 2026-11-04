@@ -51,6 +51,8 @@ export function pickHebrewVoice(voices: readonly SpeechSynthesisVoice[]): Speech
 export class Narrator {
   private speaking = false;
   private failsafe: ReturnType<typeof setTimeout> | null = null;
+  /** The utterance whose events may change state; null when nothing is queued or speaking. */
+  private current: SpeechSynthesisUtterance | null = null;
 
   constructor(private readonly deps: NarratorDeps) {}
 
@@ -84,19 +86,32 @@ export class Narrator {
       u.voice = voice;
       u.volume = volume;
       u.rate = 0.95;
-      u.onstart = () => this.setSpeaking(true);
-      u.onend = () => this.setSpeaking(false);
-      u.onerror = () => this.setSpeaking(false);
+      // synth.cancel() delivers the previous utterance's onend/onerror asynchronously, often
+      // after this one started: every handler acts only while its utterance is the current one.
+      u.onstart = () => {
+        if (this.current !== u) return;
+        // Armed on start (not on speak) so a slow engine start does not eat into the estimate.
+        // Some WebViews never fire onend; this releases the ducking after a generous estimate.
+        this.clearFailsafe();
+        this.failsafe = setTimeout(() => {
+          if (this.current === u) this.setSpeaking(false);
+        }, Math.max(3000, text.length * 110 + 2000));
+        this.setSpeaking(true);
+      };
+      u.onend = () => this.finish(u);
+      u.onerror = () => this.finish(u);
+      this.current = u;
       synth.speak(u);
-      // Some WebViews never fire onend; release the ducking after a generous estimate.
-      this.failsafe = setTimeout(() => this.setSpeaking(false), Math.max(3000, text.length * 110 + 2000));
     } catch {
+      this.current = null;
       this.setSpeaking(false);
     }
   }
 
   /** Stops speech immediately (subtitle:clear, pause, app hidden, voice switched off). */
   cancel(): void {
+    // Cleared first: the cancelled utterance's late events must find it is no longer current.
+    this.current = null;
     try {
       this.deps.synth?.cancel();
     } catch {
@@ -105,11 +120,22 @@ export class Narrator {
     this.setSpeaking(false);
   }
 
-  private setSpeaking(v: boolean): void {
-    if (!v && this.failsafe !== null) {
+  /** onend / onerror of `u`; ignored unless `u` is still the current utterance. */
+  private finish(u: SpeechSynthesisUtterance): void {
+    if (this.current !== u) return;
+    this.current = null;
+    this.setSpeaking(false);
+  }
+
+  private clearFailsafe(): void {
+    if (this.failsafe !== null) {
       clearTimeout(this.failsafe);
       this.failsafe = null;
     }
+  }
+
+  private setSpeaking(v: boolean): void {
+    if (!v) this.clearFailsafe();
     if (this.speaking === v) return;
     this.speaking = v;
     this.deps.onSpeaking?.(v);
