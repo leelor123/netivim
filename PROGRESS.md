@@ -71,6 +71,23 @@ region: Tower planning table, finale skip, vote zoom; 'panel' region for level s
 short taps in InputManager; static test tests/unit/touchPaths.test.ts).
 Next: merge, full CI, release v0.2.2 with a Hebrew update.
 
+## SCOPE RULE (user, 2026-11-04): Chapter 1 must be perfect first
+Do NOT start Chapter 2 or later (research, content, levels, 1949 map lines) until the user says the
+Prologue and Chapter 1 are perfect and we align together. Ch2/Ch3/Ch4 research agents were stopped.
+
+## Chapter 1 polish wave (10 parallel agents, worktrees)
+- Deepen missions: archive-night, jaffa-letters, tower-stockade, night-landing, the-vote (one each).
+- Accessibility round 2 (Low items + UI text size).
+- Performance (Ultra 60 fps, allocations, shader precompile, 30-min soak; docs/PERF_REPORT.md).
+- Visual polish (kit, lighting, era grading for hub + 5 missions).
+- Audio polish (score, ambience, mixing per mission).
+- Controller-only full playthrough QA (tests/e2e/controller-full.spec.ts, docs/CONTROLLER_QA.md).
+Release v0.2.2 (phone UX + bug fixes): waiting for CI, then tag (background).
+Follow-up after level agents finish: text size in gameplay.css, timeline.css, livingMap.css, tower.css
+(calc(Npx * var(--nv-ts, 1))) and remaining a11y Low items 4 (gp-sheet), 5, 7, 8, 9, 11, 12.
+After the wave: merge all, fresh code review + content/Hebrew review of new beats, fix, release, ask
+the user to play and confirm Chapter 1 before anything else.
+
 ## Next: M3 (Act 1 = Prologue + Ch1-4) exact next steps
 1. Get the user's on-device feedback on v0.2.1 (Ultra fps, controllers in the WebView, subtitles, focus).
 2. Ch2 pipeline: Ch2 prerequisites above, then content writer, level builders (5 missions), fresh fact-check, QA.

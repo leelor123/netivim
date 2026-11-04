@@ -6,6 +6,7 @@ import { FocusManager } from './focusManager';
 import { installFonts } from './fonts';
 import { createHud } from './hud';
 import { installScreenLayout } from './layout';
+import { UI_TEXT_SCALE } from '../core/settings';
 import { stickSide } from './touch/joystick';
 import { canPauseIn, exitPath, pausePressResumes } from './logic';
 import { ScreenManager } from './screenManager';
@@ -32,9 +33,17 @@ export function installUI(game: Game): () => void {
     const c = game.settings.value.controls;
     layout.setTouch(c.touchSize, stickSide(c.touchLayout));
   };
+  // UI text size: ONE variable (--nv-ts) scales all DOM UI text; the regions grow rows to match.
+  const syncTextSize = (): void => {
+    const ts = UI_TEXT_SCALE[game.settings.value.accessibility.uiTextSize];
+    document.documentElement.style.setProperty('--nv-ts', String(ts));
+    layout.setTextScale(ts);
+  };
   syncLayout();
+  syncTextSize();
   const offLayout = game.bus.on('settings:changed', ({ key }) => {
     if (key === 'controls') syncLayout();
+    if (key === 'accessibility') syncTextSize();
   });
   const layer = h('div', { class: 'nv-layer' });
   const rtl = game.i18n.dir === 'rtl';

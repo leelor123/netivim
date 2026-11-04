@@ -56,7 +56,7 @@
 /* ---------- Buttons ---------- */
 .nv-btn {
   font: inherit;
-  font-size: 18px;
+  font-size: calc(18px * var(--nv-ts, 1));
   min-height: 48px;
   min-width: 48px;
   padding: 8px 18px;
@@ -76,10 +76,10 @@
   transition: background-color 120ms ease, color 120ms ease;
 }
 .nv-btn__label { font-weight: 700; }
-.nv-btn__sub { font-size: 14px; color: var(--nv-ink-2); font-weight: 400; }
+.nv-btn__sub { font-size: calc(14px * var(--nv-ts, 1)); color: var(--nv-ink-2); font-weight: 400; }
 .nv-btn--primary { background: var(--nv-ink); color: var(--nv-paper); border-block-end-color: transparent; }
 .nv-btn--primary .nv-btn__sub { color: var(--nv-cream-2); }
-.nv-btn--quiet { font-size: 16px; }
+.nv-btn--quiet { font-size: calc(16px * var(--nv-ts, 1)); }
 .nv-btn--quiet .nv-btn__label { font-weight: 400; }
 .nv-btn--danger { color: var(--nv-stamp); }
 .nv-btn:disabled { cursor: default; color: var(--nv-ink-2); background: transparent; }
@@ -123,19 +123,19 @@
 .nv-brand {
   padding-block-end: 6px;
   min-width: 0;
-  text-shadow: 0 1px 2px rgb(20 17 13 / 0.9), 0 0 18px rgb(20 17 13 / 0.75);
+  text-shadow: 0 1px 2px rgb(20 17 13 / 0.95), 0 0 6px rgb(20 17 13 / 0.9), 0 0 18px rgb(20 17 13 / 0.8);
 }
 .nv-brand__kicker {
   margin: 0 0 6px;
-  font-size: clamp(14px, 1.8vw, 20px);
+  font-size: calc(clamp(14px, 1.8vw, 20px) * var(--nv-ts, 1));
   font-weight: 700;
-  color: #ecd3a2;
+  color: #fff3d6;
   letter-spacing: 0.02em;
 }
 .nv-root .nv-brand__title {
   font-family: var(--nv-display);
   font-weight: 700;
-  font-size: clamp(56px, min(12vw, 21vh), 136px);
+  font-size: calc(clamp(56px, min(12vw, 21vh), 136px) * var(--nv-ts, 1));
   line-height: 0.95;
   letter-spacing: 0;
   margin: 0;
@@ -148,8 +148,8 @@
   width: min(260px, 60%);
   background: linear-gradient(to left, var(--nv-sand), rgb(217 183 122 / 0));
 }
-.nv-brand__covered { margin: 0; font-size: 15px; color: var(--nv-cream); }
-.nv-brand__version { margin: 4px 0 0; font-size: 14px; color: var(--nv-cream-2); }
+.nv-brand__covered { margin: 0; font-size: calc(15px * var(--nv-ts, 1)); color: var(--nv-cream); }
+.nv-brand__version { margin: 4px 0 0; font-size: calc(14px * var(--nv-ts, 1)); color: var(--nv-cream); }
 
 .nv-title__card {
   align-self: end;
@@ -167,7 +167,7 @@
 }
 .nv-menu { display: flex; flex-direction: column; gap: 8px; }
 .nv-menu__primary { display: flex; flex-direction: column; gap: 6px; }
-.nv-menu__primary .nv-btn { font-size: 20px; }
+.nv-menu__primary .nv-btn { font-size: calc(20px * var(--nv-ts, 1)); }
 .nv-menu__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; }
 
 /* ---------- Panels (settings, pause, slots, info) ---------- */
@@ -200,9 +200,10 @@
   border-block-start: 4px double var(--nv-stamp);
   background: var(--nv-paper);
 }
-.nv-panel__title { font-family: var(--nv-display); font-size: 26px; margin: 0; padding-block-end: 8px; flex: 1 1 auto; }
+.nv-panel__title { font-family: var(--nv-display); font-size: calc(26px * var(--nv-ts, 1)); margin: 0; padding-block-end: 8px; flex: 1 1 auto; }
 .nv-back { order: -1; flex: 0 0 auto; border: 0; padding-inline: 10px; }
 .nv-back .nv-btn__label::before { content: '→ '; }
+.nv-back .nv-btn__label:dir(ltr)::before { content: '← '; }
 .nv-panel__body {
   flex: 1 1 auto;
   overflow: auto;
@@ -212,11 +213,11 @@
 }
 .nv-stack { display: flex; flex-direction: column; gap: 6px; padding-block: 6px; }
 .nv-stage--pause .nv-panel { width: min(400px, 100%); }
-.nv-prose { font-size: 17px; line-height: 1.6; max-width: 60ch; margin: 8px 0; }
-.nv-note { font-size: 14px; color: var(--nv-ink-2); margin: 6px 0 10px; }
+.nv-prose { font-size: calc(17px * var(--nv-ts, 1)); line-height: 1.6; max-width: 60ch; margin: 8px 0; }
+.nv-note { font-size: calc(14px * var(--nv-ts, 1)); color: var(--nv-ink-2); margin: 6px 0 10px; }
 .nv-section {
   font-family: var(--nv-display);
-  font-size: 19px;
+  font-size: calc(19px * var(--nv-ts, 1));
   margin: 18px 0 4px;
   padding-block-start: 10px;
   border-block-start: 2px solid var(--nv-ink);
@@ -234,7 +235,7 @@
 }
 .nv-tab {
   font: inherit;
-  font-size: 16px;
+  font-size: calc(16px * var(--nv-ts, 1));
   font-weight: 700;
   min-height: 48px;
   min-width: 48px;
@@ -261,8 +262,8 @@
   padding-block: 4px;
   border-block-end: 1px dashed var(--nv-paper-edge);
 }
-.nv-row__label { grid-area: label; font-size: 17px; font-weight: 700; }
-.nv-row__note { grid-area: note; font-size: 14px; color: var(--nv-ink-2); }
+.nv-row__label { grid-area: label; font-size: calc(17px * var(--nv-ts, 1)); font-weight: 700; }
+.nv-row__note { grid-area: note; font-size: calc(14px * var(--nv-ts, 1)); color: var(--nv-ink-2); }
 .nv-row > :last-child:not(.nv-row__label):not(.nv-row__note) { grid-area: control; }
 .nv-row--action { display: flex; justify-content: flex-start; border: 0; }
 
@@ -329,7 +330,7 @@
 .nv-choice__pip { width: 6px; height: 6px; border-radius: 50%; background: rgb(31 26 20 / 0.22); }
 .nv-choice__pip.is-on { background: var(--nv-umber); }
 .nv-choice__arrow { display: grid; place-items: center; height: 48px; color: var(--nv-umber); }
-.nv-choice__arrow::before { font-size: 22px; line-height: 1; }
+.nv-choice__arrow::before { font-size: calc(22px * var(--nv-ts, 1)); line-height: 1; }
 /* Prev sits at the reading start (right in RTL); arrows point outward. */
 .nv-choice__arrow--prev::before { content: '‹'; }
 .nv-choice__arrow--next::before { content: '›'; }
@@ -351,8 +352,8 @@
   border-block-start: 4px double var(--nv-stamp);
   box-shadow: 0 24px 60px rgb(0 0 0 / 0.55);
 }
-.nv-dialog__title { font-family: var(--nv-display); font-size: 24px; margin: 0 0 6px; }
-.nv-dialog__body { font-size: 16px; margin: 0 0 12px; color: var(--nv-ink-2); }
+.nv-dialog__title { font-family: var(--nv-display); font-size: calc(24px * var(--nv-ts, 1)); margin: 0 0 6px; }
+.nv-dialog__body { font-size: calc(16px * var(--nv-ts, 1)); margin: 0 0 12px; color: var(--nv-ink-2); }
 .nv-dialog__actions { display: flex; flex-direction: column; gap: 6px; }
 
 /* ---------- Save slots ---------- */
@@ -373,9 +374,9 @@
   border-radius: 6px;
   cursor: pointer;
 }
-.nv-slot__num { font-family: var(--nv-display); font-size: 19px; font-weight: 700; }
+.nv-slot__num { font-family: var(--nv-display); font-size: calc(19px * var(--nv-ts, 1)); font-weight: 700; }
 .nv-slot__when { font-variant-numeric: tabular-nums; }
-.nv-slot__where { font-size: 14px; color: var(--nv-ink-2); }
+.nv-slot__where { font-size: calc(14px * var(--nv-ts, 1)); color: var(--nv-ink-2); }
 .nv-slot.is-empty { border-inline-start-color: var(--nv-paper-edge); }
 .nv-slot.is-empty .nv-slot__when { color: var(--nv-ink-2); }
 
@@ -397,9 +398,9 @@
   border-radius: 6px;
   cursor: pointer;
 }
-.nv-chapter__num { font-size: 14px; color: var(--nv-stamp); font-weight: 700; }
-.nv-chapter__title { font-family: var(--nv-display); font-size: 18px; line-height: 1.25; }
-.nv-chapter__state { font-size: 14px; color: var(--nv-ink-2); }
+.nv-chapter__num { font-size: calc(14px * var(--nv-ts, 1)); color: var(--nv-stamp); font-weight: 700; }
+.nv-chapter__title { font-family: var(--nv-display); font-size: calc(18px * var(--nv-ts, 1)); line-height: 1.25; }
+.nv-chapter__state { font-size: calc(14px * var(--nv-ts, 1)); color: var(--nv-ink-2); }
 .nv-chapter.is-locked { background: transparent; border-style: dashed; cursor: default; }
 
 /* ---------- HUD (screen region "system", see src/ui/layout.ts) ---------- */
@@ -468,7 +469,7 @@
 .nv-toast__text {
   max-width: 100%;
   padding: 7px 16px;
-  font-size: 15px;
+  font-size: calc(15px * var(--rg-ts, 1));
   font-weight: 700;
   line-height: 1.4;
   white-space: nowrap;
@@ -540,13 +541,13 @@
 /* ---------- Small and landscape phone layouts ---------- */
 @media (max-height: 460px) {
   .nv-title { grid-template-columns: minmax(0, 1fr) minmax(300px, 1fr); align-items: center; }
-  .nv-root .nv-brand__title { font-size: clamp(48px, 16vh, 84px); }
+  .nv-root .nv-brand__title { font-size: calc(clamp(48px, 16vh, 84px) * var(--nv-ts, 1)); }
   .nv-title__card { padding: 10px 16px; }
   .nv-menu { gap: 4px; }
-  .nv-menu__primary .nv-btn { font-size: 18px; }
+  .nv-menu__primary .nv-btn { font-size: calc(18px * var(--nv-ts, 1)); }
   .nv-btn { padding-block: 4px; }
   .nv-panel__head { padding-top: 6px; }
-  .nv-panel__title { font-size: 20px; padding-block-end: 4px; }
+  .nv-panel__title { font-size: calc(20px * var(--nv-ts, 1)); padding-block-end: 4px; }
   .nv-panel__body { padding: 6px 16px 12px; }
   .nv-stage { padding-block: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-bottom)); }
   .nv-panel { height: 100%; }

@@ -47,6 +47,8 @@ export interface Viewport {
   readonly touchScale?: number;
   /** Side of the virtual stick (the action buttons take the other bottom corner). */
   readonly stickSide?: 'left' | 'right';
+  /** UI text scale (settings.accessibility.uiTextSize, 1-1.4): text rows and the side column grow with it. */
+  readonly textScale?: number;
 }
 
 /** Layout constants (CSS px). Touch sizes are at touchScale 1. */
@@ -82,8 +84,27 @@ export const LAYOUT = {
 
 const NO_INSETS: Insets = { t: 0, r: 0, b: 0, l: 0 };
 
+/**
+ * The text scale the regions can really honour. Rows (notice, hint, toast, prompt) grow with the
+ * text, but never so far that the captions region would fall under its minimum height; on a short
+ * screen the scale steps down towards 1 instead. Region-hosted text uses this value (--rg-ts).
+ */
+export function regionTextScale(vp: Viewport): number {
+  const want = Math.max(1, vp.textScale ?? 1);
+  if (want === 1) return 1;
+  const floor = Math.min(LAYOUT.captionsMin, build(vp, 1).captions.h);
+  for (const c of [want, (want + 1) / 2, 1]) if (build(vp, c).captions.h >= floor - 1e-6) return c;
+  return 1;
+}
+
 /** Computes every region for a viewport. Pure. */
 export function computeRegions(vp: Viewport): Record<Region, Rect> {
+  return build(vp, regionTextScale(vp));
+}
+
+function build(vp: Viewport, ts: number): Record<Region, Rect> {
+  const row = Math.ceil(LAYOUT.row * ts);
+  const promptH = Math.ceil(LAYOUT.prompt * ts);
   const s = vp.safe ?? NO_INSETS;
   const k = vp.touchScale ?? 1;
   const L = Math.max(LAYOUT.edge, s.l);
@@ -107,7 +128,7 @@ export function computeRegions(vp: Viewport): Record<Region, Rect> {
   // Top corners: system buttons (left) and the objective (right), never reaching the bottom corners.
   const sysW = LAYOUT.button * 2 + LAYOUT.buttonGap;
   const system: Rect = { x: L, y: T, w: sysW, h: Math.max(0, Math.min(LAYOUT.button, bottomLeftTop - g - T)) };
-  const objW = Math.min(LAYOUT.objectiveMax, Math.max(LAYOUT.objectiveMin, W * LAYOUT.objectiveVw));
+  const objW = Math.min(LAYOUT.objectiveMax * ts, Math.max(LAYOUT.objectiveMin * ts, W * LAYOUT.objectiveVw * ts));
   const objective: Rect = { x: W - R - objW, y: T, w: objW, h: Math.max(0, Math.min(H * LAYOUT.objectiveVh, bottomRightTop - g - T)) };
 
   // Centre columns, symmetric around the screen centre so text stays centred.
@@ -118,14 +139,14 @@ export function computeRegions(vp: Viewport): Record<Region, Rect> {
   const leftBox = stickLeft ? stick : actions;
   const rightBox = stickLeft ? actions : stick;
   // The top lines also stay clear of a bottom corner that is tall enough to reach them.
-  const topBottom = T + LAYOUT.row * 3 + g * 2;
+  const topBottom = T + row * 3 + g * 2;
   const top = column(Math.max(system.x + system.w, leftBox.y < topBottom + g ? leftBox.x + leftBox.w : 0), Math.min(objective.x, rightBox.y < topBottom + g ? rightBox.x : W));
-  const notice: Rect = { x: top.x, y: T, w: top.w, h: LAYOUT.row };
-  const hint: Rect = { x: top.x, y: notice.y + notice.h + g, w: top.w, h: LAYOUT.row };
-  const toast: Rect = { x: top.x, y: hint.y + hint.h + g, w: top.w, h: LAYOUT.row };
+  const notice: Rect = { x: top.x, y: T, w: top.w, h: row };
+  const hint: Rect = { x: top.x, y: notice.y + notice.h + g, w: top.w, h: row };
+  const toast: Rect = { x: top.x, y: hint.y + hint.h + g, w: top.w, h: row };
 
   // Level side panel: the right column under the objective, down to the bottom-right corner.
-  const panelW = Math.min(objW, LAYOUT.panelMax);
+  const panelW = Math.min(objW, LAYOUT.panelMax * ts);
   const panelY = objective.y + objective.h + g;
   const panelH = Math.max(0, bottomRightTop - g - panelY);
   const panel: Rect = { x: W - R - panelW, y: panelY, w: panelW, h: panelH };
@@ -138,10 +159,10 @@ export function computeRegions(vp: Viewport): Record<Region, Rect> {
   const bottom = { x: bLeft + (bRight - bLeft - bW) / 2, w: bW };
   // Bottom-up: captions, prompt, toolbar. Captions give way first on short screens so the
   // toolbar always keeps its full 48 px targets.
-  const fixedAbove = topBottom + g + LAYOUT.toolbar + g + LAYOUT.prompt + g;
+  const fixedAbove = topBottom + g + LAYOUT.toolbar + g + promptH + g;
   const capH = Math.max(0, Math.min(LAYOUT.captionsMax, Math.max(LAYOUT.captionsMin, H * LAYOUT.captionsVh), H - B - fixedAbove));
   const captions: Rect = { x: bottom.x, y: H - B - capH, w: bottom.w, h: capH };
-  const prompt: Rect = { x: bottom.x, y: captions.y - g - LAYOUT.prompt, w: bottom.w, h: LAYOUT.prompt };
+  const prompt: Rect = { x: bottom.x, y: captions.y - g - promptH, w: bottom.w, h: promptH };
   const toolbarY = Math.max(topBottom + g, prompt.y - g - LAYOUT.toolbar);
   const toolbar: Rect = { x: bottom.x, y: toolbarY, w: bottom.w, h: Math.max(0, prompt.y - g - toolbarY) };
 
@@ -186,6 +207,8 @@ function measureSafeArea(doc: Document): Insets {
 export interface ScreenLayout {
   /** Recomputes after a change of touch size / handedness. */
   setTouch(scale: number, stickSide: 'left' | 'right'): void;
+  /** Recomputes after a change of the UI text size (settings.accessibility.uiTextSize). */
+  setTextScale(scale: number): void;
   /** Current regions (CSS px), e.g. for placing the idle joystick. */
   readonly regions: Record<Region, Rect>;
   dispose(): void;
@@ -203,10 +226,12 @@ export function installScreenLayout(doc: Document = document): ScreenLayout {
   const root = doc.documentElement;
   let scale = 1;
   let side: 'left' | 'right' = 'left';
+  let textScale = 1;
   let regions = computeRegions({ w: window.innerWidth, h: window.innerHeight });
   const apply = (): void => {
-    const vp: Viewport = { w: window.innerWidth, h: window.innerHeight, safe: measureSafeArea(doc), touchScale: scale, stickSide: side };
+    const vp: Viewport = { w: window.innerWidth, h: window.innerHeight, safe: measureSafeArea(doc), touchScale: scale, stickSide: side, textScale };
     regions = computeRegions(vp);
+    root.style.setProperty('--rg-ts', String(regionTextScale(vp)));
     for (const [k, v] of Object.entries(regionVars(regions, vp))) root.style.setProperty(k, v);
   };
   apply();
@@ -216,6 +241,11 @@ export function installScreenLayout(doc: Document = document): ScreenLayout {
       if (s === scale && sd === side) return;
       scale = s;
       side = sd;
+      apply();
+    },
+    setTextScale(ts) {
+      if (ts === textScale) return;
+      textScale = ts;
       apply();
     },
     get regions() {

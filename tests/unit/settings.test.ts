@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { EventBus } from '../../src/core/events';
 import type { GameEvents } from '../../src/core/gameEvents';
-import { DEFAULT_SETTINGS, sanitizeSettings, SettingsManager } from '../../src/core/settings';
+import { DEFAULT_SETTINGS, sanitizeSettings, SettingsManager, UI_TEXT_SCALE } from '../../src/core/settings';
 import { MemoryStore } from '../../src/core/save/stores';
 
 describe('sanitizeSettings', () => {
@@ -57,5 +57,27 @@ describe('SettingsManager', () => {
     m.update('audio', { sfx: 0.5 });
     expect(m.value.audio.sfx).toBe(0.5);
     expect(failed).toEqual(['settings']);
+  });
+});
+
+describe('UI text size and touch opacity floor', () => {
+  it('defaults to normal and rejects unknown sizes (old saves have no field)', () => {
+    expect(DEFAULT_SETTINGS.accessibility.uiTextSize).toBe('normal');
+    expect(sanitizeSettings({ accessibility: { subtitleSize: 'small' } }).accessibility.uiTextSize).toBe('normal');
+    expect(sanitizeSettings({ accessibility: { uiTextSize: 'huge' } }).accessibility.uiTextSize).toBe('normal');
+    expect(sanitizeSettings({ accessibility: { uiTextSize: 'xlarge' } }).accessibility.uiTextSize).toBe('xlarge');
+    expect(UI_TEXT_SCALE.normal).toBe(1);
+    expect(UI_TEXT_SCALE.large).toBeGreaterThan(1);
+    expect(UI_TEXT_SCALE.xlarge).toBeGreaterThan(UI_TEXT_SCALE.large);
+  });
+
+  it('saves and reloads like other settings', () => {
+    const store = new MemoryStore();
+    new SettingsManager(new EventBus<GameEvents>(), store).update('accessibility', { uiTextSize: 'large' });
+    expect(new SettingsManager(new EventBus<GameEvents>(), store).value.accessibility.uiTextSize).toBe('large');
+  });
+
+  it('clamps touch opacity to at least 50%', () => {
+    expect(sanitizeSettings({ controls: { touchOpacity: 0.1 } }).controls.touchOpacity).toBe(0.5);
   });
 });
