@@ -3,7 +3,7 @@ import { CARD_SLOT_OF_PARTY, MAP_LAYERS, PARTIES, PLACES, type Party, type Place
 /** Pure progress model of "The Vote": no rendering, so unit tests and the level share it. */
 
 export type DeliverResult = 'none' | 'ok' | 'retry' | 'fail';
-export type SubmitResult = 'ok' | 'warn' | 'fail';
+export type SubmitResult = 'ok' | 'warn' | 'fail' | 'points';
 
 export interface VoteSnapshot {
   layers: boolean[];
@@ -16,6 +16,7 @@ export interface VoteSnapshot {
   jerusalem: boolean;
   warned: boolean;
   tallyArmed: boolean;
+  points: boolean[];
 }
 
 export const partyOfSlot = (slot: number): Party => PARTIES[PARTIES.findIndex((_, i) => CARD_SLOT_OF_PARTY[i] === slot)] as Party;
@@ -32,6 +33,8 @@ export class VoteModel {
   jerusalem = false;
   warned = false;
   tallyArmed = false;
+  /** Party positions added to the note (PARTIES order). */
+  points: boolean[] = PARTIES.map(() => false);
 
   /** Sets exactly the progress that is implied by arriving at a checkpoint. */
   resetTo(state: VoteState): void {
@@ -53,6 +56,18 @@ export class VoteModel {
     this.jerusalem = false;
     this.warned = false;
     this.tallyArmed = false;
+    this.points = PARTIES.map(() => false);
+  }
+
+  get pointsCount(): number {
+    return this.points.filter(Boolean).length;
+  }
+
+  /** Adds a party's position to the note; false when it was already there. */
+  addPoint(i: number): boolean {
+    if (this.points[i] ?? true) return false;
+    this.points[i] = true;
+    return true;
   }
 
   get layersSeen(): number {
@@ -106,14 +121,19 @@ export class VoteModel {
     return this.asked[place].some(Boolean) && !this.advised[place];
   }
 
-  /** Submits the note: Jerusalem must be in it; the first omission only warns. */
+  /**
+   * Submits the note: Jerusalem must be in it (the first omission only warns, the second fails);
+   * with Jerusalem in, a missing party position only asks the player to add it ('points').
+   */
   submit(): SubmitResult {
-    if (this.jerusalem) return 'ok';
-    if (!this.warned) {
-      this.warned = true;
-      return 'warn';
+    if (!this.jerusalem) {
+      if (!this.warned) {
+        this.warned = true;
+        return 'warn';
+      }
+      return 'fail';
     }
-    return 'fail';
+    return this.pointsCount >= PARTIES.length ? 'ok' : 'points';
   }
 
   snapshot(): VoteSnapshot {
@@ -128,6 +148,7 @@ export class VoteModel {
       jerusalem: this.jerusalem,
       warned: this.warned,
       tallyArmed: this.tallyArmed,
+      points: [...this.points],
     };
   }
 
@@ -142,5 +163,6 @@ export class VoteModel {
     if (s.jerusalem !== undefined) this.jerusalem = s.jerusalem;
     if (s.warned !== undefined) this.warned = s.warned;
     if (s.tallyArmed !== undefined) this.tallyArmed = s.tallyArmed;
+    if (s.points) this.points = PARTIES.map((_, i) => s.points?.[i] ?? false);
   }
 }

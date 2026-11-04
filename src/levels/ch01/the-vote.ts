@@ -21,12 +21,14 @@ import {
   MAP_LAYERS,
   NEIGHBOR,
   NOTE_DESK,
+  NOTE_POINTS,
   OFFICE,
   PARTIES,
   PLACES,
   PLACE_DEFS,
   PLACE_ENTRY,
   PLACE_SPOTS,
+  POINT_RADIUS,
   RADIO,
   ROUTE_PLACE,
   SIGN,
@@ -113,10 +115,13 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
   };
 
   // ---- interactables -------------------------------------------------------------------
-  const table = track(
-    { id: 'vote-table', kind: 'generic', x: TABLE.x, z: TABLE.z, radius: 3.4, promptKey: L('prompt.table'), enabled: false, onInteract: () => onTable() },
-    '#f2c14e',
-  );
+  // The HUD prompt only refreshes when focus changes, so the table is three interactables on one
+  // spot (open, next layer, close); switching which one is enabled refreshes the prompt.
+  const tableItem = (id: string, promptKey: string): Interactable =>
+    track({ id, kind: 'generic', x: TABLE.x, z: TABLE.z, radius: 3.4, promptKey, enabled: false, onInteract: () => onTable() }, '#f2c14e');
+  const table = tableItem('vote-table', L('prompt.table'));
+  const tableNext = tableItem('vote-table-next', L('prompt.tableNext'));
+  const tableClose = tableItem('vote-table-close', L('prompt.tableClose'));
   const cards = CARD_SPOTS.map((p, slot) =>
     track({ id: 'vote-card-' + String(slot), kind: 'pickup', x: p.x, z: p.z, radius: ASK_RADIUS, promptKey: L('prompt.card.' + String(slot + 1)), enabled: false, onInteract: () => onCard(slot) }, '#f2c14e'),
   );
@@ -135,6 +140,10 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
   const advices = PLACES.map((place) => {
     const p = PLACE_SPOTS[place].advice;
     return track({ id: 'vote-advice-' + place, kind: 'generic', x: p.x, z: p.z, radius: 1.0, promptKey: L('prompt.advice'), enabled: false, onInteract: () => onAdvice(place) }, '#f2c14e');
+  });
+  const points = PARTIES.map((party, i) => {
+    const p = NOTE_POINTS[i] ?? NOTE_DESK;
+    return track({ id: 'vote-point-' + party, kind: 'pickup', x: p.x, z: p.z, radius: POINT_RADIUS, promptKey: L('prompt.point.' + party), enabled: false, onInteract: () => onPoint(i) }, '#f2c14e');
   });
   const pageIt = track(
     { id: 'vote-page', kind: 'pickup', x: NOTE_DESK.jerusalem.x, z: NOTE_DESK.jerusalem.z, radius: 0.9, promptKey: L('prompt.page'), enabled: false, onInteract: () => onPage() },
@@ -155,7 +164,12 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
   function refresh(): void {
     const st = ctx.mission.state;
     for (const it of items) it.enabled = false;
-    if (st === 'map') table.enabled = true;
+    if (st === 'map') {
+      const last = layer >= MAP_LAYERS.length - 1;
+      table.enabled = !planning;
+      tableNext.enabled = planning && !last;
+      tableClose.enabled = planning && last;
+    }
     if (st === 'statements') {
       for (let k = 0; k < cards.length; k++) {
         const done = model.delivered[PARTIES.indexOf(partyOfSlot(k))] ?? false;
@@ -172,6 +186,9 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
     }
     if (st === 'note') {
       pageIt.enabled = !model.jerusalem;
+      points.forEach((pt, i) => {
+        pt.enabled = !model.points[i];
+      });
       submitIt.enabled = true;
     }
     if (st === 'vote') {
@@ -185,6 +202,9 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
       c.visible = !(model.delivered[PARTIES.indexOf(partyOfSlot(k))] ?? false) && carried !== k;
     });
     stage.page.visible = !model.jerusalem;
+    stage.points.forEach((m, i) => {
+      m.visible = !(model.points[i] ?? false);
+    });
   }
 
   function send(e: VoteEvent): void {
@@ -223,7 +243,6 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
       rig.plan.maxHeight = 16;
       rig.plan.height = 11.5;
       rig.plan.panSpeed = 4;
-      table.promptKey = L('prompt.tableNext');
       // Touch: the stick pans and the interact button turns the layers; zoom gets two buttons.
       ctx.touchActions([
         { scroll: 1, label: ctx.t('gameplay.touch.zoomIn') },
@@ -234,19 +253,20 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
       rig.snapBehind(0);
       ctx.touchActions(null);
       for (const g of stage.layerGroups) g.visible = false;
-      table.promptKey = L('prompt.table');
     }
+    refresh();
   }
   function onTable(): void {
     touch();
     if (!planning) {
       setPlanning(true);
       showLayer(0);
+      refresh();
       return;
     }
     if (layer < MAP_LAYERS.length - 1) {
       showLayer(layer + 1);
-      if (layer === MAP_LAYERS.length - 1) table.promptKey = L('prompt.tableClose');
+      refresh();
       return;
     }
     setPlanning(false);
@@ -303,6 +323,7 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
     ctx.decide(PLACE_DEFS[place].adviceId, () => {
       model.advised[place] = true;
       touch();
+      schedule(1.5, () => speak([line(PLACE_DEFS[place].farewellKey, PLACE_DEFS[place].speakerKey, 5200)], 'composite'));
       if (model.placesDone() >= PLACES.length) send('visitsDone');
       else refresh();
     });
@@ -315,13 +336,22 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
     speak([line(L('say.page'), SPEAKER_NARRATOR, 4200), line('ch01.vote.map3', null, 6200), line('ch01.archive.res181.desc', null, 9000)], 'documented');
     refresh();
   }
+  function onPoint(i: number): void {
+    const party = PARTIES[i];
+    if (!party || !model.addPoint(i)) return;
+    ctx.objectives.progress('o4', model.pointsCount);
+    ctx.bus.emit('audio:cue', { cue: 'paper.rustle', intensity: 0.6 });
+    speak([line(L('say.point'), SPEAKER_NARRATOR, 3600), line(statementKey(party), null, 7200)], 'documented');
+    refresh();
+  }
   function onSubmit(): void {
     const r = model.submit();
     touch();
     if (r === 'ok') {
-      ctx.objectives.progress('o4', 1);
       speak([line(L('say.noteOk'), SPEAKER_NARRATOR, 5200)], 'reconstructed');
       send('noteDone');
+    } else if (r === 'points') {
+      speak([line(L('say.notePoints'), SPEAKER_NARRATOR, 6200)], 'reconstructed');
     } else if (r === 'warn') {
       speak([line(L('say.noteWarn'), SPEAKER_NARRATOR, 6200)], 'reconstructed');
     } else {
@@ -441,7 +471,6 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
       planning = false;
       player.rig.mode = 'follow';
       for (const g of stage.layerGroups) g.visible = false;
-      table.promptKey = L('prompt.table');
       layer = -1;
       carried = -1;
       finale = -1;
@@ -518,6 +547,10 @@ const returnToSquare: BotStep = {
 
 const NOTE_STEPS: BotStep[] = [
   returnToSquare,
+  ...PARTIES.flatMap((_, i): BotStep[] => {
+    const p = NOTE_POINTS[i] ?? NOTE_DESK;
+    return [walk(p.x, p.z + 0.35, 0.3), tap];
+  }),
   walk(NOTE_DESK.jerusalem.x, NOTE_DESK.jerusalem.z + 0.35, 0.35),
   tap,
   walk(NOTE_DESK.typewriter.x, NOTE_DESK.typewriter.z + 0.35, 0.35),
@@ -560,7 +593,7 @@ export default defineLevel<VoteState, VoteEvent>({
     { id: 'o1', textKey: 'ch01.vote.o1', states: ['map'], steps: MAP_LAYERS.length },
     { id: 'o2', textKey: 'ch01.vote.o2', states: ['statements'], steps: PARTIES.length },
     { id: 'o3', textKey: 'ch01.vote.o3', states: ['visits'], steps: PLACES.length },
-    { id: 'o4', textKey: 'ch01.vote.o4', states: ['note'] },
+    { id: 'o4', textKey: 'ch01.vote.o4', states: ['note'], steps: PARTIES.length },
     { id: 'o5', textKey: 'ch01.vote.o5', states: ['vote'] },
   ],
   failures: {
@@ -576,6 +609,7 @@ export default defineLevel<VoteState, VoteEvent>({
     note: NOTE_STEPS,
     vote: VOTE_STEPS,
   },
+  briefingContextKey: L('context'),
   briefingMap: {
     size: 128,
     points: [
