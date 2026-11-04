@@ -32,7 +32,7 @@ import {
   RADIO,
   ROUTE_PLACE,
   SIGN,
-  SPAWN,
+  CHECKPOINT_SPAWN,
   SPEAK_MS,
   STATION_X_OF_PARTY,
   TABLE,
@@ -97,6 +97,13 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
     markers.set(added.id, world.addMarker(added.x, added.z, color));
     return added;
   };
+  /** A logged decision: a paper sound and a light pulse so the choice feels registered. */
+  const decide = (id: string, onChosen: (optionId: string) => void): void =>
+    ctx.decide(id, (optionId) => {
+      ctx.bus.emit('audio:cue', { cue: 'ui.save' });
+      if (!ctx.headless) ctx.bus.emit('haptics:pulse', { strength: 'light', durationMs: 90 });
+      onChosen(optionId);
+    });
   const touch = (): void => {
     idle = 0;
   };
@@ -270,7 +277,7 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
       return;
     }
     setPlanning(false);
-    ctx.decide(DECISION_PREPARE, () => send('mapDone'));
+    decide(DECISION_PREPARE, () => send('mapDone'));
   }
 
   // ---- cp2: statement cards -------------------------------------------------------------
@@ -290,6 +297,7 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
       carried = -1;
       ctx.objectives.progress('o2', model.deliveredCount);
       ctx.bus.emit('audio:cue', { cue: 'paper.rustle', intensity: 0.7 });
+      if (!ctx.headless) ctx.bus.emit('haptics:pulse', { strength: 'light', durationMs: 70 });
       if (model.deliveredCount >= PARTIES.length) send('statementsDone');
       else refresh();
     } else if (r === 'retry') {
@@ -301,7 +309,7 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
 
   // ---- cp3: the visits ------------------------------------------------------------------
   function onSign(): void {
-    ctx.decide(DECISION_LISTEN, () => {
+    decide(DECISION_LISTEN, () => {
       model.listened = true;
       refresh();
       mood('reflective');
@@ -320,7 +328,7 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
   }
   function onAdvice(place: PlaceId): void {
     if (!model.canAdvise(place)) return;
-    ctx.decide(PLACE_DEFS[place].adviceId, () => {
+    decide(PLACE_DEFS[place].adviceId, () => {
       model.advised[place] = true;
       touch();
       schedule(1.5, () => speak([line(PLACE_DEFS[place].farewellKey, PLACE_DEFS[place].speakerKey, 5200)], 'composite'));
@@ -361,7 +369,7 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
 
   // ---- cp5: the radio -------------------------------------------------------------------
   function onNeighbor(): void {
-    ctx.decide(DECISION_NEIGHBOR, (optionId) => {
+    decide(DECISION_NEIGHBOR, (optionId) => {
       neighborChoice = optionId;
       refresh();
     });
@@ -480,7 +488,7 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
       for (const p of PLACES) greeted[p] = false;
       stage.setRadio(0);
       model.resetTo(st);
-      const saved = data as { model?: Parameters<VoteModel['restore']>[0]; x?: number; z?: number; neighbor?: string; carried?: number; finale?: number } | null;
+      const saved = data as { model?: Parameters<VoteModel['restore']>[0]; x?: number; z?: number; neighbor?: string; carried?: number; finale?: number; yaw?: number } | null;
       if (saved?.model) {
         model.restore(saved.model);
         carried = saved.carried ?? -1;
@@ -491,19 +499,18 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
           stage.setRadio(1);
         }
       }
-      if (saved && typeof saved.x === 'number' && typeof saved.z === 'number') player.spawn(saved.x, saved.z, 0);
-      else if (st === 'map') player.spawn(SPAWN.x, SPAWN.z, SPAWN.heading);
-      else if (st === 'statements') player.spawn(0, -41.5, SPAWN.heading);
-      else if (st === 'visits') player.spawn(0, -12.5, 0);
-      else if (st === 'note') player.spawn(-4, -1.5, 0);
-      else player.spawn(0, -3.5, 0);
+      if (saved && typeof saved.x === 'number' && typeof saved.z === 'number') player.spawn(saved.x, saved.z, typeof saved.yaw === 'number' ? saved.yaw : CHECKPOINT_SPAWN[st].heading);
+      else {
+        const sp = CHECKPOINT_SPAWN[st];
+        player.spawn(sp.x, sp.z, sp.heading);
+      }
       ctx.bus.emit('audio:cue', { cue: 'ambience.night' });
       ctx.bus.emit('audio:cue', { cue: 'crowd.murmur', intensity: 0 });
       mood(st === 'vote' ? 'tense' : st === 'visits' ? 'reflective' : 'calm');
       refresh();
     },
     warp: (x, z) => player.spawn(x, z, 0),
-    snapshotData: () => ({ model: model.snapshot(), x: player.x, z: player.z, neighbor: neighborChoice, carried, finale }),
+    snapshotData: () => ({ model: model.snapshot(), x: player.x, z: player.z, neighbor: neighborChoice, carried, finale, yaw: player.rig.orbit.yaw }),
     dispose: () => scene.dispose(),
   };
 }
