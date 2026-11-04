@@ -55,3 +55,40 @@ describe('GameLoop', () => {
     expect(dts).toEqual([1 / 60, 1 / 60]);
   });
 });
+
+describe('GameLoop frame-synced mode (smooth motion on any display rate)', () => {
+  it('advances exactly the frame time at 120 Hz: one 1/120 s step per frame', () => {
+    const dts: number[] = [];
+    const loop = new GameLoop({ step: (dt) => dts.push(dt), mode: 'frame' });
+    for (let i = 0; i < 4; i++) loop.advance(1 / 120);
+    expect(dts.length).toBe(4);
+    for (const dt of dts) expect(dt).toBeCloseTo(1 / 120, 9);
+  });
+
+  it('splits long frames into equal steps of at most 1/60 s', () => {
+    const dts: number[] = [];
+    const loop = new GameLoop({ step: (dt) => dts.push(dt), mode: 'frame' });
+    loop.advance(1 / 30);
+    expect(dts).toHaveLength(2);
+    expect(dts[0]).toBeCloseTo(1 / 60, 9);
+    loop.advance(0.025);
+    expect(dts).toHaveLength(4);
+    expect(dts[2]).toBeCloseTo(0.0125, 9);
+  });
+
+  it('never steps more than maxSteps after a stall, and never while paused', () => {
+    let total = 0;
+    let n = 0;
+    const loop = new GameLoop({ step: (dt) => { total += dt; n++; }, mode: 'frame', maxSteps: 5 });
+    loop.advance(2);
+    expect(n).toBe(5);
+    expect(total).toBeCloseTo(5 / 60, 9);
+    loop.paused = true;
+    loop.advance(1 / 60);
+    expect(n).toBe(5);
+    loop.paused = false;
+    loop.advance(-1);
+    loop.advance(Number.NaN);
+    expect(n).toBe(5);
+  });
+});

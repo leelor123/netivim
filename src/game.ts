@@ -141,6 +141,8 @@ export function startGame(canvas: HTMLCanvasElement, i18n: I18n, onPauseChanged:
   const frameHooks = new Set<(dt: number, paused: boolean) => void>();
 
   const loop = new GameLoop({
+    // Frame-synced steps: smooth motion on any display refresh rate (see GameLoopOptions.mode).
+    mode: 'frame',
     step: (dt) => {
       input.update();
       // Pausing is core behavior; resuming belongs to the pause screen (UI).
