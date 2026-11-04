@@ -152,7 +152,10 @@ export class MissionHost {
     if (this.level) throw new Error('Mission already started');
     const level = this.o.def.build(this.ctx);
     this.level = level;
-    const snap = this.o.snapshot && this.o.snapshot.missionId === this.o.def.missionId ? this.o.snapshot : null;
+    const t = this.o.def.mission.machine.transitions as Record<string, unknown>;
+    const raw = this.o.snapshot && this.o.snapshot.missionId === this.o.def.missionId ? this.o.snapshot : null;
+    // A save from an older version may name a state that was renamed: start the mission fresh.
+    const snap = raw && Object.hasOwn(t, raw.state) && Object.hasOwn(t, raw.checkpoint) ? raw : null;
     let levelData: unknown = null;
     if (snap && isSnapshotData(snap.data)) {
       for (const a of snap.data.assists) this.assists.accept(a);

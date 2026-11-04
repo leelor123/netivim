@@ -43,6 +43,8 @@ export class SaveManager {
   private volatileNow = false;
   /** A manual save happened since the current mission or cutscene began. */
   private manualSinceVolatileStart = false;
+  /** Exact state of the last manual save in the current mission/cutscene period (BRIEF 8.C). */
+  private lastManualThisPeriod: SaveData | null = null;
   private dirtyFlag = false;
   private ready = false;
   private readonly mirrorChain = new Map<AsyncStore, Promise<void>>();
@@ -63,6 +65,7 @@ export class SaveManager {
     const v = this.deps.isVolatile();
     if (v && !this.volatileNow) {
       this.manualSinceVolatileStart = false;
+      this.lastManualThisPeriod = null;
       this.setDirty(true);
     }
     if (!v) this.setDirty(false);
@@ -91,9 +94,17 @@ export class SaveManager {
   saveManual(slot: GameSlot = 'manual-1'): boolean {
     if (!this.ready) return false;
     const ok = this.write(slot, this.deps.snapshot(), 'manual');
-    if (ok && this.volatileNow) this.manualSinceVolatileStart = true;
+    if (ok && this.volatileNow) {
+      this.manualSinceVolatileStart = true;
+      this.lastManualThisPeriod = this.deps.snapshot();
+    }
     if (ok) this.setDirty(false);
     return ok;
+  }
+
+  /** The state saved by the last manual save in the current (or just ended) mission period, if any. */
+  get manualSaveThisPeriod(): SaveData | null {
+    return this.lastManualThisPeriod;
   }
 
   /** True when an auto-save right now would respect BRIEF 8.B. */

@@ -115,7 +115,13 @@ export class Director {
         this.cameFromTitle = true;
         break;
       case 'hub': {
-        if (from === 'mission' || from === 'cutscene') this.resetResumeToMissionStart();
+        if (from === 'mission' || from === 'cutscene') {
+          // Leaving mid-mission: resume from the manual save made in this mission if there was one
+          // (BRIEF 8.C), otherwise from the mission start (BRIEF 8.B).
+          const manual = this.game.save.manualSaveThisPeriod;
+          if (manual && this.host?.phase !== 'complete') this.game.setState(manual);
+          else this.resetResumeToMissionStart();
+        }
         this.cleanupMission();
         this.game.save.autosave(from === 'quiz' ? 'chapter-complete' : 'hub');
         const showRecap = this.cameFromTitle && this.game.getState().resume.chapterId !== null;
@@ -129,7 +135,9 @@ export class Director {
         break;
       case 'mission':
         this.stack.clear();
-        this.startMission();
+        // Returning from a mid-mission cutscene keeps the running mission.
+        if (from === 'cutscene' && this.host) this.hud?.setVisible(true);
+        else this.startMission();
         break;
       case 'cutscene':
         this.stack.clear();
@@ -255,8 +263,17 @@ export class Director {
     const run = this.run;
     if (!run) return;
     const mine = ++this.token;
-    this.levelDef = await loadLevel(run.levelId);
+    let def: Awaited<ReturnType<typeof loadLevel>>;
+    try {
+      def = await loadLevel(run.levelId);
+    } catch (e) {
+      console.error('[netivim] level ' + run.levelId + ' failed to load', e);
+      this.game.bus.emit('ui:toast', { textKey: 'gameplay.chapter.unavailable' });
+      return;
+    }
+    // A newer request (another chapter or level) superseded this one: drop the stale result.
     if (mine !== this.token) return;
+    this.levelDef = def;
     const flow = this.game.flow;
     this.owned = true;
     if (flow.state === 'hub') flow.send('openBriefing');
@@ -424,11 +441,15 @@ export class Director {
       this.game.flow.send('toHub');
       return;
     }
+    let advanced = false;
     const decisions = this.chapterEnd ? run.chapter.decisions : (this.levelDef?.decisions ?? []);
     const rows = ledgerRows(decisions, this.game.getState().choices);
     const titleKey = this.chapterEnd ? run.chapter.content.titleKey : run.mission.titleKey;
     this.stack.reset(
       debriefScreen(this.t, titleKey, rows, this.chapterEnd, () => {
+        // One advance per debrief: a double tap must never skip a mission.
+        if (advanced) return;
+        advanced = true;
         const event = run.afterDebrief();
         if (event === 'nextMission') void this.openBriefing();
         else this.game.flow.send(event);

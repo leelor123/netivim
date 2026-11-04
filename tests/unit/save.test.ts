@@ -175,6 +175,21 @@ describe('SaveManager: BRIEF 8.H exit matrix', () => {
     expect(h.mgr.onExit('freeze')).toBe(false);
   });
 
+  it('remembers the exact manual save of the current mission period, and forgets it on the next', () => {
+    enterVolatile(h);
+    expect(h.mgr.manualSaveThisPeriod).toBeNull();
+    h.state.save = withMission(h.state.save, 'manual-point');
+    h.mgr.saveManual('manual-1');
+    h.state.save = withMission(h.state.save, 'later');
+    expect(h.mgr.manualSaveThisPeriod?.resume.mission?.state).toBe('manual-point');
+    h.vol.value = false;
+    h.mgr.onFlowChanged();
+    // Still available right after leaving the mission (the director reads it on the way to the hub).
+    expect(h.mgr.manualSaveThisPeriod?.resume.mission?.state).toBe('manual-point');
+    enterVolatile(h);
+    expect(h.mgr.manualSaveThisPeriod).toBeNull();
+  });
+
   it('a new mission resets the manual-save permission', () => {
     enterVolatile(h);
     h.mgr.saveManual();

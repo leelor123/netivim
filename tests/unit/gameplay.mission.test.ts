@@ -228,4 +228,10 @@ describe('QA bot on the sample level', () => {
     expect(ok.completed).toBe(true);
     expect(unlocks).toEqual(['archive:sample-letter']);
   });
+
+  it('a save naming a state that no longer exists starts the mission fresh instead of breaking', () => {
+    const old = host({ snapshot: { missionId: 'tiny', state: 'renamed-in-an-update', checkpoint: 'b', data: null } });
+    expect(() => old.h.start()).not.toThrow();
+    expect(old.h.state).toBe('a');
+  });
 });

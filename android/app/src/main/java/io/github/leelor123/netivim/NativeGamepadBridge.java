@@ -59,6 +59,11 @@ public class NativeGamepadBridge {
     @JavascriptInterface
     public void setForwarding(boolean on) {
         forwarding = on;
+        // Forget held buttons so a later push never reports a stale press.
+        if (!on) {
+            buttons = 0;
+            hatButtons = 0;
+        }
     }
 
     // ---- called by MainActivity (UI thread) ----

@@ -95,6 +95,14 @@ export function installCinematics(game: Game, seenStore: SeenStore = localSeenSt
     if (game.flow.state === 'cutscene' && next !== 'none') game.flow.send(next);
   });
 
+  // Pause -> Exit during a cutscene leaves the flow: stop the player so nothing draws over menus.
+  const flowOff = game.bus.on('flow:changed', ({ from, to }) => {
+    if (from === 'cutscene' && to !== 'cutscene' && to !== 'debrief' && to !== 'mission' && player.playing) {
+      after = 'none';
+      player.skip();
+    }
+  });
+
   const api: CinematicsApi = {
     player,
     register: (def) => {
@@ -130,6 +138,7 @@ export function installCinematics(game: Game, seenStore: SeenStore = localSeenSt
   return () => {
     stepOff();
     endOff();
+    flowOff();
     player.skip();
     overlay.dispose();
     if (window.__netivimCinematics === api) delete window.__netivimCinematics;
