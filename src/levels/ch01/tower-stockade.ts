@@ -554,11 +554,16 @@ function build(ctx: LevelContext<E>): TowerLevel {
       breakLeft = totalSeconds(first) + 1;
       crew.startGirl({ x: -22, z: 13 }, { x: JUG_SPOT.x - 1.4, z: JUG_SPOT.z + 1.2 });
       cue('ui.toggle');
-      ctx.decide(DECISION_GIRL, (optionId) => {
+      const opened = ctx.decide(DECISION_GIRL, (optionId) => {
         const after = [line(D + 'girl.' + optionId + '.result', null, 5000), line(K + 'say.water', FOREMAN, 4500)];
         say(after, 'reconstructed');
         breakLeft = totalSeconds(after) + 1;
       });
+      // The decision did not open: the jug stays available so the choice can still be made.
+      if (!opened) {
+        sim.water = false;
+        crew.hideGirl();
+      }
     },
     '#8fd0a8',
   );
@@ -603,7 +608,7 @@ function build(ctx: LevelContext<E>): TowerLevel {
       const intro = [line(K + 'neighbor.intro', null, 8000)];
       say(intro, 'reconstructed');
       breakLeft = totalSeconds(intro) + 1;
-      ctx.decide(DECISION_FIELD, (optionId) => {
+      const opened = ctx.decide(DECISION_FIELD, (optionId) => {
         const lines = [line(D + 'field.' + optionId + '.result', NEIGHBOR, 9000), line(K + 'neighbor.outro', null, 5000)];
         say(lines, 'composite');
         breakLeft = totalSeconds(lines) + 1;
@@ -614,6 +619,8 @@ function build(ctx: LevelContext<E>): TowerLevel {
           cue('ui.confirm');
         }
       });
+      // The decision did not open (the mission was not running): keep the neighbour available.
+      if (!opened) fieldBusy = false;
     },
     '#8fd0a8',
   );

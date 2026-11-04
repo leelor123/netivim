@@ -98,7 +98,7 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
     return added;
   };
   /** A logged decision: a paper sound and a light pulse so the choice feels registered. */
-  const decide = (id: string, onChosen: (optionId: string) => void): void =>
+  const decide = (id: string, onChosen: (optionId: string) => void): boolean =>
     ctx.decide(id, (optionId) => {
       ctx.bus.emit('audio:cue', { cue: 'ui.save' });
       if (!ctx.headless) ctx.bus.emit('haptics:pulse', { strength: 'light', durationMs: 90 });
