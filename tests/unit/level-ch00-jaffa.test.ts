@@ -213,6 +213,21 @@ describe('jaffa-letters: the market, the roadside well and the cold tea', () => 
   });
 });
 
+describe('jaffa-letters: riding the cart on the open road', () => {
+  it('offers the cart away from the places, carries the player to the well and the story goes on', async () => {
+    const d = await def();
+    const bus = new EventBus<GameEvents>();
+    const shown: string[] = [];
+    bus.on('subtitle:show', (e) => shown.push(e.textKey));
+    const ride = withScript(d, 'road_colony', [walk({ x: -20, z: 56 }, 2), { kind: 'wait', seconds: 0.8 }, interact, { kind: 'wait', seconds: 12 }, ...(d.botScript['road_colony'] ?? [])]);
+    const r = runBot(ride, { difficulty: 'normal', fromCheckpoint: 'road_colony', bus });
+    expect(r.failures).toEqual([]);
+    expect(r.completed, r.log.join(' | ')).toBe(true);
+    expect(shown).toContain('levels.ch00.jaffa.line.ride.offer');
+    expect(shown).toContain('levels.ch00.jaffa.line.ride.a1.1');
+  });
+});
+
 describe('jaffa-letters: soft failures', () => {
   it('fails at the colony without the well parts, then the retry has the full cart and finishes', async () => {
     const d = await def();

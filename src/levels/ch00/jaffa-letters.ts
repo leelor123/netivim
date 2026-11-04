@@ -169,6 +169,9 @@ function build(ctx: LevelContext<E>): Level {
   let queuedUntil = 0;
   let stuckT = 0;
   let habibWaitS = 0;
+  let carRide: CarRide | null = null;
+  let rideCheckT = 0;
+  const rideHinted = new Set<string>();
   let stuckShown = false;
   let nudgeCooldown = 0;
   let fieldWarned = false;
@@ -350,6 +353,7 @@ function build(ctx: LevelContext<E>): Level {
     ctx.objectives.progress('colony', 1);
     refresh();
   });
+  const rideSeat = add('ride', 'generic', { x: 0, z: 0 }, 2, k('prompt.ride'), () => startCarRide());
   const wayfarer = add('wayfarer', 'generic', L.ROAD_WAYFARER, 2.2, k('prompt.talk'), () => {
     f.wayfarer = true;
     say([line(k('line.wayfarer.1'), k('speaker.wayfarer')), line(k('line.wayfarer.2'), k('speaker.wayfarer'))], 'composite');
@@ -566,6 +570,89 @@ function build(ctx: LevelContext<E>): Level {
     later(delay, () => ctx.say(lens, 'documented'));
   }
 
+  // ---- riding the cart on the open road (no dead walking) ------------------------------------------------------
+  interface CarRide {
+    readonly stretch: string;
+    readonly pts: L.Pt[];
+    readonly cum: number[];
+    done: number;
+    said: number;
+  }
+  const RIDE_SPEED = 11;
+  const dist2 = (a: L.Pt, b: L.Pt): number => Math.hypot(a.x - b.x, a.z - b.z);
+
+  /** The open stretch the player could ride right now, or null (near a place, or almost there). */
+  function openStretch(): { id: string; pts: L.Pt[] } | null {
+    const s = state();
+    let id: string;
+    let pts: L.Pt[];
+    if (s === 'road_colony' || s === 'road_mid') {
+      if (!f.watered) {
+        id = 'a1';
+        pts = [...L.WAY_TO_COLONY.slice(0, 3), L.ROAD_WELL_SIGN];
+      } else if (!f.colonyGiven) {
+        id = 'a2';
+        pts = [...L.WAY_TO_COLONY.slice(3)];
+      } else return null;
+    } else if (s === 'colony_delivered' || s === 'path_mid') {
+      id = 'b';
+      pts = [L.WAY_TO_COLONY[6] as L.Pt, ...L.WAY_TO_VILLAGE, L.VILLAGE_GATE];
+    } else if (s === 'village_delivered') {
+      id = 'c';
+      pts = [...L.WAY_TO_STATION];
+    } else return null;
+    const here: L.Pt = { x: player.x, z: player.z };
+    for (const kp of L.KEY_POINTS) if (dist2(kp, here) < 7) return null;
+    const end = pts[pts.length - 1] as L.Pt;
+    const left = dist2(here, end);
+    if (left < 18) return null;
+    return { id, pts: pts.filter((p) => dist2(p, end) < left - 3) };
+  }
+
+  function startCarRide(): void {
+    const o = openStretch();
+    if (!o || carRide || riding) return;
+    const pts: L.Pt[] = [{ x: player.x, z: player.z }, ...o.pts];
+    const cum: number[] = [0];
+    for (let i = 1; i < pts.length; i++) cum.push((cum[i - 1] as number) + dist2(pts[i - 1] as L.Pt, pts[i] as L.Pt));
+    carRide = { stretch: o.id, pts, cum, done: 0, said: 0 };
+    player.controllable = false;
+    cheer();
+    refresh();
+  }
+
+  function carRideStep(dt: number): void {
+    const r = carRide;
+    if (!r) return;
+    const total = r.cum[r.cum.length - 1] as number;
+    r.done = Math.min(total, r.done + RIDE_SPEED * dt);
+    let i = 1;
+    while (i < r.cum.length - 1 && (r.cum[i] as number) < r.done) i++;
+    const a = r.pts[i - 1] as L.Pt;
+    const b = r.pts[i] as L.Pt;
+    const segLen = Math.max(1e-6, (r.cum[i] as number) - (r.cum[i - 1] as number));
+    const u = Math.min(1, Math.max(0, (r.done - (r.cum[i - 1] as number)) / segLen));
+    const x = a.x + (b.x - a.x) * u;
+    const z = a.z + (b.z - a.z) * u;
+    const h = Math.atan2(b.x - a.x, b.z - a.z);
+    player.motor.place(x, z, h);
+    cart.place(x - Math.sin(h) * 3.4, z - Math.cos(h) * 3.4, h);
+    // One small thing per stretch, at a third and two thirds of the way.
+    const frac = r.done / Math.max(1, total);
+    const due = frac >= 0.66 ? 2 : frac >= 0.3 ? 1 : 0;
+    while (r.said < due) {
+      r.said++;
+      const speaker = r.said === 1 ? k('speaker.passer') : null;
+      say([line(k('line.ride.' + r.stretch + '.' + String(r.said)), speaker)], speaker ? 'composite' : undefined);
+    }
+    if (r.done >= total) {
+      carRide = null;
+      player.controllable = true;
+      cheer();
+      refresh();
+    }
+  }
+
   function startRide(): void {
     riding = true;
     rideT = 0;
@@ -587,6 +674,9 @@ function build(ctx: LevelContext<E>): Level {
 
   function enterCheckpoint(checkpoint: string, data: unknown): void {
     timers.length = 0;
+    carRide = null;
+    rideCheckT = 0;
+    rideHinted.clear();
     f = freshFlags();
     riding = false;
     rideT = 0;
@@ -762,8 +852,22 @@ function build(ctx: LevelContext<E>): Level {
       }
     }
     if (riding) rideStep(dt);
+    carRideStep(dt);
     player.update(dt);
-    if (!riding) cart.update(dt, player.x, player.z);
+    if (!riding && !carRide) cart.update(dt, player.x, player.z);
+    // The offer to ride: checked a few times a second, and the prompt follows the player.
+    rideCheckT -= dt;
+    if (rideCheckT <= 0) {
+      rideCheckT = 0.25;
+      const o = carRide || riding ? null : openStretch();
+      rideSeat.enabled = o !== null;
+      if (o && !rideHinted.has(o.id)) {
+        rideHinted.add(o.id);
+        nudge([line(k('line.ride.offer'), NARRATOR)]);
+      }
+    }
+    rideSeat.x = player.x;
+    rideSeat.z = player.z;
     const s = state();
     if (s === 'complete' || s === 'failed') return;
     const px = player.x;
@@ -801,7 +905,7 @@ function build(ctx: LevelContext<E>): Level {
 
     // Fields: a warning of at least the telegraph time before anything counts.
     let danger = 0;
-    if (!riding && s !== 'jerusalem_delivered') {
+    if (!riding && !carRide && s !== 'jerusalem_delivered') {
       const exposed = scenery.inField(px, pz) || scenery.inField(cart.x, cart.z);
       if (fieldTelegraph.update(dt, exposed)) {
         fieldTelegraph.reset();
