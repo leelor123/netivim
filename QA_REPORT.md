@@ -1,5 +1,17 @@
 # QA report
 
+## M2 release v0.2.1 (2026-11-04)
+| Check | Result | Evidence |
+|---|---|---|
+| Unit + content + solvability + QA tests | 600/600 pass | npm test |
+| E2E (Playwright, Android landscape emulation) | all pass in CI | GitHub Actions run 41757618469 |
+| Android emulator smoke (launch, immersive, landscape, background/resume, Back) | pass | same run |
+| Signed APK published | netivim.apk 3.46 MB | releases/tag/v0.2.1 |
+| Independent code review | 7 findings fixed | fix: M2 code review findings |
+| Accessibility review | all High and Medium fixed | docs/ACCESSIBILITY_REVIEW_M2.md |
+| Content reviews (ch00, ch01, 1948 timeline) | done | research/review-*.md |
+| Not verified | Ultra 60 fps on S26 Ultra, gamepads in the Android WebView, on-device subtitles and focus | needs the user |
+
 ## M2 missions: balance and fairness pass (2026-11-04)
 Scope: Prologue (archive-night, jaffa-letters) and Chapter 1 (tower-stockade, night-landing, the-vote).
 Method: `tests/qa/driver.ts` replays each level with the solvability bot on the fixed 1/60 s step and records checkpoint times, objectives, alerts and subtitles. `tests/qa/balance.test.ts` turns the measurable rules into regression tests (about 50 assertions, 13 s). `tests/qa/estimate.test.ts` computes the time table (`QA_DUMP=<file>` writes JSON). A first-time human is modelled as 1.5x slower than the bot; reading is 12 Hebrew words per second.

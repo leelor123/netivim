@@ -3,7 +3,7 @@
 ## Milestone status
 - [x] M0 Setup: project, pinned stack, skills, Capacitor Android, signing secret, CI release (v0.0.1)
 - [x] M1 Design + core (v0.1.0)
-- [x] M2 Vertical slice (v0.2.0)
+- [x] M2 Vertical slice (v0.2.1)
 - [ ] M3 Act 1 (Prologue + Ch1-4)
 - [ ] M4 Waves (Ch5-11 + Epilogue)
 - [ ] Final polish (end of Phase 1)
@@ -35,7 +35,7 @@
 - Next research move: try alternative access (Google Books previews, JSTOR open, university
   repositories, archive.org full texts) and merge per-chapter registers into SOURCES.md.
 
-## M2 status (2026-11-04): complete pending release v0.2.0
+## M2 status (2026-11-04): DONE, released as v0.2.1 (v0.2.0 tag has no release: the release step bug was fixed after it)
 Playable: Prologue (archive-night, jaffa-letters) and Ch1 (tower-stockade, night-landing, the-vote) with
 the full chapter flow (hub, timeline, content note, briefing, missions, cutscenes, debrief ledger, quiz).
 Reviews done by fresh agents: content (ch00/ch01), 1948 timeline/lenses fact-check, QA and balance,
@@ -54,7 +54,13 @@ code review (7 findings fixed), accessibility review (all High and Medium fixed)
 - Pause-menu Codex inside missions; HUD prompt refresh on the same focus target (the-vote).
 - On-device checks: Ultra 60 fps, subtitles above letterbox, focus rings, gamepads in the WebView.
 
-## Next (M2 vertical slice): exact next steps
+## Next: M3 (Act 1 = Prologue + Ch1-4) exact next steps
+1. Get the user's on-device feedback on v0.2.1 (Ultra fps, controllers in the WebView, subtitles, focus).
+2. Ch2 pipeline: Ch2 prerequisites above, then content writer, level builders (5 missions), fresh fact-check, QA.
+3. Ch3 and Ch4 historians in parallel (research only), then their pipelines.
+4. Deepen Prologue and Ch1 missions to design length (M3 backlog).
+
+## Old M2 plan (kept for reference)
 1. M1 review findings are fixed (see QA_REPORT). Graphics agent must add a GameScene hook to rebuild GPU-only state after webglcontextrestored.
 2. Fan out system agents in worktrees (CONTRACTS.md ownership map): Graphics & Settings, Controls
    (touch UI + glyphs + remap UI + Android gamepad check), Save UX (pause menu, slots, exit prompt),
