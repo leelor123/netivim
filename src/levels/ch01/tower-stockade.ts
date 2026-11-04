@@ -695,7 +695,11 @@ function build(ctx: LevelContext<E>): TowerLevel {
     if (bed === name) return;
     bed = name;
     cue('ambience.' + name);
+    // Calm by day, reflective from dusk on (1937).
+    ctx.bus.emit('audio:mood', { mood: name === 'village' ? 'calm' : 'reflective', era: 1937 });
   };
+  /** Village by day, the dusk bed from clock 0.7, the night bed from 0.8. */
+  const bedFor = (clock: number): string => (clock >= 0.8 ? 'night' : clock >= 0.7 ? 'dusk' : 'village');
 
   const scene = world.gameScene(() => {
     if (disposed) return;
@@ -743,7 +747,7 @@ function build(ctx: LevelContext<E>): TowerLevel {
         lastAlert = meter;
         ctx.alert(meter);
       }
-      setBed(sim.clock >= 0.8 ? 'night' : 'village');
+      setBed(bedFor(sim.clock));
     },
     enterCheckpoint(checkpoint, data) {
       const snap = parseSnapshot(data);
@@ -778,7 +782,7 @@ function build(ctx: LevelContext<E>): TowerLevel {
       sky.apply(sim.clock);
       syncObjectives();
       refreshTargets();
-      setBed(sim.clock >= 0.8 ? 'night' : 'village');
+      setBed(bedFor(sim.clock));
       if (sim.stage === 'dawn' && !snap) {
         unlockOnce('codex', 'arab-revolt');
         unlockOnce('codex', 'peel-commission');
