@@ -4,7 +4,7 @@ import type { GameScene, SceneManager } from '../../render/sceneManager';
 import { createTitleScene } from '../../scene/titleScene';
 import { LivingMapScreen, type MapSceneHost } from '../livingMap/livingMapScreen';
 import { hostTimelineWithMap } from './host';
-import { TimelineScreen } from './timelineScreen';
+import { TimelineScreen, timelineInput } from './timelineScreen';
 
 /** Scene host backed by the game's SceneManager; hiding restores a fresh scene from `restore`. */
 export function sceneManagerHost(scenes: SceneManager, restore: () => GameScene): MapSceneHost {
@@ -44,11 +44,13 @@ export function installTimeline(game: Game): () => void {
   const rtl = game.i18n.dir === 'rtl';
   const reducedMotion = (): boolean => game.reducedMotion();
   const common = { t: game.i18n.t, rtl, reducedMotion };
+  const input = timelineInput(game);
 
   const feature: TimelineFeature = {
     createTimeline: (o) =>
       new TimelineScreen({
         ...common,
+        input,
         getCompletedChapters: () => game.getState().completedChapters,
         onSelect: o.onSelect,
         ...(o.onBack ? { onBack: o.onBack } : {}),

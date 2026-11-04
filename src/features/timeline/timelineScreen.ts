@@ -1,3 +1,5 @@
+import type { InputDevice } from '../../core/input/types';
+import type { Game } from '../../game';
 import { chapterStatus, eraAnchorYear, ERAS, type ChapterId, type ChapterStatus, type Era } from '../../content/eras';
 import './timeline.css';
 import { formatEventDate, formatYears, h, type Translate } from './format';
@@ -19,6 +21,30 @@ export interface TimelineOptions {
   readonly initialIndex?: number;
   /** Docked strip under the map: hides the title and detail panel. */
   readonly embedded?: boolean;
+  /** Active input device, so the hint names the controls in hand (defaults to touch wording). */
+  readonly input?: TimelineInput;
+}
+
+/** The part of the game's input the timeline reads: the device and its change event. */
+export interface TimelineInput {
+  device(): InputDevice;
+  /** Calls `cb` whenever the active device changes. Returns an unsubscribe function. */
+  onDeviceChange(cb: () => void): () => void;
+}
+
+/** The timeline's view of the game input: device plus the device-changed event. */
+export function timelineInput(game: Pick<Game, 'input' | 'bus'>): TimelineInput {
+  return { device: () => game.input.device, onDeviceChange: (cb) => game.bus.on('input:device-changed', cb) };
+}
+
+/** Locale key of the "how to scrub" line for a device (src/locales/he/timeline.json). */
+export function timelineHintKey(device: InputDevice): string {
+  return 'timeline.hint.' + device;
+}
+
+/** Full hint line: how to scrub with this device, then the reading-direction note. */
+export function timelineHint(t: Translate, device: InputDevice): string {
+  return t(timelineHintKey(device)) + ' ' + t('timeline.hint.order');
 }
 
 const DRAG_THRESHOLD_PX = 6;
@@ -77,7 +103,9 @@ export class TimelineScreen implements HostedScreen {
     section.dir = this.opts.rtl ? 'rtl' : 'ltr';
     if (this.opts.embedded) section.dataset.embedded = 'true';
     const title = h('h2', 'tl-title', t('timeline.title'));
-    const hint = h('p', 'tl-hint', t('timeline.hint'));
+    const input = this.opts.input;
+    const hint = h('p', 'tl-hint', timelineHint(t, input?.device() ?? 'touch'));
+    if (input) this.cleanups.push(input.onDeviceChange(() => (hint.textContent = timelineHint(t, input.device()))));
 
     const track = h('div', 'tl-track', '', { role: 'group', 'aria-label': t('timeline.track') });
     track.append(h('div', 'tl-rail'));
