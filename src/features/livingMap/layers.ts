@@ -36,7 +36,7 @@ export const LINE_LAYERS: readonly LineLayer[] = [
     simplified: true,
     fromYear: 1949,
     toYear: null,
-    sources: ['C2-008', 'C2-066'],
+    sources: ['C2-123', 'C2-124', 'C2-113'],
     polylines: [],
   },
 ];

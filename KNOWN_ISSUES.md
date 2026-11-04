@@ -12,3 +12,4 @@ All must be closed before the M2 release (DoD: this file empty).
 11. The hub menu appears before the Archive hall scene has loaded, so the title scene shows behind it for a moment; show a loading state or switch the scene first. Owner: gameplay/world.
 13. Codex is opened via the map button only; add a Codex item to the pause menu. Player figure reads dark against the archive room on lower presets. Owner: UI / world polish.
 14. Night Landing plays in about 8-10 minutes of real time against an 18-minute target, and the player figure and boat hull are very dark in moonlight (add a rim light). Owner: QA balance pass / world.
+15. Ch2 (1948) Living Map captions: the Rabin paraphrase (Lod/Ramle) and Morris's 50,000 figure are cited via secondary pages (C2-112, Shavit), not the books; Negba and Kfar Etzion captions have no Palestinian-lens counterpart. Upgrade before Ch2 is built. Owner: Ch2 historian.

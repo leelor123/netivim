@@ -156,12 +156,12 @@ test('shows era markers with sources and toggles the two lenses', async ({ page 
   await expect(map(page)).toHaveAttribute('data-era', 'ch02');
   await expect(page.locator('.lm-place')).toHaveCount(18);
   await expect(page.locator('[data-lens-box="independence"] .lm-lens-label')).toContainText('מלחמת העצמאות');
-  await expect(page.locator('[data-lens-box="independence"] .lm-sources')).toContainText('C2-004');
+  await expect(page.locator('[data-lens-box="independence"] .lm-sources')).toContainText('C2-101');
   await expect(page.locator('.lm-note[data-marker="lod-ramle"]')).toContainText('מבצע דני');
   // Button toggle.
   await page.locator('[data-action="toggle-lens"]').click();
   await expect(page.locator('[data-lens-box="nakba"] .lm-lens-label')).toContainText('הנכבה');
-  await expect(page.locator('[data-lens-box="nakba"] .lm-sources')).toContainText('C2-003');
+  await expect(page.locator('[data-lens-box="nakba"] .lm-sources')).toContainText('C2-105');
   await expect(map(page)).toHaveAttribute('data-lens', 'nakba');
   await expect(page.locator('.lm-note[data-marker="deir-yassin"]')).toContainText('טבח');
   // Controller toggle (north face button = alt).

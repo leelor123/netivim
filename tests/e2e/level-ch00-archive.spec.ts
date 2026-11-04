@@ -97,7 +97,11 @@ const probe = (page: Page): Promise<Probe> =>
 const missionState = (page: Page): Promise<string | undefined> => page.evaluate(() => window.__netivimGameplay?.host?.state);
 
 /** Steers the left stick toward a world point until within `within` meters (same math as the QA bot). */
+/** Last walk target, so interact() can step back into reach after slow-frame drift. */
+let lastTarget: { x: number; z: number; within: number } | null = null;
+
 async function walkTo(page: Page, tx: number, tz: number, within = 0.5): Promise<void> {
+  lastTarget = { x: tx, z: tz, within };
   for (let i = 0; i < 400; i++) {
     const p = await probe(page);
     const dx = tx - p.x;
@@ -118,8 +122,18 @@ async function walkTo(page: Page, tx: number, tz: number, within = 0.5): Promise
 /** Presses interact until `done()` holds (slow software frames can swallow a press). */
 async function interact(page: Page, done: () => Promise<boolean>): Promise<void> {
   for (let i = 0; i < 6; i++) {
+    // A previous press may have landed late on a slow frame: never press again once it worked
+    // (a second press can, e.g., switch the lens inside the sheet it just opened).
+    if (await done()) return;
+    // Software-GL frames can be slow enough that the walker drifts out of reach after the stick
+    // is released: only press when the interaction prompt shows, else walk back first.
+    if (lastTarget && !(await visible(page, '.gp-hud__prompt'))) {
+      const t = lastTarget;
+      await walkTo(page, t.x, t.z, Math.max(0.25, t.within * 0.6));
+      lastTarget = t;
+    }
     await press(page, X);
-    for (let j = 0; j < 10; j++) {
+    for (let j = 0; j < 30; j++) {
       if (await done()) return;
       await page.waitForTimeout(200);
     }
