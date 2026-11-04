@@ -78,16 +78,55 @@ export const DUNE_COVER: readonly { readonly x: number; readonly z: number; read
 
 /** Survivors (all FICTIONAL COMPOSITES): children first, then elders, then adults. */
 export const SURVIVOR_GROUPS = [
-  { kind: 'child', count: 3 },
-  { kind: 'elder', count: 3 },
-  { kind: 'adult', count: 4 },
+  { kind: 'child', count: 3, trip: 0 },
+  { kind: 'elder', count: 3, trip: 0 },
+  { kind: 'adult', count: 4, trip: 1 },
 ] as const;
 
 /** Base timers in seconds (scaled by difficulty); the sky turns grey as they run down. */
-export const TIMERS = { landing: 150, shore: 330 } as const;
+export const TIMERS = { drop: 240, landing: 150, shore: 330 } as const;
 
 /** Meters from the leader inside which a survivor counts as "with you". */
 export const WITH_YOU_RADIUS = 11;
 export const CHILD_VOICE_RANGE = 42;
 export const CHILD_VOICE_GAP = 5;
 export const CHILD_FIND_RADIUS = 2.6;
+
+/**
+ * Second rescue wave (missions.md beat 5: children and elders first). The first small boat carries
+ * the children and the elders (trip 0); the boat then goes back to the ship for the adults (trip 1).
+ * Each sea stage has its own patrol lanes and searchlight phase ("set"), so the later crossings are
+ * never a copy of the first. Fixed rhythms, restarted at every checkpoint.
+ */
+export type SeaSet = 'A' | 'B' | 'C';
+
+/** Alongside the ship: the end of the return crossing. */
+export const RETURN_GOAL = { x: -166, z: 150, radius: 4 } as const;
+/** Where the boat leaves the cove for the return crossing. */
+export const RETURN_START = { x: -99, z: -60, heading: -Math.PI / 2 } as const;
+
+export const PATROLS_B: readonly PatrolDef[] = [
+  { id: 'back-1', path: [[-184, 28], [-102, 28]], speed: 3, viewRange: 34, viewHalfAngle: 0.38, pause: 2 },
+  { id: 'back-2', path: [[-102, 64], [-184, 64]], speed: 3.6, viewRange: 34, viewHalfAngle: 0.38, pause: 2.5 },
+];
+export const PATROLS_C: readonly PatrolDef[] = [
+  { id: 'cross-1', path: [[-184, 104], [-102, 104]], speed: 3.2, viewRange: 34, viewHalfAngle: 0.38, pause: 2 },
+  { id: 'cross-2', path: [[-102, 70], [-184, 70]], speed: 3.8, viewRange: 34, viewHalfAngle: 0.38, pause: 2 },
+];
+
+const SWEEP = { heading: -Math.PI / 2, arc: 0.7, halfAngle: 0.3, range: 84, sweepTime: 9, restTime: 6, tickLead: 2 } as const;
+/** Same beams, other phase: the quiet windows move (the tick still sounds 2 s before every sweep). */
+export const LIGHTS_B: readonly SweepLightDef[] = [
+  { id: 'light-1', x: -74, z: -4, ...SWEEP, offset: 9 },
+  { id: 'light-2', x: -74, z: -34, ...SWEEP, offset: 3.5 },
+];
+export const LIGHTS_C: readonly SweepLightDef[] = [
+  { id: 'light-1', x: -74, z: -4, ...SWEEP, offset: 9 },
+  { id: 'light-2', x: -74, z: -34, ...SWEEP, offset: 0 },
+];
+
+export const PATROL_SETS: Readonly<Record<SeaSet, readonly PatrolDef[]>> = { A: PATROLS, B: PATROLS_B, C: PATROLS_C };
+export const LIGHT_SETS: Readonly<Record<SeaSet, readonly SweepLightDef[]>> = { A: LIGHTS, B: LIGHTS_B, C: LIGHTS_C };
+
+/** Where the first load is sheltered by the volunteers, beside the hollow. */
+export const SHELTER = { x: -5.5, z: 1.5 } as const;

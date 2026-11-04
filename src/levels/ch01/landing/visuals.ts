@@ -216,7 +216,8 @@ export class SurvivorViews {
       if (!crowd) continue;
       const ground = this.world.heightAt(s.x, s.z);
       const y = s.state === 'boat' ? boatDeckY : Math.max(ground, -0.25);
-      crowd.set(this.slot[i] as number, s.x, y, s.z, s.heading, s.walk, i * 1.3, SURVIVOR_SCALE[s.kind]);
+      // Still on the ship (a later trip): out of sight.
+      crowd.set(this.slot[i] as number, s.x, y, s.z, s.heading, s.walk, i * 1.3, s.state === 'ship' ? 0.0001 : SURVIVOR_SCALE[s.kind]);
     }
     for (let c = 0; c < this.crowdList.length; c++) {
       const crowd = this.crowdList[c] as Crowd;

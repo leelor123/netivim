@@ -22,10 +22,14 @@ import {
   DUNE_COVER,
   HOLLOW,
   LAUNCH,
-  LIGHTS,
+  LIGHT_SETS,
   LOST_CHILD,
-  PATROLS,
+  PATROL_SETS,
   PATROLS_GOAL,
+  RETURN_GOAL,
+  RETURN_START,
+  SHELTER,
+  type SeaSet,
   SEA_BOUNDS,
   SEA_GOAL,
   SEA_ROCKS,
@@ -51,8 +55,8 @@ import { applyNight, BoatVisual, ConeFan, DawnBlend, placeAt, SurvivorViews, Wat
  * Nobody is ever harmed and nothing violent is shown: being seen only restarts the checkpoint.
  */
 
-export type LandingState = 'sea' | 'patrols' | 'lights' | 'landing' | 'shore' | 'hide';
-export type LandingEvent = 'approach' | 'crossed' | 'cove' | 'ashore' | 'gathered' | 'hidden';
+export type LandingState = 'sea' | 'patrols' | 'lights' | 'drop' | 'return' | 'crossing' | 'lights2' | 'landing' | 'shore' | 'hide';
+export type LandingEvent = 'approach' | 'crossed' | 'cove' | 'dropped' | 'shipside' | 'crossed2' | 'cove2' | 'ashore' | 'gathered' | 'hidden';
 type S = LandingState;
 type E = LandingEvent;
 
@@ -85,6 +89,13 @@ const LINES = {
   bundles: [line(R + 'tip.bundles', 5500)],
   child: [line(R + 'tip.child', 5500)],
   gather: [line(R + 'tip.gather', 5500)],
+  drop: [line(R + 'tip.drop', 6500)],
+  handoff: [line(R + 'tip.handoff', 7000)],
+  back: [line(R + 'tip.back', 7000)],
+  board: [line(R + 'tip.board', 6000)],
+  second: [line(R + 'tip.second', 7000)],
+  second2: [line(R + 'tip.second2', 6000)],
+  adultsOnly: [line(R + 'tip.adultsOnly', 5500)],
   volunteers: [line(R + 'tip.volunteers', 6500)],
   bundleGiven: [line(R + 'tip.bundleGiven', 3000)],
   childFound: [line(R + 'tip.childFound', 3500)],
@@ -132,6 +143,8 @@ const BOAT_ORIGIN_Y = 0.35;
 
 /** Saved extra level data (exact manual save). */
 interface LandingSave {
+  /** Save layout version (2: two boat loads). Older saves restart at their checkpoint. */
+  readonly v: 2;
   readonly x: number;
   readonly z: number;
   readonly heading: number;
@@ -151,12 +164,32 @@ function isRescueSnapshot(v: unknown): v is RescueSnapshot {
 function isSave(v: unknown): v is LandingSave {
   if (typeof v !== 'object' || v === null) return false;
   const o = v as Record<string, unknown>;
-  return typeof o.x === 'number' && typeof o.z === 'number' && typeof o.heading === 'number' && typeof o.carried === 'number' && typeof o.delivered === 'number' && Array.isArray(o.bundlesTaken);
+  return o.v === 2 && typeof o.x === 'number' && typeof o.z === 'number' && typeof o.heading === 'number' && typeof o.carried === 'number' && typeof o.delivered === 'number' && Array.isArray(o.bundlesTaken);
 }
 
-export const CHECKPOINTS: readonly S[] = ['sea', 'patrols', 'lights', 'landing', 'shore'];
-const PLAYING: readonly string[] = ['sea', 'patrols', 'lights', 'landing', 'shore', 'hide'];
+export const CHECKPOINTS: readonly S[] = ['sea', 'patrols', 'lights', 'drop', 'return', 'crossing', 'lights2', 'landing', 'shore'];
+const PLAYING: readonly string[] = [...CHECKPOINTS, 'hide'];
 const isPlaying = (s: string): s is S => PLAYING.includes(s);
+
+/** One sea stage: which patrol lanes and searchlight rhythm are live, where it ends, and the sky. */
+interface SeaStage {
+  readonly patrols: SeaSet;
+  readonly lights: SeaSet | null;
+  readonly goal: { readonly x: number; readonly z: number; readonly radius: number };
+  readonly event: E;
+  readonly marker: 'sea' | 'cross' | 'cove' | 'ship';
+  readonly dawn: number;
+}
+const SEA_STAGES: Readonly<Partial<Record<S, SeaStage>>> = {
+  sea: { patrols: 'A', lights: null, goal: SEA_GOAL, event: 'approach', marker: 'sea', dawn: 0 },
+  patrols: { patrols: 'A', lights: null, goal: PATROLS_GOAL, event: 'crossed', marker: 'cross', dawn: 0 },
+  lights: { patrols: 'A', lights: 'A', goal: COVE, event: 'cove', marker: 'cove', dawn: 0 },
+  return: { patrols: 'B', lights: 'B', goal: RETURN_GOAL, event: 'shipside', marker: 'ship', dawn: 0.06 },
+  crossing: { patrols: 'C', lights: null, goal: PATROLS_GOAL, event: 'crossed2', marker: 'cross', dawn: 0.08 },
+  lights2: { patrols: 'C', lights: 'C', goal: COVE, event: 'cove2', marker: 'cove', dawn: 0.1 },
+};
+/** Beach stages: which boat load is on the sand, and the dawn range [base, base + span]. */
+const BEACH_TRIP: Readonly<Partial<Record<S, number>>> = { drop: 0, landing: 1, shore: 1, hide: 1 };
 
 function build(ctx: LevelContext<E>): Level {
   const world = new LevelWorld({ seed: 'night-landing', era: 'archiveNight', biome: 'coastalPlain', size: TERRAIN_SIZE, quality: ctx.quality, waterLevel: WATER_LEVEL, grade: 'archive' });
@@ -200,7 +233,7 @@ function build(ctx: LevelContext<E>): Level {
     world.scene.add(m);
     return m;
   };
-  const towers = LIGHTS.map((l, i) => {
+  const towers = LIGHT_SETS.A.map((l, i) => {
     world.place(watchtower({ era, seed: 'tower-' + String(i) }), l.x, l.z, Math.PI / 2, circle(l.x, l.z, 2.4, 14));
     return glow(lampGeo, lampMat, l.x - 0.4, world.heightAt(l.x, l.z) + 13.6, l.z);
   });
@@ -218,7 +251,7 @@ function build(ctx: LevelContext<E>): Level {
   boat.heightAt = () => WATER_LEVEL;
   const boatViz = new BoatVisual(world, fishingBoat({ era, seed: 'launch' }), 1.35, '#ffd27a', 2.6);
 
-  const rescue = new RescueModel({ groups: SURVIVOR_GROUPS, landingX: BEACH_START.x - 3, landingZ: BEACH_START.z - 1, lostChild: LOST_CHILD });
+  const rescue = new RescueModel({ groups: SURVIVOR_GROUPS, landingX: BEACH_START.x - 3, landingZ: BEACH_START.z - 1, lostChild: LOST_CHILD, shelter: SHELTER });
   const views = new SurvivorViews(world, rescue, [
     { x: TRUCKS.x - 5, z: TRUCKS.z + 1, heading: 1.2 },
     { x: TRUCKS.x + 4, z: TRUCKS.z - 4, heading: 4.4 },
@@ -227,14 +260,17 @@ function build(ctx: LevelContext<E>): Level {
 
   // Patrol boats and their cones.
   const warn = (): number => ctx.telegraph();
-  const patrols = PATROLS.map((d) => new Patrol(d, warn));
-  const patrolViz = patrols.map((p, i) => ({
-    cone: new ConeFan(world, p.def.viewHalfAngle),
+  const SETS: readonly SeaSet[] = ['A', 'B', 'C'];
+  const patrols = SETS.flatMap((set) => PATROL_SETS[set].map((d) => ({ set, patrol: new Patrol(d, warn) })));
+  const patrolViz = patrols.map((e, i) => ({
+    cone: new ConeFan(world, e.patrol.def.viewHalfAngle),
     boat: new BoatVisual(world, fishingBoat({ era, seed: 'patrol-' + String(i) }), 1.7, '#ffe9b0', 2.9),
-    heading: p.heading,
+    heading: e.patrol.heading,
   }));
-  const lights = LIGHTS.map((d) => new SweepLight(d, warn));
-  const lightCones = lights.map((l) => new ConeFan(world, l.def.halfAngle, 10));
+  const lights = SETS.flatMap((set) => LIGHT_SETS[set].map((d) => ({ set, light: new SweepLight(d, warn) })));
+  const lightCones = lights.map((e) => new ConeFan(world, e.light.def.halfAngle, 10));
+  /** The sea stage whose lanes and beams are live (null on the beach). */
+  let stage: SeaStage | null = null;
   const watchers = WATCHERS.map((d) => new Patrol(d, warn));
   const watcherCones = watchers.map((p) => new ConeFan(world, p.def.viewHalfAngle));
   const watcherViews = new WatcherViews(world, watchers.length);
@@ -246,12 +282,13 @@ function build(ctx: LevelContext<E>): Level {
     sea: world.addMarker(SEA_GOAL.x, SEA_GOAL.z, '#f2c14e'),
     cross: world.addMarker(PATROLS_GOAL.x, PATROLS_GOAL.z, '#f2c14e'),
     cove: world.addMarker(COVE.x, COVE.z, '#f2c14e'),
+    ship: world.addMarker(RETURN_GOAL.x, RETURN_GOAL.z, '#f2c14e'),
     trucks: world.addMarker(TRUCKS.x, TRUCKS.z, '#f2c14e'),
     hollow: world.addMarker(HOLLOW.x, HOLLOW.z, '#9fd6a8'),
     child: world.addMarker(LOST_CHILD.x, LOST_CHILD.z, '#ffd9a0'),
   };
   for (const m of Object.values(markers)) m.setVisible(false);
-  for (const m of [markers.sea, markers.cross, markers.cove] as Marker[]) m.group.position.y = WATER_LEVEL + 0.2;
+  for (const m of [markers.sea, markers.cross, markers.cove, markers.ship] as Marker[]) m.group.position.y = WATER_LEVEL + 0.2;
 
   const bundleMeshes = BUNDLES.map((b, i) => world.place(sack({ era, seed: 'bundle-' + String(i) }), b.x, b.z, i * 1.9));
   const bundleTaken = BUNDLES.map(() => false);
@@ -298,6 +335,7 @@ function build(ctx: LevelContext<E>): Level {
   // ---- state -----------------------------------------------------------------------------
   const dawn = new DawnBlend(world);
   const timers = {
+    drop: new MissionTimer(TIMERS.drop, () => ctx.params().timerScale),
     landing: new MissionTimer(TIMERS.landing, () => ctx.params().timerScale),
     shore: new MissionTimer(TIMERS.shore, () => ctx.params().timerScale),
     hide: new MissionTimer(TIMERS.landing, () => ctx.params().timerScale),
@@ -318,6 +356,8 @@ function build(ctx: LevelContext<E>): Level {
   let momentPlayed = false;
   const warned = patrols.map(() => false);
   let watchWarned = false;
+  /** The first load is being led to the volunteers (drop stage). */
+  let escorting = false;
   const alertOut = { v: 0 };
   /** Unlocks are announced once per run (a retry must not repeat the toast). */
   const unlocked = new Set<string>();
@@ -380,10 +420,11 @@ function build(ctx: LevelContext<E>): Level {
 
   function setObjectivesFor(s: S): void {
     const o = ctx.objectives;
-    if (s === 'landing' || s === 'shore' || s === 'hide') o.progress('o3', 3);
+    if (s !== 'sea' && s !== 'patrols' && s !== 'lights' && s !== 'drop') o.progress('drop', 2);
+    if (s === 'shore' || s === 'hide') o.progress('land2', 1);
     if (s === 'hide') {
       o.progress('o4', 3);
-      o.progress('o5', 0);
+      o.progress('o5', rescue.safeCount);
     }
   }
 
@@ -401,17 +442,17 @@ function build(ctx: LevelContext<E>): Level {
     voiceClock = 0;
     cohesionClock = 0;
     waveCooldown = 0;
-    rescue.reset(LAUNCH.x, LAUNCH.z);
+    escorting = false;
+    rescue.reset(LAUNCH.x, LAUNCH.z, BEACH_TRIP[s] ?? 0);
     launchItem.enabled = false;
     childItem.enabled = false;
     for (const b of bundleItems) b.enabled = false;
   }
 
   function landWave(): void {
-    if (waveCooldown > 0 || rescue.arriving || rescue.allLanded) return;
+    if (waveCooldown > 0 || rescue.arriving || rescue.tripLanded(BEACH_TRIP[ctx.mission.state as S] ?? 1)) return;
     const wave = rescue.landNext();
     if (wave < 0) return;
-    ctx.objectives.progress('o3', rescue.landed);
     waveCooldown = 3.2;
     idle = 0;
     emit('footsteps.sand', 0.6);
@@ -420,6 +461,8 @@ function build(ctx: LevelContext<E>): Level {
       say(LINES.whisperChildren, true);
     } else if (wave === 1) say(LINES.whisperElders, true);
     else say(LINES.whisperAdults, true);
+    if (ctx.mission.state === 'drop') ctx.objectives.progress('drop', Math.min(2, rescue.landed));
+    else ctx.objectives.progress('land2', 1);
   }
 
   function takeBundle(i: number): void {
@@ -452,22 +495,31 @@ function build(ctx: LevelContext<E>): Level {
     restLeft = -1;
     watchWarned = false;
     for (const m of Object.values(markers)) m.setVisible(false);
-    if (s === 'sea' || s === 'patrols' || s === 'lights') {
+    const st = SEA_STAGES[s];
+    if (st) {
+      stage = st;
       enterSea();
-      for (const p of patrols) p.reset();
+      for (const e of patrols) e.patrol.reset();
       warned.fill(false);
-      for (const l of lights) l.reset();
-      for (const t of towers) t.visible = s === 'lights';
-      markers.sea?.setVisible(s === 'sea');
-      markers.cross?.setVisible(s === 'patrols');
-      markers.cove?.setVisible(s === 'lights');
+      for (const e of lights) e.light.reset();
+      for (const t of towers) t.visible = st.lights !== null;
+      markers[st.marker]?.setVisible(true);
       if (place) {
-        rescue.reset(0, 0);
-        const at = s === 'sea' ? BOAT_SPAWN : s === 'patrols' ? { x: SEA_GOAL.x, z: SEA_GOAL.z - 6, heading: Math.PI } : { x: PATROLS_GOAL.x, z: PATROLS_GOAL.z, heading: Math.PI };
+        // First load aboard on the first crossings; on the return the boat is empty (the adults wait on the ship).
+        rescue.reset(0, 0, s === 'sea' || s === 'patrols' || s === 'lights' ? 0 : 1);
+        if (s === 'return') rescue.stowTrip(1);
+        const at =
+          s === 'sea' || s === 'crossing'
+            ? BOAT_SPAWN
+            : s === 'patrols'
+              ? { x: SEA_GOAL.x, z: SEA_GOAL.z - 6, heading: Math.PI }
+              : s === 'return'
+                ? RETURN_START
+                : { x: PATROLS_GOAL.x, z: PATROLS_GOAL.z, heading: Math.PI };
         boat.place(at.x, at.z, at.heading);
         player.rig.snapBehind(at.heading);
-        carryOnBoat();
-      }
+      } else if (s === 'crossing') rescue.boardTrip(1);
+      carryOnBoat();
       emit('ambience.sea');
       if (!ctx.headless) ctx.bus.emit('audio:mood', { mood: 'tense', era: 1 });
       if (s === 'sea') {
@@ -477,21 +529,31 @@ function build(ctx: LevelContext<E>): Level {
         unlockOnce('codex', 'white-paper');
         unlockOnce('archive', 'white-paper');
         say(LINES.policy, true);
-      } else say(LINES.beam);
+      } else if (s === 'lights') say(LINES.beam);
+      else if (s === 'return') say(LINES.back);
+      else if (s === 'crossing') say(LINES.board);
+      else say(LINES.second2);
     } else {
+      stage = null;
       for (const t of towers) t.visible = false;
-      if (s === 'landing') {
+      if (s === 'drop') {
         resetBeach(s);
         player.spawn(BEACH_START.x, BEACH_START.z, BEACH_START.heading);
-        rescue.reset(LAUNCH.x, LAUNCH.z);
+        launchItem.enabled = true;
+        for (const w of watchers) w.reset();
+        timers.drop.reset();
+        say(LINES.order);
+      } else if (s === 'landing') {
+        resetBeach(s);
+        player.spawn(BEACH_START.x, BEACH_START.z, BEACH_START.heading);
         launchItem.enabled = true;
         timers.landing.reset();
-        say(LINES.order);
+        say(LINES.adultsOnly);
       } else if (s === 'shore') {
         if (place) {
           resetBeach(s);
           player.spawn(BEACH_START.x, BEACH_START.z, BEACH_START.heading);
-          rescue.setAllWaiting();
+          rescue.setTripWaiting(1);
         }
         rescue.beginEscort();
         bundleItems.forEach((item, i) => {
@@ -506,7 +568,7 @@ function build(ctx: LevelContext<E>): Level {
       } else {
         if (place) {
           resetBeach(s);
-          rescue.setAllFollowing(TRUCKS.x, TRUCKS.z - 4);
+          rescue.setTripFollowing(1, TRUCKS.x, TRUCKS.z - 4);
           delivered = BUNDLES.length;
           player.spawn(TRUCKS.x, TRUCKS.z - 6, 0);
         }
@@ -526,7 +588,7 @@ function build(ctx: LevelContext<E>): Level {
   // ---- per-step logic ----------------------------------------------------------------------
   function patrolWarnings(): void {
     for (let i = 0; i < patrols.length; i++) {
-      const p = patrols[i] as Patrol;
+      const p = (patrols[i] as { patrol: Patrol }).patrol;
       const w = p.telegraph.phase === 'warning';
       if (w && !warned[i]) {
         emit('distant.rumble', 0.7);
@@ -545,20 +607,27 @@ function build(ctx: LevelContext<E>): Level {
     player.rig.vehicle.heading = m.heading;
     player.rig.update(dt, ctx.input, m.x, WATER_LEVEL, m.z);
     carryOnBoat();
+    // Sheltered survivors keep walking with the volunteers while the boat is away.
+    rescue.update(dt, m.x, m.z, m.heading);
 
     let alert = 0;
     let seen: 'patrol' | 'beam' | null = null;
+    const st = SEA_STAGES[s] as SeaStage;
     for (let i = 0; i < patrols.length; i++) {
-      const p = patrols[i] as Patrol;
+      const e = patrols[i] as { set: SeaSet; patrol: Patrol };
+      if (e.set !== st.patrols) continue;
+      const p = e.patrol;
       p.update(dt);
       const exposed = p.sees(m.x, m.z, seaColliders);
       if (p.telegraph.update(dt, exposed)) seen = 'patrol';
       alert = Math.max(alert, p.telegraph.phase === 'triggered' ? 1 : p.telegraph.level);
     }
     patrolWarnings();
-    if (s === 'lights') {
+    if (st.lights !== null) {
       for (let i = 0; i < lights.length; i++) {
-        const l = lights[i] as SweepLight;
+        const le = lights[i] as { set: SeaSet; light: SweepLight };
+        if (le.set !== st.lights) continue;
+        const l = le.light;
         if (l.advance(dt)) emit('ui.move', 0.9);
         if (l.expose(dt, l.sees(m.x, m.z, seaColliders))) seen = 'beam';
         alert = Math.max(alert, l.telegraph.phase === 'triggered' ? 1 : l.telegraph.level);
@@ -579,20 +648,16 @@ function build(ctx: LevelContext<E>): Level {
       momentPlayed = true;
       say(LINES.moment, true);
     }
-    if (s === 'sea' && Math.hypot(m.x - SEA_GOAL.x, m.z - SEA_GOAL.z) <= SEA_GOAL.radius) {
-      ctx.mission.send('approach');
-    } else if (s === 'patrols' && Math.hypot(m.x - PATROLS_GOAL.x, m.z - PATROLS_GOAL.z) <= PATROLS_GOAL.radius) {
-      ctx.mission.send('crossed');
-    } else if (s === 'lights' && Math.hypot(m.x - COVE.x, m.z - COVE.z) <= COVE.radius) {
-      ctx.mission.send('cove');
-    }
+    if (Math.hypot(m.x - st.goal.x, m.z - st.goal.z) <= st.goal.radius) ctx.mission.send(st.event);
   }
 
+  const timerOf = (s: S): MissionTimer => (s === 'drop' ? timers.drop : s === 'landing' ? timers.landing : s === 'shore' ? timers.shore : timers.hide);
+
   function updateDawn(s: S): void {
-    const t = s === 'landing' ? timers.landing : s === 'shore' ? timers.shore : timers.hide;
+    const t = timerOf(s);
     const f = 1 - t.remaining / t.duration;
-    const base = s === 'landing' ? 0 : s === 'shore' ? 0.12 : 0.45;
-    const span = s === 'landing' ? 0.12 : s === 'shore' ? 0.38 : 0.25;
+    const base = s === 'drop' ? 0 : s === 'landing' ? 0.1 : s === 'shore' ? 0.16 : 0.45;
+    const span = s === 'drop' ? 0.05 : s === 'landing' ? 0.06 : s === 'shore' ? 0.34 : 0.25;
     dawn.set(base + span * f);
     if (f > 0.55 && dawnSaid < 1) {
       dawnSaid = 1;
@@ -604,8 +669,7 @@ function build(ctx: LevelContext<E>): Level {
   }
 
   function stepTimer(dt: number, s: S): boolean {
-    const t = s === 'landing' ? timers.landing : s === 'shore' ? timers.shore : timers.hide;
-    return t.update(dt);
+    return timerOf(s).update(dt);
   }
 
   function updateLanding(dt: number): void {
@@ -644,7 +708,33 @@ function build(ctx: LevelContext<E>): Level {
       return;
     }
 
-    if (s === 'shore') {
+    if (s === 'drop') {
+      waveCooldown = Math.max(0, waveCooldown - dt);
+      launchItem.enabled = !escorting && waveCooldown <= 0 && !rescue.arriving && !rescue.tripLanded(0);
+      if (!escorting && rescue.tripLanded(0) && !rescue.arriving) {
+        // Children and elders are ashore: lead them to the volunteers by the trucks.
+        escorting = true;
+        rescue.beginEscort();
+        markers.trucks?.setVisible(true);
+        say(LINES.drop);
+      }
+      if (escorting) {
+        if (rescue.cohesion(player.x, player.z) > 16) {
+          cohesionClock += dt;
+          if (cohesionClock > 7) {
+            cohesionClock = -8;
+            say(LINES.gather);
+          }
+        } else cohesionClock = Math.max(0, cohesionClock);
+        const inTrucks = Math.hypot(player.x - TRUCKS.x, player.z - TRUCKS.z) <= TRUCKS.radius;
+        if (inTrucks && rescue.everyoneWithYou(player.x, player.z, WITH_YOU_RADIUS, true)) {
+          rescue.handOff();
+          ctx.objectives.progress('drop', 2);
+          say(LINES.handoff);
+          ctx.mission.send('dropped');
+        } else if (inTrucks && idle > 9) say(LINES.gather);
+      }
+    } else if (s === 'shore') {
       // The lost child calls in a whisper: the subtitle names the side the voice comes from.
       const lost = rescue.lostChild;
       if (lost) {
@@ -703,18 +793,20 @@ function build(ctx: LevelContext<E>): Level {
     idle += dt;
     if (idle < ctx.params().hintDelaySeconds) return;
     idle = 0;
-    ctx.say(s === 'lights' ? LINES.hints[0] : s === 'patrols' || s === 'sea' ? LINES.hints[1] : LINES.hints[2]);
+    ctx.say(s === 'lights' || s === 'lights2' ? LINES.hints[0] : s === 'patrols' || s === 'sea' || s === 'return' || s === 'crossing' ? LINES.hints[1] : LINES.hints[2]);
   }
 
   function visuals(s: S): void {
     const reduced = ctx.reducedMotion();
-    const sea = s === 'sea' || s === 'patrols' || s === 'lights';
     for (let i = 0; i < patrolViz.length; i++) {
       const pv = patrolViz[i];
-      const p = patrols[i];
-      if (!pv || !p) continue;
-      pv.cone.mesh.visible = sea;
-      pv.boat.group.visible = true;
+      const e = patrols[i];
+      if (!pv || !e) continue;
+      const p = e.patrol;
+      const live = stage !== null && stage.patrols === e.set;
+      pv.cone.mesh.visible = live;
+      pv.boat.group.visible = live;
+      if (!live) continue;
       // Smooth the drawn heading only; the logic heading stays exact.
       let dh = Math.atan2(Math.sin(p.heading - pv.heading), Math.cos(p.heading - pv.heading));
       dh *= Math.min(1, 0.2);
@@ -724,14 +816,15 @@ function build(ctx: LevelContext<E>): Level {
       pv.cone.setLevel(p.telegraph.level, !reduced, clock);
     }
     for (let i = 0; i < lightCones.length; i++) {
-      const l = lights[i] as SweepLight;
+      const le = lights[i] as { set: SeaSet; light: SweepLight };
+      const l = le.light;
       const c = lightCones[i] as ConeFan;
-      c.mesh.visible = s === 'lights' && l.on;
+      c.mesh.visible = stage !== null && stage.lights === le.set && l.on;
       if (!c.mesh.visible) continue;
       c.place(l.def.x - 0.4, CONE_SEA_Y, l.def.z, l.heading, l.def.range);
       c.setLevel(l.telegraph.level, !reduced, clock);
     }
-    const shore = s === 'shore' || s === 'hide';
+    const shore = s === 'drop' || s === 'shore' || s === 'hide';
     watcherViews.set(shore);
     for (let i = 0; i < watcherCones.length; i++) {
       const w = watchers[i] as Patrol;
@@ -758,14 +851,16 @@ function build(ctx: LevelContext<E>): Level {
       if (!isPlaying(s)) return;
       if (s !== lastState) enterState(s, false);
       clock += dt;
-      if (s === 'sea' || s === 'patrols' || s === 'lights') updateSea(dt, s);
+      const sea = SEA_STAGES[s];
+      if (sea) updateSea(dt, s);
       else if (s === 'landing') updateLanding(dt);
       else updateShore(dt, s);
       if (ctx.mission.state === s) {
-        if (s === 'landing' || s === 'shore' || s === 'hide') {
+        if (sea) dawn.set(sea.dawn);
+        else {
           updateDawn(s);
           if (stepTimer(dt, s) && restLeft < 0) ctx.mission.fail(FAIL.dawn);
-        } else dawn.set(0);
+        }
       }
       ctx.alert(alertOut.v);
       if (ctx.mission.state === s) stuckHint(dt, s);
@@ -785,8 +880,11 @@ function build(ctx: LevelContext<E>): Level {
         }
         carried = saved.carried;
         delivered = saved.delivered;
-        if (isRescueSnapshot(saved.rescue) && rescue.restore(saved.rescue) && s === 'shore') {
-          childItem.enabled = rescue.lostChild !== null;
+        if (isRescueSnapshot(saved.rescue) && rescue.restore(saved.rescue)) {
+          if (s === 'shore') childItem.enabled = rescue.lostChild !== null;
+          // Drop stage: the group is already following when the save was made.
+          escorting = s === 'drop' && (rescue.followers > 0 || rescue.tripLanded(0));
+          if (escorting) markers.trucks?.setVisible(true);
         }
         if (carried > 0) player.motor.params = LOADED_MOTOR;
         saved.bundlesTaken.forEach((taken, i) => {
@@ -801,6 +899,7 @@ function build(ctx: LevelContext<E>): Level {
     },
     snapshotData(): LandingSave {
       return {
+        v: 2,
         x: view.x,
         z: view.z,
         heading: onFoot ? player.motor.heading : boat.heading,
@@ -839,7 +938,25 @@ export const BOT_SCRIPT: Readonly<Record<S, readonly BotStep[]>> = {
   patrols: [WAIT(8), ARC(PATROLS_GOAL.x, PATROLS_GOAL.z, 2.5)],
   // Stay beyond the beams' reach, then run the last stretch to the cove in a quiet window.
   lights: [ARC(-168, -20), ARC(-168, -62), WAIT(6), ARC(COVE.x, COVE.z, 2.5)],
-  landing: [WAIT(0.5), TAP, WAIT(6.5), TAP, WAIT(7.5), TAP, { kind: 'waitFor', state: 'shore', timeout: 30 }],
+  // Children first, then the elders; the volunteers' trucks are the hand-off.
+  drop: [
+    WAIT(0.5),
+    TAP,
+    WAIT(6.5),
+    TAP,
+    WAIT(8),
+    ARC(SHORE_ROUTE[0].x, SHORE_ROUTE[0].z, 2),
+    WAIT(8),
+    ARC(SHORE_ROUTE[1].x, SHORE_ROUTE[1].z, 2),
+    ARC(TRUCKS.x, TRUCKS.z, 2),
+    { kind: 'waitFor', state: 'return', timeout: 60 },
+  ],
+  // Out of the cove along the south edge (the beams reach the cove, not the far channel), then up between the two lanes.
+  return: [ARC(-168, -62), ARC(-168, 6), ARC(-168, 46, 2), WAIT(4), ARC(RETURN_GOAL.x, RETURN_GOAL.z, 2.5)],
+  // Hold north of the first lane, slip behind it, hold in the narrow gap, then run for the open channel.
+  crossing: [ARC(-146, 130), WAIT(8), ARC(-146, 87, 2), WAIT(8), ARC(PATROLS_GOAL.x, PATROLS_GOAL.z, 2.5)],
+  lights2: [ARC(-168, -20), ARC(-168, -62), WAIT(12), ARC(COVE.x, COVE.z, 2.5)],
+  landing: [WAIT(0.5), TAP, { kind: 'waitFor', state: 'shore', timeout: 30 }],
   shore: [
     ARC(BUNDLE_A.x, BUNDLE_A.z, 1.6),
     TAP,
@@ -870,14 +987,18 @@ export default defineLevel<S, E>({
     id: LANDING_MISSION_ID,
     chapterId: 'ch01',
     gameplayType: 'STL',
-    checkpoints: ['sea', 'patrols', 'lights', 'landing', 'shore'],
+    checkpoints: [...CHECKPOINTS],
     machine: {
       initial: 'sea',
       final: ['complete'],
       transitions: {
         sea: { approach: 'patrols' },
         patrols: { crossed: 'lights' },
-        lights: { cove: 'landing' },
+        lights: { cove: 'drop' },
+        drop: { dropped: 'return' },
+        return: { shipside: 'crossing' },
+        crossing: { crossed2: 'lights2' },
+        lights2: { cove2: 'landing' },
         landing: { ashore: 'shore' },
         shore: { gathered: 'hide' },
         hide: { hidden: 'complete' },
@@ -890,7 +1011,11 @@ export default defineLevel<S, E>({
     { id: 'sea', textKey: R + 'obj.sea', states: ['sea'] },
     { id: 'o1', textKey: 'ch01.landing.o1', states: ['patrols'] },
     { id: 'o2', textKey: 'ch01.landing.o2', states: ['lights'] },
-    { id: 'o3', textKey: 'ch01.landing.o3', states: ['landing'], steps: 3 },
+    { id: 'drop', textKey: R + 'obj.drop', states: ['drop'], steps: 2 },
+    { id: 'ret', textKey: R + 'obj.return', states: ['return'] },
+    { id: 'cross', textKey: R + 'obj.crossing', states: ['crossing'] },
+    { id: 'l2', textKey: R + 'obj.lights2', states: ['lights2'] },
+    { id: 'land2', textKey: R + 'obj.landing', states: ['landing'], steps: 1 },
     { id: 'o4', textKey: 'ch01.landing.o4', states: ['shore'], steps: 3 },
     { id: 'o5', textKey: 'ch01.landing.o5', states: ['hide'], steps: 11 },
   ],
@@ -902,6 +1027,7 @@ export default defineLevel<S, E>({
     [FAIL.intercepted]: failure('ch01.landing.f3', 'ch01.landing.h3'),
   },
   extraCheckpoints: ['hide'],
+  briefingContextKey: R + 'context',
   botScript: BOT_SCRIPT,
   briefingMap: {
     size: TERRAIN_SIZE,

@@ -5,8 +5,13 @@
  */
 
 export type SurvivorKind = 'child' | 'elder' | 'adult';
-/** boat: still aboard; ashore: walking to the landing spot; waiting: at the spot; following: with the player; safe: in the hollow; lost: hiding, not yet found. */
-export type SurvivorState = 'boat' | 'ashore' | 'waiting' | 'following' | 'safe' | 'lost';
+/**
+ * ship: still on the ship (a later trip); boat: aboard the small boat; ashore: walking to the landing
+ * spot; waiting: at the spot; following: with the player; led: walking to the shelter with the
+ * volunteers; safe: sheltered; lost: hiding, not yet found.
+ */
+export type SurvivorState = 'ship' | 'boat' | 'ashore' | 'waiting' | 'following' | 'led' | 'safe' | 'lost';
+const STATES: readonly string[] = ['ship', 'boat', 'ashore', 'waiting', 'following', 'led', 'safe', 'lost'];
 
 export interface Survivor {
   readonly kind: SurvivorKind;
@@ -21,13 +26,19 @@ export interface Survivor {
   /** Where the survivor goes after landing (or hides, for the lost child). */
   homeX: number;
   homeZ: number;
+  /** Which boat load carries the survivor (0 first, 1 second). */
+  readonly trip: number;
+  /** Where the volunteers shelter the survivor once handed off. */
+  readonly shelterX: number;
+  readonly shelterZ: number;
 }
 
 export const SURVIVOR_SPEED: Readonly<Record<SurvivorKind, number>> = { child: 3.1, elder: 2.2, adult: 3.7 };
 export const SURVIVOR_SCALE: Readonly<Record<SurvivorKind, number>> = { child: 0.62, elder: 0.95, adult: 1 };
 
 export interface RescueSpec {
-  readonly groups: readonly { readonly kind: SurvivorKind; readonly count: number }[];
+  readonly groups: readonly { readonly kind: SurvivorKind; readonly count: number; readonly trip: number }[];
+  readonly shelter: { readonly x: number; readonly z: number };
   /** Waterline spot where landed survivors gather. */
   readonly landingX: number;
   readonly landingZ: number;
@@ -45,19 +56,21 @@ export class RescueModel {
   /** Waves already ashore (0-3). */
   landed = 0;
   readonly waveCount: number;
+  private readonly groupTrips: readonly number[];
 
   constructor(spec: RescueSpec) {
     this.waveCount = spec.groups.length;
+    this.groupTrips = spec.groups.map((g) => g.trip);
     let n = 0;
     spec.groups.forEach((g, gi) => {
       for (let i = 0; i < g.count; i++) {
         const col = n % 4;
         const row = Math.floor(n / 4);
-        this.survivors.push({ kind: g.kind, group: gi, x: 0, z: 0, heading: 0, walk: 0, state: 'boat', homeX: spec.landingX - 0.8 * row, homeZ: spec.landingZ - 1.6 + col * 1.1 });
+        this.survivors.push({ kind: g.kind, group: gi, x: 0, z: 0, heading: 0, walk: 0, state: 'boat', homeX: spec.landingX - 0.8 * row, homeZ: spec.landingZ - 1.6 + col * 1.1, trip: g.trip, shelterX: spec.shelter.x + (n % 3) * 1.1, shelterZ: spec.shelter.z + Math.floor(n / 3) * 1.2 });
         n++;
       }
     });
-    this.survivors.push({ kind: 'child', group: -1, x: spec.lostChild.x, z: spec.lostChild.z, heading: 0, walk: 0, state: 'lost', homeX: spec.lostChild.x, homeZ: spec.lostChild.z });
+    this.survivors.push({ kind: 'child', group: -1, x: spec.lostChild.x, z: spec.lostChild.z, heading: 0, walk: 0, state: 'lost', homeX: spec.lostChild.x, homeZ: spec.lostChild.z, trip: 1, shelterX: spec.shelter.x, shelterZ: spec.shelter.z });
   }
 
   snapshot(): RescueSnapshot {
@@ -66,7 +79,7 @@ export class RescueModel {
 
   /** Restores a snapshot; ignored when it does not match this group (older save). */
   restore(snap: RescueSnapshot): boolean {
-    if (snap.survivors.length !== this.survivors.length) return false;
+    if (snap.survivors.length !== this.survivors.length || !snap.survivors.every((v) => STATES.includes(v.state))) return false;
     this.landed = Math.max(0, Math.min(this.waveCount, snap.landed));
     snap.survivors.forEach((v, i) => {
       const s = this.survivors[i] as Survivor;
@@ -79,8 +92,8 @@ export class RescueModel {
   }
 
   /** Everyone back aboard, the lost child hiding again (checkpoint start). */
-  reset(boatX: number, boatZ: number): void {
-    this.landed = 0;
+  reset(boatX: number, boatZ: number, trip = 0): void {
+    this.landed = this.wavesBefore(trip);
     for (let i = 0; i < this.survivors.length; i++) {
       const s = this.survivors[i] as Survivor;
       s.walk = 0;
@@ -90,11 +103,85 @@ export class RescueModel {
         s.z = s.homeZ;
         continue;
       }
+      if (s.trip < trip) {
+        s.state = 'safe';
+        s.x = s.shelterX;
+        s.z = s.shelterZ;
+        continue;
+      }
+      if (s.trip > trip) {
+        s.state = 'ship';
+        s.x = boatX;
+        s.z = boatZ;
+        continue;
+      }
       s.state = 'boat';
       // Two rows along the launch (its length runs along x when beached).
       s.x = boatX - 2.2 + (i % 6) * 0.9;
       s.z = boatZ - 0.5 + Math.floor(i / 6);
     }
+  }
+
+  /** Waves that belong to earlier trips than `trip`. */
+  wavesBefore(trip: number): number {
+    return this.groupTrips.filter((t) => t < trip).length;
+  }
+
+  /** True once every wave of `trip` (and earlier ones) has gone ashore. */
+  tripLanded(trip: number): boolean {
+    return this.landed >= this.groupTrips.filter((t) => t <= trip).length;
+  }
+
+  /** The trip's survivors wait on the sand; earlier trips are sheltered, later ones still on the ship. */
+  setTripWaiting(trip: number): void {
+    this.landed = this.groupTrips.filter((t) => t <= trip).length;
+    for (const s of this.survivors) {
+      if (s.group < 0) continue;
+      s.walk = 0;
+      if (s.trip < trip) {
+        s.state = 'safe';
+        s.x = s.shelterX;
+        s.z = s.shelterZ;
+      } else if (s.trip === trip) {
+        s.state = 'waiting';
+        s.x = s.homeX;
+        s.z = s.homeZ;
+      } else s.state = 'ship';
+    }
+  }
+
+  /** The trip's survivors (and the found child) follow the player; earlier trips are sheltered. */
+  setTripFollowing(trip: number, x: number, z: number): void {
+    this.landed = this.groupTrips.filter((t) => t <= trip).length;
+    let k = 0;
+    for (const s of this.survivors) {
+      s.walk = 0;
+      if (s.group >= 0 && s.trip < trip) {
+        s.state = 'safe';
+        s.x = s.shelterX;
+        s.z = s.shelterZ;
+        continue;
+      }
+      s.state = 'following';
+      s.x = x - 1 - (k % 4) * 0.8;
+      s.z = z - 1 + Math.floor(k / 4) * 0.9;
+      k++;
+    }
+  }
+
+  /** The volunteers take everyone who follows to the shelter. */
+  handOff(): void {
+    for (const s of this.survivors) if (s.state === 'following') s.state = 'led';
+  }
+
+  /** The trip's survivors wait on the ship (the boat is empty). */
+  stowTrip(trip: number): void {
+    for (const s of this.survivors) if (s.state === 'boat' && s.trip === trip) s.state = 'ship';
+  }
+
+  /** The trip's survivors step from the ship into the small boat. */
+  boardTrip(trip: number): void {
+    for (const s of this.survivors) if (s.state === 'ship' && s.trip === trip) s.state = 'boat';
   }
 
   /** Puts everyone at the landing spot (checkpoint 'shore'). */
@@ -184,6 +271,10 @@ export class RescueModel {
         tx = s.homeX;
         tz = s.homeZ;
         moving = true;
+      } else if (s.state === 'led') {
+        tx = s.shelterX;
+        tz = s.shelterZ;
+        moving = true;
       } else if (s.state === 'following') {
         const back = 1.5 + 0.6 * Math.floor(slot / 2);
         const side = slot % 2 === 0 ? 0.8 : -0.8;
@@ -202,6 +293,7 @@ export class RescueModel {
       if (d < 0.3) {
         s.walk = Math.max(0, s.walk - dt * 4);
         if (s.state === 'ashore') s.state = 'waiting';
+        else if (s.state === 'led') s.state = 'safe';
         continue;
       }
       const step = Math.min(d, SURVIVOR_SPEED[s.kind] * dt);
@@ -257,8 +349,16 @@ export class RescueModel {
   }
 
   /** True when every survivor is following and near the leader (nobody left behind, child found). */
-  everyoneWithYou(leaderX: number, leaderZ: number, radius: number): boolean {
-    return this.followers === this.survivors.length && this.withYou(leaderX, leaderZ, radius) === this.survivors.length;
+  everyoneWithYou(leaderX: number, leaderZ: number, radius: number, ignoreLost = false): boolean {
+    let n = 0;
+    for (let i = 0; i < this.survivors.length; i++) {
+      const s = this.survivors[i] as Survivor;
+      if (s.state === 'safe' || s.state === 'led' || s.state === 'ship') continue;
+      if (s.state === 'lost' && ignoreLost) continue;
+      if (s.state !== 'following' || Math.hypot(s.x - leaderX, s.z - leaderZ) > radius) return false;
+      n++;
+    }
+    return n > 0;
   }
 
   /** Followers inside the hollow become safe. Returns how many are safe in total. */
