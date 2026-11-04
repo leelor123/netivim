@@ -81,6 +81,7 @@ export class AdaptiveQuality {
    * shader compiles and asset uploads make frames slow without the preset being too high.
    */
   grace(nowMs: number): void {
+    if (this.opts.graceMs <= 0) return; // disabled (E2E builds)
     this.reset(nowMs);
     this.warmupLen = Math.max(this.opts.warmupMs, this.opts.graceMs);
   }

@@ -4,7 +4,7 @@ import type { GraphicsPreset } from '../core/settings';
 import type { Params } from '../core/i18n';
 import { getRenderPipeline, type RenderPipeline } from './renderPipeline';
 import { PRESETS, presetBelow, resolveGraphics, minPreset, type GraphicsSettings } from './presets';
-import { AdaptiveQuality, batterySuggestsSaver } from './adaptiveQuality';
+import { AdaptiveQuality, DEFAULT_ADAPTIVE, batterySuggestsSaver } from './adaptiveQuality';
 import { BENCHMARK_BUDGET_MS, BENCHMARK_MEASURE_MS, BENCHMARK_WARMUP_MS, BenchmarkPlanner, classifyGpu, type GpuClass } from './benchmark';
 import { DebugOverlay } from './debugOverlay';
 import { setTitleTimeOverride } from '../scene/titleScene';
@@ -76,7 +76,8 @@ export function installGraphics(game: Game): () => void {
   let lastNotice: GraphicsNotice | null = null;
   let selfUpdate = false;
   let prev = settings.value.graphics;
-  const adaptive = new AdaptiveQuality();
+  // E2E builds run on CPU WebGL and rely on quick step-downs to keep the fixed-step clock on time: no grace there.
+  const adaptive = new AdaptiveQuality(import.meta.env.VITE_TEST_HOOKS === '1' ? { ...DEFAULT_ADAPTIVE, graceMs: 0 } : DEFAULT_ADAPTIVE);
   let overlay: DebugOverlay | null = null;
 
   const notify = (textKey: string, params?: Params): void => {

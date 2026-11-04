@@ -138,7 +138,8 @@ export class FigureMaterial {
 
   /** `era` archiveNight (night and moonlight scenes) turns on the rim and fill that keep figures readable. */
   constructor(era?: EraId) {
-    this.lift = era === 'archiveNight' ? createLiftUniforms() : createLiftUniforms(0, 0);
+    const night = era === 'archiveNight';
+    this.lift = night ? createLiftUniforms() : createLiftUniforms(0, 0);
     const lift = this.lift;
     this.material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0 });
     this.material.name = 'figure-rig';
@@ -181,9 +182,9 @@ export class FigureMaterial {
           transformed.y += limbPivot;
           transformed.y += gWalk * abs(cos(gPhase)) * 0.045 + (1.0 - gWalk) * sin(uTime * 1.2 + aGait.x) * 0.006 * step(0.9, transformed.y);`,
         );
-      injectLift(shader, lift);
+      if (night) injectLift(shader, lift);
     };
-    this.material.customProgramCacheKey = () => 'netivim-figure-rig';
+    this.material.customProgramCacheKey = () => (night ? 'netivim-figure-rig-lift' : 'netivim-figure-rig');
   }
 
   update(elapsed: number): void {
