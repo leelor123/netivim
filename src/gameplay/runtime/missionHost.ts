@@ -99,6 +99,7 @@ export class MissionHost {
   private lastFailure: FailureReport | null = null;
   private readonly ctx: LevelContext;
   private disposed = false;
+  private touchBar = false;
 
   constructor(private readonly o: MissionHostOptions) {
     this.objectives = new ObjectiveTracker(o.def.objectives, (objectiveKey) => o.bus.emit('mission:objective', { missionId: o.def.missionId, objectiveKey }));
@@ -122,6 +123,10 @@ export class MissionHost {
       quality: o.quality,
       reducedMotion: o.reducedMotion,
       headless: o.headless,
+      touchActions: (items) => {
+        this.touchBar = items !== null;
+        o.bus.emit('ui:touch-actions', { items });
+      },
     };
   }
 
@@ -260,6 +265,7 @@ export class MissionHost {
     if (this.disposed) return;
     this.disposed = true;
     this.interactions.clear();
+    if (this.touchBar) this.o.bus.emit('ui:touch-actions', { items: null });
     this.level?.dispose();
     this.level = null;
   }

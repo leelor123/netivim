@@ -224,9 +224,15 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
       rig.plan.height = 11.5;
       rig.plan.panSpeed = 4;
       table.promptKey = L('prompt.tableNext');
+      // Touch: the stick pans and the interact button turns the layers; zoom gets two buttons.
+      ctx.touchActions([
+        { scroll: 1, label: ctx.t('gameplay.touch.zoomIn') },
+        { scroll: -1, label: ctx.t('gameplay.touch.zoomOut') },
+      ]);
     } else {
       rig.mode = 'follow';
       rig.snapBehind(0);
+      ctx.touchActions(null);
       for (const g of stage.layerGroups) g.visible = false;
       table.promptKey = L('prompt.table');
     }
@@ -431,6 +437,7 @@ function build(ctx: LevelContext<VoteEvent>): VoteLevel {
     enterCheckpoint(checkpoint, data) {
       const st = checkpoint as VoteState;
       timers.length = 0;
+      if (planning) ctx.touchActions(null);
       planning = false;
       player.rig.mode = 'follow';
       for (const g of stage.layerGroups) g.visible = false;

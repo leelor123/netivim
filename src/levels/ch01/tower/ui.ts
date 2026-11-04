@@ -98,12 +98,11 @@ export class LensesPanel {
       h('h3', { class: 'gp-subtitle', text: t('levels.ch01.tower.lenses.shared') }),
       h('p', { text: t(topic.sharedKey) }),
       h('p', { class: 'gp-sources', text: t('gameplay.sources', { ids: topic.sources.join(', ') }) }),
-      h('div', { class: 'gp-actions' }, this.button),
     );
     this.el = h(
       'div',
       { class: 'ch01t-lenses', attrs: { 'data-screen': 'tower-lenses' } },
-      h('section', { class: 'gp-sheet gp-sheet--wide', attrs: { role: 'dialog', 'aria-label': t(topic.topicKey) } }, h('h2', { class: 'gp-sheet__title', text: t(topic.topicKey) }), body),
+      h('section', { class: 'gp-sheet gp-sheet--wide', attrs: { role: 'dialog', 'aria-label': t(topic.topicKey) } }, h('h2', { class: 'gp-sheet__title', text: t(topic.topicKey) }), body, h('div', { class: 'gp-sheet__foot' }, h('div', { class: 'gp-actions' }, this.button))),
     );
     this.el.hidden = true;
   }

@@ -1,3 +1,4 @@
+import type { Action } from '../../core/input/types';
 import * as THREE from 'three';
 import { CH00_CHAPTER } from '../../content/ch00/chapter';
 import { MISSION_LINES, OBJECTIVE_KEYS, speakerKey } from '../../content/ch00/dialogue';
@@ -36,6 +37,20 @@ import { createViewerSheet } from './shared/sheet';
 
 export const MISSION_ID = 'archive-at-night';
 const LEVEL_ID = 'archive-night';
+
+/**
+ * Touch paths for actions that neither the two touch buttons nor a touch action bar carry
+ * (checked by tests/unit/touchPaths.test.ts).
+ */
+export const TOUCH_ALTERNATIVES: Partial<Record<Action, string>> = {
+  confirm: 'sorter cards and trays are tapped; sheets and the viewer close with their button or interact',
+  back: 'the sorter and every sheet have a Back button',
+  up: 'sorter: tap the card or tray directly',
+  down: 'sorter: tap the card or tray directly',
+  left: 'sorter: tap the card or tray directly',
+  right: 'sorter: tap the card or tray directly',
+  map: 'tap the codex tutorial line (ArchiveOverlay onPromptTap); the codex sheet closes with its button',
+};
 const BASEL_ID = 'basel-program';
 const LEDGER_CODEX_ID = 'jaffa-jerusalem-railway';
 const p = (k: string): string => 'levels.ch00.archive.' + k;

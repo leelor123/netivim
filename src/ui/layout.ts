@@ -10,8 +10,9 @@
  *   +-----------+--------------------------+-------------+
  *   | system    |  notice (tutorial line)  |  objective  |
  *   |           |  hint                    |  (+ meter)  |
- *   |           |  toast                   |             |
- *   |           |                          |             |
+ *   |           |  toast                   |-------------|
+ *   |           |                          |  panel      |   (level side panel, e.g. planning table)
+ *   |           |  toolbar (touch actions) |             |
  *   |           |  prompt                  |             |
  *   | stick     |  captions                |  actions    |   (stick/actions swap when left-handed)
  *   +-----------+--------------------------+-------------+
@@ -21,7 +22,7 @@
  * Safe areas (notch, rounded corners) are measured once per resize with an env() probe.
  */
 
-export const REGIONS = ['system', 'objective', 'notice', 'hint', 'toast', 'prompt', 'captions', 'stick', 'actions'] as const;
+export const REGIONS = ['system', 'objective', 'panel', 'notice', 'hint', 'toast', 'toolbar', 'prompt', 'captions', 'stick', 'actions'] as const;
 export type Region = (typeof REGIONS)[number];
 
 export interface Rect {
@@ -56,14 +57,18 @@ export const LAYOUT = {
   button: 44,
   buttonGap: 8,
   /** One slim text line (notice, hint, toast). */
-  row: 40,
+  row: 36,
   objectiveMin: 190,
   objectiveMax: 320,
   objectiveVw: 0.28,
-  objectiveVh: 0.42,
+  objectiveVh: 0.3,
   /** The two centre columns never get wider than this (long lines are hard to read). */
   centerMax: 760,
-  prompt: 44,
+  prompt: 40,
+  /** Touch action bar: 48 px targets plus a little air. */
+  toolbar: 52,
+  /** Level side panel width cap. */
+  panelMax: 260,
   captionsMin: 84,
   captionsMax: 170,
   captionsVh: 0.3,
@@ -119,13 +124,28 @@ export function computeRegions(vp: Viewport): Record<Region, Rect> {
   const hint: Rect = { x: top.x, y: notice.y + notice.h + g, w: top.w, h: LAYOUT.row };
   const toast: Rect = { x: top.x, y: hint.y + hint.h + g, w: top.w, h: LAYOUT.row };
 
-  const bottom = column(leftBox.x + leftBox.w, rightBox.x);
-  const capH = Math.min(LAYOUT.captionsMax, Math.max(LAYOUT.captionsMin, H * LAYOUT.captionsVh));
-  const captions: Rect = { x: bottom.x, y: H - B - capH, w: bottom.w, h: capH };
-  const promptY = Math.max(toast.y + toast.h + g, captions.y - g - LAYOUT.prompt);
-  const prompt: Rect = { x: bottom.x, y: promptY, w: bottom.w, h: Math.max(0, captions.y - g - promptY) };
+  // Level side panel: the right column under the objective, down to the bottom-right corner.
+  const panelW = Math.min(objW, LAYOUT.panelMax);
+  const panelY = objective.y + objective.h + g;
+  const panelH = Math.max(0, bottomRightTop - g - panelY);
+  const panel: Rect = { x: W - R - panelW, y: panelY, w: panelW, h: panelH };
 
-  return { system, objective, notice, hint, toast, prompt, captions, stick, actions };
+  // Bottom column: between the bottom corners and left of the side panel. Not symmetric: the
+  // panel takes room on the right only, and captions keep as much width as possible.
+  const bLeft = leftBox.x + leftBox.w + g;
+  const bRight = Math.min(rightBox.x, panelH > 0 ? panel.x : W) - g;
+  const bW = Math.max(0, Math.min(LAYOUT.centerMax, bRight - bLeft));
+  const bottom = { x: bLeft + (bRight - bLeft - bW) / 2, w: bW };
+  // Bottom-up: captions, prompt, toolbar. Captions give way first on short screens so the
+  // toolbar always keeps its full 48 px targets.
+  const fixedAbove = topBottom + g + LAYOUT.toolbar + g + LAYOUT.prompt + g;
+  const capH = Math.max(0, Math.min(LAYOUT.captionsMax, Math.max(LAYOUT.captionsMin, H * LAYOUT.captionsVh), H - B - fixedAbove));
+  const captions: Rect = { x: bottom.x, y: H - B - capH, w: bottom.w, h: capH };
+  const prompt: Rect = { x: bottom.x, y: captions.y - g - LAYOUT.prompt, w: bottom.w, h: LAYOUT.prompt };
+  const toolbarY = Math.max(topBottom + g, prompt.y - g - LAYOUT.toolbar);
+  const toolbar: Rect = { x: bottom.x, y: toolbarY, w: bottom.w, h: Math.max(0, prompt.y - g - toolbarY) };
+
+  return { system, objective, panel, notice, hint, toast, toolbar, prompt, captions, stick, actions };
 }
 
 /** True when two rectangles share any area (touching edges do not count). */

@@ -47,5 +47,13 @@
   "levels.ch01.tower.lenses.kicker": "שתי עדשות",
   "levels.ch01.tower.lenses.accepted": "מה מוסכם",
   "levels.ch01.tower.lenses.shared": "מה משותף",
-  "levels.ch01.tower.lenses.continue": "המשך"
+  "levels.ch01.tower.lenses.continue": "המשך",
+  "levels.ch01.tower.touch.prevType": "‹ סוג",
+  "levels.ch01.tower.touch.nextType": "סוג ›",
+  "levels.ch01.tower.touch.rotate": "סיבוב",
+  "levels.ch01.tower.touch.place": "הנחה",
+  "levels.ch01.tower.touch.lift": "הרמה",
+  "levels.ch01.tower.touch.clear": "ריקון",
+  "levels.ch01.tower.touch.exit": "יציאה",
+  "levels.ch01.tower.touch.skip": "דלגו"
 }

@@ -1,10 +1,13 @@
 /* Tower and Stockade: planning panel and Two Lenses panel. Logical properties keep RTL right. */
+/* Planning panel: the level side panel region (src/ui/layout.ts), next to the objective. */
 .ch01t-plan {
   position: fixed;
-  inset-inline: 0;
-  inset-block-end: max(12px, env(safe-area-inset-bottom));
-  margin-inline: auto;
-  inline-size: min(760px, 94vw);
+  right: var(--rg-panel-r, 12px);
+  top: var(--rg-panel-y, 30vh);
+  width: var(--rg-panel-w, 260px);
+  max-height: var(--rg-panel-h, 40vh);
+  overflow-y: auto;
+  box-sizing: border-box;
   z-index: 26;
   pointer-events: none;
   background: rgb(26 20 14 / 0.82);
@@ -34,6 +37,11 @@
 .ch01t-plan__status { margin: 2px 0 0; font-size: 15px; color: #bfe3a8; min-block-size: 1.4em; }
 .ch01t-plan__status.is-bad { color: #f1b49a; }
 .ch01t-plan__controls { margin: 4px 0 0; font-size: 14px; color: #cfc6b4; }
+/* On touch the action bar carries the controls; the key legend would only add clutter. */
+:root[data-input='touch'] .ch01t-plan__controls { display: none; }
+.ch01t-plan__title { font-size: 14px; }
+.ch01t-plan__chips { gap: 6px; }
+.ch01t-chip { font-size: 13px; padding: 2px 10px; }
 
 .ch01t-lenses {
   position: fixed;
