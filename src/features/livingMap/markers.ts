@@ -42,10 +42,10 @@ export const MARKERS: readonly MapMarker[] = [
     fromYear: 1948,
     kind: 'site',
     label: 'documented',
-    sources: ['C2-004'],
+    sources: ['C2-101'],
     notes: {
-      independence: { textKey: note('tel-aviv', 'independence'), sources: ['C2-004'] },
-      nakba: { textKey: note('tel-aviv', 'nakba'), sources: ['C2-003'] },
+      independence: { textKey: note('tel-aviv', 'independence'), sources: ['C2-104', 'C2-101'] },
+      nakba: { textKey: note('tel-aviv', 'nakba'), sources: ['C2-105'] },
     },
   },
   {
@@ -56,8 +56,8 @@ export const MARKERS: readonly MapMarker[] = [
     fromYear: 1948,
     kind: 'settlement',
     label: 'documented',
-    sources: ['C2-006'],
-    notes: { independence: { textKey: note('kfar-etzion', 'independence'), sources: ['C2-006'] } },
+    sources: ['C2-128'],
+    notes: { independence: { textKey: note('kfar-etzion', 'independence'), sources: ['C2-128'] } },
   },
   {
     id: 'deir-yassin',
@@ -67,14 +67,14 @@ export const MARKERS: readonly MapMarker[] = [
     fromYear: 1948,
     kind: 'site',
     label: 'documented',
-    sources: ['C2-002'],
+    sources: ['C2-110', 'C2-108'],
     notes: {
-      independence: { textKey: note('deir-yassin', 'independence'), sources: ['C2-002'] },
-      nakba: { textKey: note('deir-yassin', 'nakba'), sources: ['C2-002', 'C2-003'] },
+      independence: { textKey: note('deir-yassin', 'independence'), sources: ['C2-110'] },
+      nakba: { textKey: note('deir-yassin', 'nakba'), sources: ['C2-108', 'C2-109'] },
     },
   },
-  { id: 'mount-scopus', nameKey: place('mount-scopus'), lat: 31.795, lon: 35.243, fromYear: 1948, kind: 'site', label: 'documented', sources: ['C2-005'] },
-  { id: 'latrun', nameKey: place('latrun'), lat: 31.84, lon: 34.98, fromYear: 1948, kind: 'site', label: 'documented', sources: ['C2-062', 'C2-007'] },
+  { id: 'mount-scopus', nameKey: place('mount-scopus'), lat: 31.795, lon: 35.243, fromYear: 1948, kind: 'site', label: 'documented', sources: ['C2-115', 'C2-116'] },
+  { id: 'latrun', nameKey: place('latrun'), lat: 31.84, lon: 34.98, fromYear: 1948, kind: 'site', label: 'documented', sources: ['C2-118', 'C2-113'] },
   {
     id: 'negba',
     nameKey: place('negba'),
@@ -83,8 +83,8 @@ export const MARKERS: readonly MapMarker[] = [
     fromYear: 1948,
     kind: 'settlement',
     label: 'documented',
-    sources: ['C2-063', 'C2-017'],
-    notes: { independence: { textKey: note('negba', 'independence'), sources: ['C2-063'] } },
+    sources: ['C2-119', 'C2-130'],
+    notes: { independence: { textKey: note('negba', 'independence'), sources: ['C2-119', 'C2-130'] } },
   },
   {
     id: 'lod-ramle',
@@ -94,13 +94,13 @@ export const MARKERS: readonly MapMarker[] = [
     fromYear: 1948,
     kind: 'city',
     label: 'documented',
-    sources: ['C2-057'],
+    sources: ['C2-111'],
     notes: {
-      independence: { textKey: note('lod-ramle', 'independence'), sources: ['C2-057', 'C2-001'] },
-      nakba: { textKey: note('lod-ramle', 'nakba'), sources: ['C2-014', 'C2-071', 'C2-057'] },
+      independence: { textKey: note('lod-ramle', 'independence'), sources: ['C2-112', 'C2-105', 'C2-111'] },
+      nakba: { textKey: note('lod-ramle', 'nakba'), sources: ['C2-108', 'C2-111', 'C2-112'] },
     },
   },
-  { id: 'eilat', nameKey: place('eilat'), lat: 29.55, lon: 34.95, fromYear: 1949, kind: 'city', label: 'documented', sources: ['C2-061'] },
+  { id: 'eilat', nameKey: place('eilat'), lat: 29.55, lon: 34.95, fromYear: 1949, kind: 'city', label: 'documented', sources: ['C2-126', 'C2-127'] },
 ];
 
 export function markersVisibleAt(year: number): readonly MapMarker[] {
