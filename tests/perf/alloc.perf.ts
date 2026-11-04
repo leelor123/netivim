@@ -23,8 +23,6 @@ const MAX_BYTES_PER_FRAME = Number(process.env.PERF_MAX_BYTES_PER_FRAME ?? 2048)
 /** getProgram() parameter + cache-key rebuilds: the render-side allocation this suite guards. */
 const PROGRAM_CHURN = /getProgram|getParameters|getProgramCacheKey/;
 const MAX_CHURN_BYTES_PER_FRAME = 256;
-/** Scene-side churn (two-pass transparent DoubleSide fans, kit material shared by instanced and plain meshes). */
-const KNOWN_CHURN = new Set<string>(['hub', 'tower-stockade', 'night-landing']);
 const WINDOW_MS = Number(process.env.PERF_ALLOC_MS ?? 4000);
 
 // A small canvas: software GL then renders enough frames for the JIT to optimize the hot paths
@@ -97,11 +95,11 @@ test('per-frame allocations: hub and the five missions', async ({ page }) => {
   }
   for (const [scene, r] of Object.entries(results)) {
     expect.soft(r.frames, scene + ' rendered frames').toBeGreaterThan(5);
-    // Render path: three.js must never re-derive programs per frame (program churn). Sources of
-    // churn left in level files are listed in KNOWN_CHURN and in docs/PERF_REPORT.md.
+    // Render path: three.js must never re-derive programs per frame (program churn), in every
+    // scene (two-pass transparent DoubleSide meshes and one material shared by instanced and
+    // plain meshes both cause it; see docs/PERF_REPORT.md).
     const churn = r.top.filter((t) => PROGRAM_CHURN.test(t.site)).reduce((a, t) => a + t.bytes, 0) / Math.max(1, r.frames);
-    if (KNOWN_CHURN.has(scene)) console.log('KNOWN program churn', scene, churn.toFixed(0), 'B/frame');
-    else expect.soft(churn, scene + ' program-churn bytes per frame').toBeLessThanOrEqual(MAX_CHURN_BYTES_PER_FRAME);
+    expect.soft(churn, scene + ' program-churn bytes per frame').toBeLessThanOrEqual(MAX_CHURN_BYTES_PER_FRAME);
     if (r.bytesPerFrame > MAX_BYTES_PER_FRAME) console.log('OVER per-frame allocation target', scene, r.bytesPerFrame.toFixed(0), 'B/frame (see PERF_REPORT)');
   }
   expect(problems).toEqual([]);

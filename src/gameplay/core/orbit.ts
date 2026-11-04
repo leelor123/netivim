@@ -81,12 +81,31 @@ export function safeDistance(
   // Colliders: exact entry distance of the ray into each footprint, so a thin wall can never fall
   // between two samples and a wall closer than minDistance still stops the camera.
   let wall = Infinity;
-  for (const c of colliders) {
-    if (!rayEntry(tx, tz, dx, dz, desired, c)) continue;
+  RAY[0] = tx;
+  RAY[1] = tz;
+  RAY[2] = dx;
+  RAY[3] = dz;
+  RAY[4] = desired;
+  // Footprint of the ray segment, for the cheap rejection in rayEntry.
+  const ex = tx + dx * desired;
+  const ez = tz + dz * desired;
+  RAY[5] = ex < tx ? ex : tx;
+  RAY[6] = ex < tx ? tx : ex;
+  RAY[7] = ez < tz ? ez : tz;
+  RAY[8] = ez < tz ? tz : ez;
+  for (let i = 0; i < colliders.length; i++) {
+    const c = colliders[i] as Collider;
+    // Inline rejection of footprints the segment's box misses (rayEntry returns false for them);
+    // kept inline because the per-collider call allocates in V8's mid tier.
+    if (c.kind === 'circle') {
+      if (c.x + c.r < (RAY[5] as number) || c.x - c.r > (RAY[6] as number) || c.z + c.r < (RAY[7] as number) || c.z - c.r > (RAY[8] as number)) continue;
+    } else if (c.x + c.hw < (RAY[5] as number) || c.x - c.hw > (RAY[6] as number) || c.z + c.hd < (RAY[7] as number) || c.z - c.hd > (RAY[8] as number)) continue;
+    if (!rayEntry(c)) continue;
     const top = heightAt(c.x, c.z) + (c.height ?? 3);
     // The ray rises with pitch > 0, so it is lowest where it enters (lowest at the far end when it descends).
-    const yAt = ty + dy * (dy >= 0 ? HIT.enter : Math.min(HIT.exit, desired));
-    if (yAt < top && HIT.enter < wall) wall = HIT.enter;
+    const enter = HIT[0] as number;
+    const yAt = ty + dy * (dy >= 0 ? enter : Math.min(HIT[1] as number, desired));
+    if (yAt < top && enter < wall) wall = enter;
   }
   // Keep half a margin in front of whatever stopped the camera.
   let result = ok < desired ? Math.max(p.minDistance, ok - p.margin * 0.5) : ok;
@@ -97,15 +116,31 @@ export function safeDistance(
 /** Closest the camera may come to the player when a wall is right behind them. */
 const MIN_WALL_DISTANCE = 0.3;
 
-/** Scratch result of rayEntry (the camera runs every step: no allocation). */
-const HIT = { enter: 0, exit: 0 };
+/** Scratch result of rayEntry: [0] enter, [1] exit (the camera runs every step: no allocation). */
+const HIT = new Float64Array(2);
 
 /**
- * Distances along the ray (xz = origin + dir * d, d in [0, max]) where it enters and leaves a
+ * Scratch input of rayEntry: [0] ox, [1] oz, [2] dx, [3] dz, [4] max; [5..8] min x, max x,
+ * min z, max z of the segment. Typed arrays on purpose: double arguments to a call V8 does not
+ * inline, and doubles stored into object fields, can allocate a HeapNumber each (measured:
+ * several KB per camera update with a hundred colliders).
+ */
+const RAY = new Float64Array(9);
+
+/**
+ * Distances along the ray RAY (xz = origin + dir * d, d in [0, max]) where it enters and leaves a
  * footprint, written to HIT. Returns false when the ray misses it.
  */
-function rayEntry(ox: number, oz: number, dx: number, dz: number, max: number, c: Collider): boolean {
+function rayEntry(c: Collider): boolean {
+  const ox = RAY[0] as number;
+  const oz = RAY[1] as number;
+  const dx = RAY[2] as number;
+  const dz = RAY[3] as number;
+  const max = RAY[4] as number;
+  // Both branches first reject a collider whose footprint misses the segment's (the ray cannot
+  // enter it within [0, max]): same answer, and most colliders skip the float work.
   if (c.kind === 'circle') {
+    if (c.x + c.r < (RAY[5] as number) || c.x - c.r > (RAY[6] as number) || c.z + c.r < (RAY[7] as number) || c.z - c.r > (RAY[8] as number)) return false;
     const fx = ox - c.x;
     const fz = oz - c.z;
     const a = dx * dx + dz * dz;
@@ -117,10 +152,11 @@ function rayEntry(ox: number, oz: number, dx: number, dz: number, max: number, c
     const t0 = (-b - sq) / (2 * a);
     const t1 = (-b + sq) / (2 * a);
     if (t1 < 0 || t0 > max) return false;
-    HIT.enter = Math.max(0, t0);
-    HIT.exit = t1;
+    HIT[0] = Math.max(0, t0);
+    HIT[1] = t1;
     return true;
   }
+  if (c.x + c.hw < (RAY[5] as number) || c.x - c.hw > (RAY[6] as number) || c.z + c.hd < (RAY[7] as number) || c.z - c.hd > (RAY[8] as number)) return false;
   let t0 = 0;
   let t1 = max;
   for (let axis = 0; axis < 2; axis++) {
@@ -143,8 +179,8 @@ function rayEntry(ox: number, oz: number, dx: number, dz: number, max: number, c
     if (tb < t1) t1 = tb;
     if (t0 > t1) return false;
   }
-  HIT.enter = t0;
-  HIT.exit = t1;
+  HIT[0] = t0;
+  HIT[1] = t1;
   return true;
 }
 

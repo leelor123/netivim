@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { resolveCircle } from '../../../gameplay/core/collision';
+import { Point2, resolveCircle } from '../../../gameplay/core/collision';
 import { turnToward } from '../../../gameplay/core/movement';
 import type { LevelWorld } from '../../../gameplay/runtime/levelKit';
 import { kitBuilder } from '../../../world/kit/buildings';
@@ -25,7 +25,7 @@ export class Cart {
   private readonly cargoLetter: THREE.Mesh;
   private readonly fill: THREE.Mesh;
   private readonly fillMaterial: THREE.MeshBasicMaterial;
-  private readonly p = { x: 0, z: 0 };
+  private readonly p = new Point2();
   private shownLoad = -1;
 
   constructor(private readonly world: LevelWorld) {

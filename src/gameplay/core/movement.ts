@@ -1,4 +1,4 @@
-import { resolveCircle, type Bounds, type Collider } from './collision';
+import { Point2, resolveCircle, type Bounds, type Collider } from './collision';
 
 /**
  * Third-person character motor: camera-relative movement with smooth acceleration, turning,
@@ -33,7 +33,7 @@ export class CharacterMotor {
   colliders: readonly Collider[] = [];
   bounds: Bounds | null = null;
   heightAt: HeightFn = () => 0;
-  private readonly p = { x: 0, z: 0 };
+  private readonly p = new Point2();
 
   constructor(public params: MotorParams = DEFAULT_MOTOR) {}
 
