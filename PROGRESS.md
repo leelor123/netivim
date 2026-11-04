@@ -54,45 +54,34 @@ code review (7 findings fixed), accessibility review (all High and Medium fixed)
 - Pause-menu Codex inside missions; HUD prompt refresh on the same focus target (the-vote).
 - On-device checks: Ultra 60 fps, subtitles above letterbox, focus rings, gamepads in the WebView.
 
-## IN PROGRESS: on-device feedback fixes for v0.2.1 (user, 2026-11-04, touch only on S26)
-User report: screen cluttered / not clean; cannot look around with touch; walking feels buggy; find and
-fix all bugs at the root.
-Root causes found (evidence: phone-ratio captures via scripts/hudshot.mjs):
-- Walking stutter: fixed 60 Hz steps on a 120 Hz display, no interpolation. FIXED (GameLoop frame mode).
-- Touch look: InputManager.look is fed only by the gamepad right stick; touch/mouse never feed it.
-- Clutter: no single owner of screen layout. Two pause buttons (HUD + touch), quick-save and unsaved
-  pills, tutorial banner mid-screen, four big touch buttons (map and pause duplicate the HUD), and the
-  subtitle box overlaps the testimony/label panel at the bottom (bug). Briefing at phone size pushes
-  the Start button below the fold.
-MERGED: phone UX (touch/mouse look, src/ui/layout.ts regions, one caption, two touch buttons, sticky
-sheet footers; CONTRACTS 14). MERGED: bug hunt (docs/BUG_HUNT_M2.md, 7 root-cause fixes).
-DONE on the phone UX branch: touch paths for every level action (touch action bar in the 'toolbar'
-region: Tower planning table, finale skip, vote zoom; 'panel' region for level side panels; latched
-short taps in InputManager; static test tests/unit/touchPaths.test.ts).
-Next: merge, full CI, release v0.2.2 with a Hebrew update.
+## DONE: on-device feedback fixes for v0.2.1 (phone UX, touch look, frame-mode loop, layout owner,
+bug hunt, touch paths for every level action). Merged into main.
 
 ## SCOPE RULE (user, 2026-11-04): Chapter 1 must be perfect first
 Do NOT start Chapter 2 or later (research, content, levels, 1949 map lines) until the user says the
 Prologue and Chapter 1 are perfect and we align together. Ch2/Ch3/Ch4 research agents were stopped.
 
-## Chapter 1 polish wave (10 parallel agents, worktrees)
-- Deepen missions: archive-night, jaffa-letters, tower-stockade, night-landing, the-vote (one each).
-- Accessibility round 2 (Low items + UI text size).
-- Performance (Ultra 60 fps, allocations, shader precompile, 30-min soak; docs/PERF_REPORT.md).
-- Visual polish (kit, lighting, era grading for hub + 5 missions).
-- Audio polish (score, ambience, mixing per mission).
-- Controller-only full playthrough QA (tests/e2e/controller-full.spec.ts, docs/CONTROLLER_QA.md).
-Release v0.2.2 (phone UX + bug fixes): waiting for CI, then tag (background).
-Follow-up after level agents finish: text size in gameplay.css, timeline.css, livingMap.css, tower.css
-(calc(Npx * var(--nv-ts, 1))) and remaining a11y Low items 4 (gp-sheet), 5, 7, 8, 9, 11, 12.
-After the wave: merge all, fresh code review + content/Hebrew review of new beats, fix, release, ask
-the user to play and confirm Chapter 1 before anything else.
+## Chapter 1 polish wave: DONE and merged (2026-11-04)
+- Missions deepened: archive-night (lens-order root fix), jaffa-letters (cart ride + stretch moments),
+  tower-stockade (stakes, field-edge talk, 2 decisions), night-landing (second rescue wave, 9 checkpoints),
+  the-vote (camera spawns, decision feedback).
+- Audio polish (motif score, era profiles, beds, ducking, limiter), visual polish, a11y round 2.
+- Performance: shader depth materials, incremental time-boxed warm-up (ANR fix), Battery budget met,
+  allocation-free collision (docs/PERF_REPORT.md).
+- Controller QA spec (CONTROLLER_QA=1, ~47 min, not in CI); CQA-1..3 fixed.
+- Code review (7 findings) and content/Hebrew review (36 strings) applied.
+- Night Landing E2E no longer self-skips.
+Next: release v0.2.2 (tag after green CI), Hebrew update, ask the user to play and confirm Chapter 1.
 
-## Next: M3 (Act 1 = Prologue + Ch1-4) exact next steps
-1. Get the user's on-device feedback on v0.2.1 (Ultra fps, controllers in the WebView, subtitles, focus).
-2. Ch2 pipeline: Ch2 prerequisites above, then content writer, level builders (5 missions), fresh fact-check, QA.
-3. Ch3 and Ch4 historians in parallel (research only), then their pipelines.
-4. Deepen Prologue and Ch1 missions to design length (M3 backlog).
+## Open after v0.2.2 (Chapter 1 only)
+- Per-frame allocations 17-39 KB (target <5 KB): three.js internals, terrain LOD, R7 (jaffa step,
+  landing SurvivorViews.sync). Measure on the phone first.
+- Text size via --nv-ts in timeline.css, livingMap.css, tower.css; a11y Low items 4, 5, 7, 8, 9, 11, 12.
+- Mission length: jaffa ~4-5 min and tower ~8-10 min estimated vs design 15-18 (no padding; fun first).
+- Ultra 60 fps on a real S26 Ultra is unconfirmed; ask the user.
+
+## Next: after the user confirms Chapter 1
+Ch2 prerequisites above, then Ch2 pipeline (research, content, 5 missions, fact-check, QA).
 
 ## Old M2 plan (kept for reference)
 1. M1 review findings are fixed (see QA_REPORT). Graphics agent must add a GameScene hook to rebuild GPU-only state after webglcontextrestored.
